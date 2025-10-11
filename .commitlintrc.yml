@@ -1,0 +1,98 @@
+extends:
+  - '@commitlint/config-conventional'
+
+rules:
+  # Ensure type is one of our allowed types
+  type-enum:
+    - 2
+    - always
+    -
+      - feat      # New feature for the user
+      - fix       # Bug fix for the user
+      - docs      # Documentation only changes
+      - style     # Changes that do not affect the meaning of the code
+      - refactor  # Code change that neither fixes a bug nor adds a feature
+      - perf      # Code change that improves performance
+      - test      # Adding missing tests or correcting existing tests
+      - build     # Changes that affect the build system or external dependencies
+      - ci        # Changes to our CI configuration files and scripts
+      - chore     # Other changes that don't modify src or test files
+      - revert    # Reverts a previous commit
+
+  # Scope validation (optional but if present, must be valid)
+  scope-enum:
+    - 2
+    - always
+    -
+      - auth      # Authentication and JWT handling
+      - config    # Configuration management
+      - cli       # Command-line interface
+      - cache     # Token caching functionality
+      - security  # Security-related changes
+      - docs      # Documentation
+      - ci        # Continuous integration
+      - deps      # Dependencies
+
+  # Subject rules
+  subject-case:
+    - 2
+    - never
+    - ['sentence-case', 'start-case', 'pascal-case', 'upper-case']
+  subject-empty:
+    - 2
+    - never
+  subject-full-stop:
+    - 2
+    - never
+    - '.'
+  subject-max-length:
+    - 2
+    - always
+    - 72
+
+  # Type rules
+  type-case:
+    - 2
+    - always
+    - 'lower-case'
+  type-empty:
+    - 2
+    - never
+
+  # Header rules
+  header-max-length:
+    - 2
+    - always
+    - 72
+
+  # Body rules
+  body-leading-blank:
+    - 1
+    - always
+  body-max-line-length:
+    - 2
+    - always
+    - 100
+
+  # Footer rules
+  footer-leading-blank:
+    - 1
+    - always
+  footer-max-line-length:
+    - 2
+    - always
+    - 100
+
+# Custom parser options
+parserPreset:
+  parserOpts:
+    # Allow longer commit messages for detailed explanations
+    headerPattern: '^(\w*)(?:\(([^)]*)\))?(!)?:(.*)$'
+    headerCorrespondence:
+      - type
+      - scope
+      - breaking
+      - subject
+
+# Help URL for contributors
+helpUrl: 'https://github.com/AmadeusITGroup/gh-app-auth/blob/main/CONTRIBUTING.md#commit-message-guidelines'

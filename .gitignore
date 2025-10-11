@@ -1,0 +1,121 @@
+# GitHub CLI Extension - Go Project Gitignore
+
+# Built binaries
+/gh-app-auth
+/gh-app-auth.exe
+/dist/
+/bin/
+/build/
+
+# Go build artifacts
+gh-app-auth
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Presentation artifacts
+docs/presentation.html
+docs/presentation.pdf
+_site/
+*.test
+*.out
+*.err
+
+# Coverage reports
+coverage.out
+coverage.html
+*.cover
+
+# Local test/debug scripts (keep test/ directory scripts)
+/test-*.sh
+/test-*.py
+/*.py
+
+# Vendor directory
+vendor/
+
+# Go workspace files
+go.work
+go.work.sum
+
+# IDE files
+vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.envrc
+
+# Local configuration files (not GitHub templates)
+/config.yml
+/config.yaml  
+/config.json
+*.local.*
+
+# Test files and artifacts
+test_output/
+testdata/output/
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+
+# Log files
+*.log
+logs/
+
+# Extension specific
+share/bash-completion/completions
+share/fish/vendor_completions.d
+share/man/man1
+share/zsh/site-functions
+
+# Release artifacts  
+.goreleaser.yml
+pkg_payload/
+
+# Private keys for testing (never commit real keys!)
+*.pem
+*.key
+test-keys/
+
+# GitHub workflow artifacts
+.github/**/node_modules
+
+# sarif files
+*.sarif
+
+# Command output files
+auth.out
+cmd.out
+
+# Internal development notes (not for public repo)
+.tmp/
+home/
+.test.done.*
+*_SUMMARY.md
+*_STATUS.md
+*_ANALYSIS.md
+*_REVIEW.md
+*_APPLIED.md
+*_COMPLETE.md
+*_PROGRESS*.md
+*_MILESTONE*.md
+
+# Local shell scripts in root (keep scripts/ and test/ directories)
+/list-*.sh
+/*.sh
+
+# Mermaid/pandoc artifacts
+mermaid-filter.err
+*.mermaid
+
+# OS generated files
+.DS_Store
+Thumbs.db

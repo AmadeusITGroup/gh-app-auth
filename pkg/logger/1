@@ -1,0 +1,84 @@
+[2025-12-02T14:37:28.540+01:00] SESSION_START [session_1764682648_2580172_op1] pid=2580172 version=gh-app-auth args=[/tmp/go-build2429657238/b286/logger.test -test.testlogfile=/tmp/go-build2429657238/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s]
+[2025-12-02T14:37:28.540+01:00] DEBUG [session_1764682648_2580172_op2] message=test debug test=value
+[2025-12-02T14:37:28.540+01:00] INFO [session_1764682648_2580172_op3] message=test info test=value
+[2025-12-02T14:37:28.540+01:00] ERROR [session_1764682648_2580172_op4] message=test error error=test test=value
+[2025-12-02T14:37:28.540+01:00] SESSION_END [session_1764682648_2580172_op5]
+[2025-12-02T14:37:28.540+01:00] SESSION_START [session_1764682648_2580172_op1] pid=2580172 version=gh-app-auth args=[/tmp/go-build2429657238/b286/logger.test -test.testlogfile=/tmp/go-build2429657238/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s]
+[2025-12-02T14:37:28.540+01:00] FLOW_START [session_1764682648_2580172_op2] operation=test_operation flow=START test_key=test_value count=123
+[2025-12-02T14:37:28.540+01:00] FLOW_STEP [session_1764682648_2580172_op3] flow=STEP test_key=test_value count=123 step=step1
+[2025-12-02T14:37:28.540+01:00] FLOW_STEP [session_1764682648_2580172_op4] step=step2 flow=STEP test_key=test_value count=123
+[2025-12-02T14:37:28.540+01:00] FLOW_SUCCESS [session_1764682648_2580172_op5] test_key=test_value count=123 operation=test_operation flow=SUCCESS
+[2025-12-02T14:37:28.541+01:00] FLOW_ERROR [session_1764682648_2580172_op6] count=123 operation=failed_operation flow=ERROR error=test error test_key=test_value
+[2025-12-02T14:37:28.541+01:00] SESSION_END [session_1764682648_2580172_op7]
+[2025-12-02T14:47:57.402+01:00] SESSION_START [session_1764683277_2592154_op1] pid=2592154 version=gh-app-auth args=[/tmp/go-build3478283344/b304/logger.test -test.testlogfile=/tmp/go-build3478283344/b304/testlog.txt -test.paniconexit0 -test.gocoverdir=/tmp/go-build3478283344/b304/gocoverdir -test.timeout=10m0s -test.coverprofile=/tmp/go-build3478283344/b304/_cover_.out]
+[2025-12-02T14:47:57.402+01:00] DEBUG [session_1764683277_2592154_op2] message=test debug test=value
+[2025-12-02T14:47:57.402+01:00] INFO [session_1764683277_2592154_op3] message=test info test=value
+[2025-12-02T14:47:57.403+01:00] ERROR [session_1764683277_2592154_op4] message=test error error=test test=value
+[2025-12-02T14:47:57.403+01:00] SESSION_END [session_1764683277_2592154_op5]
+[2025-12-02T14:47:57.403+01:00] SESSION_START [session_1764683277_2592154_op1] version=gh-app-auth args=[/tmp/go-build3478283344/b304/logger.test -test.testlogfile=/tmp/go-build3478283344/b304/testlog.txt -test.paniconexit0 -test.gocoverdir=/tmp/go-build3478283344/b304/gocoverdir -test.timeout=10m0s -test.coverprofile=/tmp/go-build3478283344/b304/_cover_.out] pid=2592154
+[2025-12-02T14:47:57.403+01:00] FLOW_START [session_1764683277_2592154_op2] operation=test_operation flow=START test_key=test_value count=123
+[2025-12-02T14:47:57.403+01:00] FLOW_STEP [session_1764683277_2592154_op3] step=step1 flow=STEP test_key=test_value count=123
+[2025-12-02T14:47:57.403+01:00] FLOW_STEP [session_1764683277_2592154_op4] step=step2 flow=STEP test_key=test_value count=123
+[2025-12-02T14:47:57.403+01:00] FLOW_SUCCESS [session_1764683277_2592154_op5] count=123 operation=test_operation flow=SUCCESS test_key=test_value
+[2025-12-02T14:47:57.403+01:00] FLOW_ERROR [session_1764683277_2592154_op6] operation=failed_operation flow=ERROR error=test error test_key=test_value count=123
+[2025-12-02T14:47:57.403+01:00] SESSION_END [session_1764683277_2592154_op7]
+[2025-12-02T14:48:35.762+01:00] SESSION_START [session_1764683315_2598528_op1] pid=2598528 version=gh-app-auth args=[/tmp/go-build913468103/b286/logger.test -test.testlogfile=/tmp/go-build913468103/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s]
+[2025-12-02T14:48:35.762+01:00] DEBUG [session_1764683315_2598528_op2] message=test debug test=value
+[2025-12-02T14:48:35.762+01:00] INFO [session_1764683315_2598528_op3] message=test info test=value
+[2025-12-02T14:48:35.762+01:00] ERROR [session_1764683315_2598528_op4] message=test error error=test test=value
+[2025-12-02T14:48:35.762+01:00] SESSION_END [session_1764683315_2598528_op5]
+[2025-12-02T14:48:35.762+01:00] SESSION_START [session_1764683315_2598528_op1] pid=2598528 version=gh-app-auth args=[/tmp/go-build913468103/b286/logger.test -test.testlogfile=/tmp/go-build913468103/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s]
+[2025-12-02T14:48:35.762+01:00] FLOW_START [session_1764683315_2598528_op2] operation=test_operation flow=START test_key=test_value count=123
+[2025-12-02T14:48:35.762+01:00] FLOW_STEP [session_1764683315_2598528_op3] test_key=test_value count=123 step=step1 flow=STEP
+[2025-12-02T14:48:35.762+01:00] FLOW_STEP [session_1764683315_2598528_op4] count=123 step=step2 flow=STEP test_key=test_value
+[2025-12-02T14:48:35.762+01:00] FLOW_SUCCESS [session_1764683315_2598528_op5] count=123 operation=test_operation flow=SUCCESS test_key=test_value
+[2025-12-02T14:48:35.762+01:00] FLOW_ERROR [session_1764683315_2598528_op6] operation=failed_operation flow=ERROR error=test error test_key=test_value count=123
+[2025-12-02T14:48:35.762+01:00] SESSION_END [session_1764683315_2598528_op7]
+[2025-12-02T15:00:18.656+01:00] SESSION_START [session_1764684018_2603258_op1] pid=2603258 version=gh-app-auth args=[/tmp/go-build1441060667/b286/logger.test -test.testlogfile=/tmp/go-build1441060667/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s]
+[2025-12-02T15:00:18.656+01:00] DEBUG [session_1764684018_2603258_op2] message=test debug test=value
+[2025-12-02T15:00:18.656+01:00] INFO [session_1764684018_2603258_op3] message=test info test=value
+[2025-12-02T15:00:18.656+01:00] ERROR [session_1764684018_2603258_op4] message=test error error=test test=value
+[2025-12-02T15:00:18.656+01:00] SESSION_END [session_1764684018_2603258_op5]
+[2025-12-02T15:00:18.656+01:00] SESSION_START [session_1764684018_2603258_op1] args=[/tmp/go-build1441060667/b286/logger.test -test.testlogfile=/tmp/go-build1441060667/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s] pid=2603258 version=gh-app-auth
+[2025-12-02T15:00:18.656+01:00] FLOW_START [session_1764684018_2603258_op2] operation=test_operation flow=START test_key=test_value count=123
+[2025-12-02T15:00:18.656+01:00] FLOW_STEP [session_1764684018_2603258_op3] step=step1 flow=STEP test_key=test_value count=123
+[2025-12-02T15:00:18.656+01:00] FLOW_STEP [session_1764684018_2603258_op4] step=step2 flow=STEP test_key=test_value count=123
+[2025-12-02T15:00:18.656+01:00] FLOW_SUCCESS [session_1764684018_2603258_op5] flow=SUCCESS test_key=test_value count=123 operation=test_operation
+[2025-12-02T15:00:18.656+01:00] FLOW_ERROR [session_1764684018_2603258_op6] operation=failed_operation flow=ERROR error=test error test_key=test_value count=123
+[2025-12-02T15:00:18.656+01:00] SESSION_END [session_1764684018_2603258_op7]
+[2025-12-02T15:04:02.834+01:00] SESSION_START [session_1764684242_2604594_op1] version=gh-app-auth args=[/tmp/go-build2966016945/b286/logger.test -test.testlogfile=/tmp/go-build2966016945/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s] pid=2604594
+[2025-12-02T15:04:02.834+01:00] DEBUG [session_1764684242_2604594_op2] test=value message=test debug
+[2025-12-02T15:04:02.834+01:00] INFO [session_1764684242_2604594_op3] message=test info test=value
+[2025-12-02T15:04:02.834+01:00] ERROR [session_1764684242_2604594_op4] error=test test=value message=test error
+[2025-12-02T15:04:02.834+01:00] SESSION_END [session_1764684242_2604594_op5]
+[2025-12-02T15:04:02.835+01:00] SESSION_START [session_1764684242_2604594_op1] pid=2604594 version=gh-app-auth args=[/tmp/go-build2966016945/b286/logger.test -test.testlogfile=/tmp/go-build2966016945/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s]
+[2025-12-02T15:04:02.835+01:00] FLOW_START [session_1764684242_2604594_op2] operation=test_operation flow=START test_key=test_value count=123
+[2025-12-02T15:04:02.835+01:00] FLOW_STEP [session_1764684242_2604594_op3] step=step1 flow=STEP test_key=test_value count=123
+[2025-12-02T15:04:02.835+01:00] FLOW_STEP [session_1764684242_2604594_op4] test_key=test_value count=123 step=step2 flow=STEP
+[2025-12-02T15:04:02.835+01:00] FLOW_SUCCESS [session_1764684242_2604594_op5] operation=test_operation flow=SUCCESS test_key=test_value count=123
+[2025-12-02T15:04:02.835+01:00] FLOW_ERROR [session_1764684242_2604594_op6] operation=failed_operation flow=ERROR error=test error test_key=test_value count=123
+[2025-12-02T15:04:02.835+01:00] SESSION_END [session_1764684242_2604594_op7]
+[2025-12-02T15:09:30.078+01:00] SESSION_START [session_1764684570_2606630_op1] version=gh-app-auth args=[/tmp/go-build4013083349/b286/logger.test -test.testlogfile=/tmp/go-build4013083349/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s] pid=2606630
+[2025-12-02T15:09:30.078+01:00] DEBUG [session_1764684570_2606630_op2] test=value message=test debug
+[2025-12-02T15:09:30.078+01:00] INFO [session_1764684570_2606630_op3] message=test info test=value
+[2025-12-02T15:09:30.078+01:00] ERROR [session_1764684570_2606630_op4] message=test error error=test test=value
+[2025-12-02T15:09:30.078+01:00] SESSION_END [session_1764684570_2606630_op5]
+[2025-12-02T15:09:30.078+01:00] SESSION_START [session_1764684570_2606630_op1] pid=2606630 version=gh-app-auth args=[/tmp/go-build4013083349/b286/logger.test -test.testlogfile=/tmp/go-build4013083349/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s]
+[2025-12-02T15:09:30.078+01:00] FLOW_START [session_1764684570_2606630_op2] operation=test_operation flow=START test_key=test_value count=123
+[2025-12-02T15:09:30.078+01:00] FLOW_STEP [session_1764684570_2606630_op3] step=step1 flow=STEP test_key=test_value count=123
+[2025-12-02T15:09:30.078+01:00] FLOW_STEP [session_1764684570_2606630_op4] step=step2 flow=STEP test_key=test_value count=123
+[2025-12-02T15:09:30.078+01:00] FLOW_SUCCESS [session_1764684570_2606630_op5] count=123 operation=test_operation flow=SUCCESS test_key=test_value
+[2025-12-02T15:09:30.078+01:00] FLOW_ERROR [session_1764684570_2606630_op6] operation=failed_operation flow=ERROR error=test error test_key=test_value count=123
+[2025-12-02T15:09:30.078+01:00] SESSION_END [session_1764684570_2606630_op7]
+[2025-12-02T15:36:04.526+01:00] SESSION_START [session_1764686164_2612089_op1] version=gh-app-auth args=[/tmp/go-build3184357699/b286/logger.test -test.testlogfile=/tmp/go-build3184357699/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s] pid=2612089
+[2025-12-02T15:36:04.526+01:00] DEBUG [session_1764686164_2612089_op2] message=test debug test=value
+[2025-12-02T15:36:04.526+01:00] INFO [session_1764686164_2612089_op3] message=test info test=value
+[2025-12-02T15:36:04.526+01:00] ERROR [session_1764686164_2612089_op4] message=test error error=test test=value
+[2025-12-02T15:36:04.526+01:00] SESSION_END [session_1764686164_2612089_op5]
+[2025-12-02T15:36:04.526+01:00] SESSION_START [session_1764686164_2612089_op1] version=gh-app-auth args=[/tmp/go-build3184357699/b286/logger.test -test.testlogfile=/tmp/go-build3184357699/b286/testlog.txt -test.paniconexit0 -test.timeout=10m0s] pid=2612089
+[2025-12-02T15:36:04.526+01:00] FLOW_START [session_1764686164_2612089_op2] operation=test_operation flow=START test_key=test_value count=123
+[2025-12-02T15:36:04.526+01:00] FLOW_STEP [session_1764686164_2612089_op3] step=step1 flow=STEP test_key=test_value count=123
+[2025-12-02T15:36:04.526+01:00] FLOW_STEP [session_1764686164_2612089_op4] test_key=test_value count=123 step=step2 flow=STEP
+[2025-12-02T15:36:04.526+01:00] FLOW_SUCCESS [session_1764686164_2612089_op5] operation=test_operation flow=SUCCESS test_key=test_value count=123
+[2025-12-02T15:36:04.526+01:00] FLOW_ERROR [session_1764686164_2612089_op6] count=123 operation=failed_operation flow=ERROR error=test error test_key=test_value
+[2025-12-02T15:36:04.526+01:00] SESSION_END [session_1764686164_2612089_op7]

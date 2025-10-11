@@ -1,0 +1,25 @@
+# Global ownership
+* @AmadeusITGroup
+
+# Security-critical components
+/pkg/auth/ @AmadeusITGroup
+/pkg/jwt/ @AmadeusITGroup
+/pkg/cache/ @AmadeusITGroup
+/.github/workflows/security.yml @AmadeusITGroup
+/.github/SECURITY.md @AmadeusITGroup
+
+# Configuration and CLI
+/pkg/config/ @AmadeusITGroup
+/cmd/ @AmadeusITGroup
+
+# Documentation
+/docs/ @AmadeusITGroup
+README.md @AmadeusITGroup
+CONTRIBUTING.md @AmadeusITGroup
+
+# CI/CD and project structure
+/.github/ @AmadeusITGroup
+/.golangci.yml @AmadeusITGroup
+/.devcontainer/ @AmadeusITGroup
+/go.mod @AmadeusITGroup
+/go.sum @AmadeusITGroup
