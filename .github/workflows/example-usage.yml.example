@@ -1,0 +1,171 @@
+name: Example - Using gh-app-auth
+
+on:
+  workflow_dispatch:  # Manual trigger for testing
+
+jobs:
+  # Example 1: Simple setup with automatic cleanup (ephemeral runners)
+  simple-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup GitHub App Auth
+        uses: AmadeusITGroup/gh-app-auth/.github/actions/setup-gh-app-auth@main
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          patterns: 'github.com/AmadeusITGroup/*'
+          app-name: 'AmadeusITGroup App'
+
+      - name: Clone repository
+        run: |
+          git clone --recurse-submodules https://github.com/AmadeusITGroup/private-repo
+          cd private-repo
+          echo "✅ Repository cloned successfully"
+
+  # Example 2: Multi-organization setup (JSON mode - RECOMMENDED) ✨
+  multi-org-json-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Multiple GitHub Apps
+        uses: AmadeusITGroup/gh-app-auth/.github/actions/setup-gh-app-auth@main
+        with:
+          # JSON array with all app configurations
+          apps-config: |
+            [
+              {
+                "app-id": "${{ secrets.ORG1_APP_ID }}",
+                "private-key": "${{ secrets.ORG1_PRIVATE_KEY }}",
+                "patterns": "github.com/org1/*",
+                "app-name": "Organization 1"
+              },
+              {
+                "app-id": "${{ secrets.ORG2_APP_ID }}",
+                "private-key": "${{ secrets.ORG2_PRIVATE_KEY }}",
+                "patterns": "github.com/org2/*",
+                "app-name": "Organization 2"
+              },
+              {
+                "app-id": "${{ secrets.ORG3_APP_ID }}",
+                "private-key": "${{ secrets.ORG3_PRIVATE_KEY }}",
+                "patterns": "github.com/org3/*",
+                "app-name": "Organization 3"
+              }
+            ]
+
+      - name: Clone multi-org repository
+        run: |
+          git clone --recurse-submodules https://github.com/org1/main-repo
+          cd main-repo
+          echo "✅ Multi-org repository cloned"
+
+  # Example 3: Multi-organization setup (legacy mode - multiple actions)
+  multi-org-legacy-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Org 1 Auth
+        uses: AmadeusITGroup/gh-app-auth/.github/actions/setup-gh-app-auth@main
+        with:
+          app-id: ${{ secrets.ORG1_APP_ID }}
+          private-key: ${{ secrets.ORG1_PRIVATE_KEY }}
+          patterns: 'github.com/org1/*'
+          app-name: 'Organization 1'
+          sync-git-config: 'false'  # Wait to sync all at once
+
+      - name: Setup Org 2 Auth
+        uses: AmadeusITGroup/gh-app-auth/.github/actions/setup-gh-app-auth@main
+        with:
+          app-id: ${{ secrets.ORG2_APP_ID }}
+          private-key: ${{ secrets.ORG2_PRIVATE_KEY }}
+          patterns: 'github.com/org2/*'
+          app-name: 'Organization 2'
+          sync-git-config: 'true'  # Sync all configurations
+
+      - name: Clone multi-org repository
+        run: |
+          git clone --recurse-submodules https://github.com/org1/main-repo
+          cd main-repo
+          echo "✅ Multi-org repository cloned"
+
+  # Example 3: Self-hosted runner with explicit cleanup
+  self-hosted-setup:
+    runs-on: self-hosted  # Non-ephemeral runner
+    steps:
+      - name: Setup GitHub App Auth
+        uses: AmadeusITGroup/gh-app-auth/.github/actions/setup-gh-app-auth@main
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          patterns: 'github.com/AmadeusITGroup/*'
+          cleanup-on-exit: 'false'  # Handle cleanup manually
+
+      - name: Build
+        run: |
+          git clone https://github.com/AmadeusITGroup/repo
+          cd repo
+          make build
+
+      # Always cleanup, even if build fails
+      - name: Cleanup credentials
+        if: always()
+        uses: AmadeusITGroup/gh-app-auth/.github/actions/cleanup-gh-app-auth@main
+
+  # Example 4: Manual setup with gitconfig command
+  manual-setup-with-gitconfig:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install tools
+        run: |
+          gh extension install AmadeusITGroup/gh-app-auth
+
+      - name: Configure GitHub App
+        env:
+          GH_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+        run: |
+          gh app-auth setup \
+            --app-id ${{ secrets.GITHUB_APP_ID }} \
+            --patterns "github.com/AmadeusITGroup/*"
+
+      - name: Sync git configuration automatically
+        run: |
+          # This replaces manual git config commands
+          gh app-auth gitconfig --sync --global
+
+      - name: Verify configuration
+        run: |
+          echo "📋 Configured apps:"
+          gh app-auth list
+          
+          echo ""
+          echo "🔧 Git credential helpers:"
+          git config --global --get-regexp credential
+
+      - name: Use git
+        run: |
+          git clone https://github.com/AmadeusITGroup/repo
+          echo "✅ Repository cloned successfully"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          gh app-auth gitconfig --clean --global
+          gh app-auth remove --all --force
+
+  # Example 5: Testing pattern matching
+  pattern-matching-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup multiple patterns
+        uses: AmadeusITGroup/gh-app-auth/.github/actions/setup-gh-app-auth@main
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          # Multiple patterns with comma separation
+          patterns: 'github.com/AmadeusITGroup/*,github.com/partner-org/*'
+          app-name: 'Multi-Pattern App'
+
+      - name: Test pattern matching
+        run: |
+          # Both of these should work with the same app
+          git clone https://github.com/AmadeusITGroup/repo1
+          git clone https://github.com/partner-org/repo2
+          echo "✅ Both patterns authenticated successfully"

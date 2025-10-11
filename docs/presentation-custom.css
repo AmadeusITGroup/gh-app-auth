@@ -1,0 +1,104 @@
+/* Custom styles for gh-app-auth presentation */
+
+/* Reduce overall font sizes for better content fit */
+.reveal {
+  font-size: 32px; /* Default is 40px */
+}
+
+.reveal h1 {
+  font-size: 2.2em; /* Reduced from 2.5em */
+}
+
+.reveal h2 {
+  font-size: 1.4em; /* Reduced from 1.6em */
+}
+
+.reveal h3 {
+  font-size: 1.1em; /* Reduced from 1.3em */
+}
+
+/* Reduce slide title/heading spacing */
+.reveal h1,
+.reveal h2,
+.reveal h3 {
+  margin: 0 0 20px 0;
+}
+
+/* Tighter line spacing for lists */
+.reveal ul,
+.reveal ol {
+  margin: 10px 0;
+}
+
+.reveal li {
+  margin: 8px 0;
+}
+
+/* Reduce table font size and padding */
+.reveal table {
+  font-size: 0.8em;
+}
+
+.reveal table th,
+.reveal table td {
+  padding: 0.4em 0.6em;
+}
+
+/* Code blocks - smaller and better fit */
+.reveal pre {
+  font-size: 0.5em;
+  margin: 10px auto;
+  max-height: 500px;
+  overflow: auto;
+}
+
+.reveal code {
+  font-size: 0.85em;
+}
+
+/* Mermaid diagrams - ensure they fit and are readable */
+.reveal .mermaid {
+  font-size: 14px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.reveal .mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Tighter spacing for slides with lots of content */
+.reveal .slides section {
+  padding: 10px;
+}
+
+/* Better bullet point sizing */
+.reveal ul ul {
+  font-size: 0.9em;
+}
+
+/* Compact paragraphs */
+.reveal p {
+  margin: 10px 0;
+}
+
+/* Ensure content doesn't overflow */
+.reveal .slides {
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+/* Adjust strong/bold text */
+.reveal strong,
+.reveal b {
+  font-weight: bold;
+  color: #d33682; /* Slight color for emphasis */
+}
+
+/* Better blockquote sizing */
+.reveal blockquote {
+  font-size: 0.9em;
+  padding: 10px 20px;
+  margin: 10px 0;
+}

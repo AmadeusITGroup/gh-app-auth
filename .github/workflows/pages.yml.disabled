@@ -1,0 +1,92 @@
+name: Deploy Presentation to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/presentation.md'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Install Pandoc and LaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-xetex texlive-fonts-recommended
+
+      - name: Build presentation HTML
+        run: |
+          mkdir -p _site
+          pandoc docs/presentation.md \
+            -t revealjs \
+            -s \
+            -o _site/index.html \
+            -V revealjs-url=https://unpkg.com/reveal.js@3.9.2 \
+            -V theme=white \
+            -V transition=slide \
+            -V slideNumber=true \
+            --mathjax \
+            --highlight-style=pygments
+          
+          # Add custom CSS and Mermaid support
+          cp docs/presentation-custom.css _site/
+          sed -i 's|</head>|  <link rel="stylesheet" href="presentation-custom.css">\n  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>\n</head>|' _site/index.html
+          # Convert mermaid code blocks to divs
+          perl -i -0pe 's/<pre class="mermaid"><code>(.*?)<\/code><\/pre>/<div class="mermaid">\1<\/div>/gs' _site/index.html
+          sed -i 's|Reveal\.initialize({|mermaid.initialize({ startOnLoad: true, theme: "default" });\n      Reveal.initialize({|' _site/index.html
+
+      - name: Create additional pages
+        run: |
+          # Copy documentation
+          mkdir -p _site/docs
+          cp docs/*.md _site/docs/ || true
+          
+          # Create index page if needed
+          cat > _site/README.md << 'EOF'
+          # gh-app-auth Documentation
+          
+          ## Presentation
+          - [View Presentation](./index.html) - Main presentation slides
+          
+          ## Documentation
+          - [CI/CD Guide](./docs/ci-cd-guide.md)
+          - [Architecture](./docs/architecture.md)
+          - [Origin of the Project](./docs/origin_of_the_project.md)
+          
+          ## Project
+          - [GitHub Repository](https://github.com/AmadeusITGroup/gh-app-auth)
+          EOF
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
