@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/wherka-ama/gh-app-auth/blob/main/README.md
+    about: Check the documentation for usage instructions and examples
+  - name: 🏗️ Architecture Guide
+    url: https://github.com/wherka-ama/gh-app-auth/blob/main/docs/architecture.md
+    about: Technical documentation and system architecture
+  - name: 🤝 Contributing Guide
+    url: https://github.com/wherka-ama/gh-app-auth/blob/main/CONTRIBUTING.md
+    about: Guidelines for contributing to the project
+  - name: 💬 GitHub Discussions
+    url: https://github.com/wherka-ama/gh-app-auth/discussions
+    about: Community discussions, questions, and announcements

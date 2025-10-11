@@ -1,0 +1,277 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  skip-dirs:
+    - vendor
+    - .github
+  skip-files:
+    - ".*_test.go$"  # Skip some test file checks
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+  sort-results: true
+
+linters:
+  enable:
+    # Default linters
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Go vet
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Static analysis
+    - typecheck     # Type checking
+    - unused        # Check for unused code
+    
+    # Additional security and quality linters
+    - bodyclose     # Check HTTP response body is closed
+    - contextcheck  # Check context usage
+    - cyclop        # Check cyclomatic complexity
+    - dupl          # Check code duplication
+    - durationcheck # Check time.Duration usage
+    - errname       # Check error naming
+    - errorlint     # Check error wrapping
+    - exhaustive    # Check exhaustive switch statements
+    - exportloopref # Check loop variable references
+    - forbidigo     # Forbid specific identifiers
+    - forcetypeassert # Check type assertions
+    - funlen        # Check function length
+    - gci           # Control Go package import order
+    - gocognit      # Check cognitive complexity
+    - goconst       # Check for repeated strings that should be constants
+    - gocritic      # Go critic
+    - gocyclo       # Check cyclomatic complexity
+    - godot         # Check comments end in period
+    - gofmt         # Check code formatting
+    - gofumpt       # Stricter gofmt
+    - goheader      # Check file headers
+    - goimports     # Check imports formatting
+    - gomnd         # Check magic numbers
+    - gomodguard    # Check module usage
+    - goprintffuncname # Check printf function naming
+    - gosec         # Security checker
+    - lll           # Check line length
+    - makezero      # Check slice initialization
+    - misspell      # Check spelling
+    - nakedret      # Check naked returns
+    - nestif        # Check nested if statements
+    - nilerr        # Check nil error returns
+    - nilnil        # Check nil nil returns
+    - nlreturn      # Check newline before return
+    - noctx         # Check context usage in HTTP requests
+    - nolintlint    # Check nolint directives
+    - prealloc      # Check slice preallocation
+    - predeclared   # Check for predeclared identifier usage
+    - revive        # Replacement for golint
+    - rowserrcheck  # Check database/sql rows error
+    - sqlclosecheck # Check SQL close
+    - thelper       # Check test helper functions
+    - tparallel     # Check t.Parallel() usage
+    - unconvert     # Check unnecessary conversions
+    - unparam       # Check unused function parameters
+    - wastedassign  # Check wasted assignments
+    - whitespace    # Check whitespace
+
+  disable:
+    - gochecknoinits # Allow init functions for our use case
+    - gochecknoglobals # Allow globals for configuration
+
+linters-settings:
+  cyclop:
+    max-complexity: 15
+    package-average: 10.0
+    skip-tests: true
+
+  dupl:
+    threshold: 100
+
+  errorlint:
+    errorf: true
+    asserts: true
+    comparison: true
+
+  exhaustive:
+    check-generated: false
+    default-signifies-exhaustive: true
+
+  forbidigo:
+    forbid:
+      - ^print.*$
+      - 'fmt\.Print.*'
+      - 'log\.Print.*'
+    exclude_godoc_examples: false
+
+  funlen:
+    lines: 100
+    statements: 50
+
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/wherka-ama/gh-app-auth)
+    skip-generated: true
+
+  gocognit:
+    min-complexity: 15
+
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+    ignore-tests: true
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+
+  gocyclo:
+    min-complexity: 15
+
+  gofumpt:
+    lang-version: "1.21"
+    extra-rules: true
+
+  goheader:
+    template: ""  # No header required for now
+
+  goimports:
+    local-prefixes: github.com/wherka-ama/gh-app-auth
+
+  gomnd:
+    checks:
+      - argument
+      - case
+      - condition
+      - operation
+      - return
+      - assign
+    ignored-numbers:
+      - '0'
+      - '1'
+      - '2'
+      - '3'
+      - '10'
+      - '16'
+      - '64'
+      - '100'
+      - '400'
+      - '404'
+      - '500'
+      - '600'
+      - '1000'
+      - '1024'
+
+  gomodguard:
+    blocked:
+      modules: []
+      versions: []
+
+  gosec:
+    severity: "medium"
+    confidence: "medium"
+    excludes:
+      - G104 # Allow some unhandled errors in tests
+      - G204 # Allow subprocess with variable input (needed for git commands)
+    
+  lll:
+    line-length: 120
+    tab-width: 1
+
+  misspell:
+    locale: US
+    ignore-words: []
+
+  nakedret:
+    max-func-lines: 30
+
+  nestif:
+    min-complexity: 5
+
+  nlreturn:
+    block-size: 2
+
+  nolintlint:
+    allow-leading-space: true
+    allow-unused: false
+    require-explanation: false
+    require-specific: false
+
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: false
+
+  revive:
+    rules:
+      - name: atomic
+      - name: line-length-limit
+        arguments: [120]
+      - name: argument-limit
+        arguments: [5]
+      - name: cyclomatic
+        arguments: [15]
+      - name: max-public-structs
+        arguments: [10]
+      - name: file-header
+        disabled: true
+
+  staticcheck:
+    go: "1.21"
+    checks: ["all"]
+
+  thelper:
+    test:
+      first: true
+      name: true
+      begin: true
+    benchmark:
+      first: true
+      name: true
+      begin: true
+
+  unparam:
+    check-exported: false
+
+  whitespace:
+    multi-if: false
+    multi-func: false
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - funlen
+        - goconst
+        - gomnd
+    
+    # Exclude security checks for test keys
+    - path: test.*\.go
+      linters:
+        - gosec
+        
+    # Exclude line length for long URLs or keys in tests
+    - source: "https?://"
+      linters:
+        - lll
+        
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false

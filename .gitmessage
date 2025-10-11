@@ -1,0 +1,27 @@
+# <type>[optional scope]: <description>
+#
+# [optional body]
+#
+# [optional footer(s)]
+#
+# --- CONVENTIONAL COMMITS GUIDE ---
+# Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+# Scopes: auth, config, cli, cache, security, docs, ci, deps
+#
+# Examples:
+#   feat(auth): add JWT token caching
+#   fix(config): handle missing config file gracefully
+#   docs: update installation instructions
+#   test(auth): add integration tests for GitHub App flow
+#
+# Breaking changes:
+#   feat(cli)!: change setup command interface
+#   Or use footer: BREAKING CHANGE: description
+#
+# Remember:
+#   - Use imperative mood ("add" not "added")
+#   - Keep subject under 72 characters
+#   - Don't end subject with period
+#   - Reference issues: "Fixes #42"
+#
+# More info: https://github.com/wherka-ama/gh-app-auth/blob/main/CONTRIBUTING.md#commit-message-guidelines

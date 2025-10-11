@@ -1,0 +1,65 @@
+{
+	"name": "gh-app-auth Development",
+	"image": "mcr.microsoft.com/devcontainers/go:1.21",
+	
+	"features": {
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		"ghcr.io/devcontainers/features/sshd:1": {},
+		"ghcr.io/devcontainers/features/git:1": {}
+	},
+	
+	"remoteUser": "vscode",
+	
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"golang.go",
+				"ms-vscode.vscode-json",
+				"redhat.vscode-yaml", 
+				"github.vscode-pull-request-github",
+				"github.copilot",
+				"ms-vscode.test-adapter-converter",
+				"hbenl.vscode-test-explorer"
+			],
+			"settings": {
+				"go.toolsManagement.checkForUpdates": "local",
+				"go.useLanguageServer": true,
+				"go.gopath": "/go",
+				"go.goroot": "/usr/local/go",
+				"go.testFlags": ["-v", "-race"],
+				"go.coverOnSave": true,
+				"go.coverageDecorator": {
+					"type": "gutter"
+				},
+				"editor.formatOnSave": true,
+				"editor.codeActionsOnSave": {
+					"source.organizeImports": true
+				},
+				"files.eol": "\n",
+				"terminal.integrated.defaultProfile.linux": "bash"
+			}
+		}
+	},
+	
+	"runArgs": [
+		"--cap-add=SYS_PTRACE",
+		"--security-opt",
+		"seccomp=unconfined"
+	],
+	
+	"mounts": [
+		"source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached"
+	],
+	
+	"postCreateCommand": "go mod download && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
+	
+	"forwardPorts": [],
+	
+	"portsAttributes": {},
+	
+	"remoteEnv": {
+		"GO111MODULE": "on",
+		"GOPROXY": "https://proxy.golang.org",
+		"GOSUMDB": "sum.golang.org"
+	}
+}

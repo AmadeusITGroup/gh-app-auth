@@ -1,36 +1,77 @@
-/bin
-/share/bash-completion/completions
-/share/fish/vendor_completions.d
-/share/man/man1
-/share/zsh/site-functions
-/gh-cli
-.envrc
-/dist
-/site
-.github/**/node_modules
-/CHANGELOG.md
-/.goreleaser.generated.yml
-/script/build
-/script/build.exe
-/pkg_payload
-/build/macOS/resources
+# GitHub CLI Extension - Go Project Gitignore
 
-# Windows resource files
-/cmd/gh/*.syso
+# Built binaries
+/gh-app-auth
+/gh-app-auth.exe
+/dist/
+/bin/
+/build/
 
-# VS Code
-.vscode
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
 
-# IntelliJ
-.idea
+# Coverage reports
+coverage.out
+coverage.html
+*.cover
 
-# macOS
-.DS_Store
+# Vendor directory
+vendor/
 
-# vim
+# Go workspace files
+go.work
+go.work.sum
+
+# IDE files
+vscode/
+.idea/
 *.swp
-
-# Emacs
+*.swo
 *~
 
-vendor/
+# Environment files
+.env
+.envrc
+
+# Local configuration files (not GitHub templates)
+/config.yml
+/config.yaml  
+/config.json
+*.local.*
+
+# Test files and artifacts
+test_output/
+testdata/output/
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+
+# Log files
+*.log
+logs/
+
+# Extension specific
+share/bash-completion/completions
+share/fish/vendor_completions.d
+share/man/man1
+share/zsh/site-functions
+
+# Release artifacts  
+.goreleaser.yml
+pkg_payload/
+
+# Private keys for testing (never commit real keys!)
+*.pem
+*.key
+test-keys/
+
+# GitHub workflow artifacts
+.github/**/node_modules

@@ -1,0 +1,25 @@
+# Global ownership
+* @wherka-ama
+
+# Security-critical components
+/pkg/auth/ @wherka-ama
+/pkg/jwt/ @wherka-ama
+/pkg/cache/ @wherka-ama
+/.github/workflows/security.yml @wherka-ama
+/.github/SECURITY.md @wherka-ama
+
+# Configuration and CLI
+/pkg/config/ @wherka-ama
+/cmd/ @wherka-ama
+
+# Documentation
+/docs/ @wherka-ama
+README.md @wherka-ama
+CONTRIBUTING.md @wherka-ama
+
+# CI/CD and project structure
+/.github/ @wherka-ama
+/.golangci.yml @wherka-ama
+/.devcontainer/ @wherka-ama
+/go.mod @wherka-ama
+/go.sum @wherka-ama

@@ -114,6 +114,176 @@ gh-app-auth/
 - [ ] Documentation updated
 - [ ] Security considerations addressed
 - [ ] Breaking changes clearly documented
+- [ ] Commit messages follow conventional commits format
+
+## Commit Message Guidelines
+
+We use [Conventional Commits](https://www.conventionalcommits.org/) specification for all commit messages. This enables automated changelog generation and helps maintain a clear project history.
+
+### Conventional Commits Format
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Commit Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `feat` | New feature for the user | `feat(auth): add JWT token caching` |
+| `fix` | Bug fix for the user | `fix(config): handle missing config file` |
+| `docs` | Documentation changes | `docs: update installation instructions` |
+| `style` | Code style changes (formatting, etc.) | `style: fix gofmt issues` |
+| `refactor` | Code refactoring without feature changes | `refactor(jwt): simplify token generation` |
+| `perf` | Performance improvements | `perf(cache): optimize token storage` |
+| `test` | Adding or fixing tests | `test(auth): add integration tests` |
+| `build` | Build system or dependency changes | `build: update go version to 1.21` |
+| `ci` | CI/CD configuration changes | `ci: add security scanning workflow` |
+| `chore` | Other changes (maintenance, etc.) | `chore: update dependencies` |
+| `revert` | Reverting previous commits | `revert: "feat: add experimental feature"` |
+
+### Scopes (Optional)
+
+Scopes provide additional context about the area of change:
+
+- `auth` - Authentication and JWT handling
+- `config` - Configuration management
+- `cli` - Command-line interface
+- `cache` - Token caching functionality
+- `security` - Security-related changes
+- `docs` - Documentation
+- `ci` - Continuous integration
+- `deps` - Dependencies
+
+### Commit Message Examples
+
+#### ✅ Good Examples
+```bash
+# New feature with scope
+feat(auth): implement GitHub App authentication with JWT
+
+# Bug fix with detailed description
+fix(config): resolve panic when config file is missing
+
+Add proper error handling for missing configuration files
+instead of panicking. Now returns a user-friendly error
+message and suggests running the setup command.
+
+Fixes #42
+
+# Documentation update
+docs: add security best practices section
+
+# Breaking change
+feat(cli)!: change setup command flag from --app to --app-id
+
+BREAKING CHANGE: The --app flag has been renamed to --app-id
+for consistency with GitHub API terminology. Users should
+update their scripts accordingly.
+
+# Multiple types in one commit (avoid this)
+# ❌ BAD: feat(auth): add caching and fix JWT bug
+# ✅ GOOD: Split into separate commits
+```
+
+#### ❌ Examples to Avoid
+```bash
+# Too vague
+fix: stuff
+
+# Missing type
+update readme
+
+# Not descriptive enough  
+feat: improvements
+
+# Mixed concerns (should be separate commits)
+feat: add caching and fix config bug
+```
+
+### Writing Good Commit Messages
+
+1. **Use the imperative mood**: "Add feature" not "Added feature"
+2. **Keep the subject line under 72 characters**
+3. **Capitalize the subject line**
+4. **Don't end the subject line with a period**
+5. **Use the body to explain what and why, not how**
+6. **Reference issues and pull requests when relevant**
+
+### Breaking Changes
+
+For breaking changes, use one of these formats:
+
+```bash
+# Method 1: ! after type/scope
+feat(cli)!: change setup command interface
+
+# Method 2: BREAKING CHANGE footer
+feat(auth): improve token validation
+
+BREAKING CHANGE: Token validation now requires additional
+permissions. Users must regenerate their GitHub App tokens.
+```
+
+### Tools and Tips
+
+#### Git Commit Templates
+Create a commit template to remind yourself of the format:
+
+```bash
+# Create template file
+cat > ~/.gitmessage << 'EOF'
+# <type>[optional scope]: <description>
+#
+# [optional body]
+#
+# [optional footer(s)]
+#
+# Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+# Scopes: auth, config, cli, cache, security, docs, ci, deps
+# Remember: use imperative mood, keep subject under 72 chars
+EOF
+
+# Configure git to use the template
+git config --global commit.template ~/.gitmessage
+```
+
+#### Conventional Commits Tools
+- **commitizen**: Interactive commit message tool
+- **conventional-changelog**: Generates changelogs from commits
+- **semantic-release**: Automates releases based on commit messages
+
+#### Installation
+```bash
+# Install commitizen globally
+npm install -g commitizen cz-conventional-changelog
+
+# Use in project
+npx cz
+```
+
+### Integration with Project Workflows
+
+Our automated workflows rely on conventional commits for:
+
+1. **Automated Changelog**: Generated from commit messages
+2. **Semantic Versioning**: Version bumps based on commit types
+3. **Release Notes**: Formatted release descriptions
+4. **PR Labeling**: Automatic labels based on commit types
+
+### Commit Message Validation
+
+Our CI pipeline validates commit messages. If your commit doesn't follow the conventional format, the build may fail. To fix this:
+
+1. **For the last commit**: `git commit --amend`
+2. **For multiple commits**: `git rebase -i HEAD~n` (where n is the number of commits)
+3. **Force push**: `git push --force-with-lease origin your-branch`
+
+**Note**: Only force push to your own feature branches, never to main/develop.
 
 ## Code Review
 
