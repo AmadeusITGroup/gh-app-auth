@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0  # Fetch full history for commit validation
 
       - name: Validate conventional commits
-        uses: wagoid/commitlint-github-action@v5
+        uses: wagoid/commitlint-github-action@v6
         with:
           configFile: '.commitlintrc.yml'
           failOnWarnings: true
