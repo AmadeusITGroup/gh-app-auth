@@ -25,7 +25,7 @@ jobs:
       run: go test ./...
     
     - name: Create cross-platform builds
-      uses: cli/gh-extension-precompile@v1
+      uses: cli/gh-extension-precompile@v2
       with:
         go_version: "1.21"
         
