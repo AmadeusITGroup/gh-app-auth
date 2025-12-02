@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -37,7 +37,7 @@ jobs:
     continue-on-error: true  # Don't fail CI on workflow formatting
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Check workflow files
         uses: docker://rhysd/actionlint:latest
@@ -50,7 +50,7 @@ jobs:
     continue-on-error: true  # Don't fail CI on documentation formatting
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Lint markdown files
         uses: DavidAnson/markdownlint-cli2-action@v15
@@ -65,7 +65,7 @@ jobs:
     continue-on-error: true  # Don't fail CI on YAML formatting
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Lint YAML files
         uses: karancode/yamllint-github-action@master
