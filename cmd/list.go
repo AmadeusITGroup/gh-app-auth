@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -50,6 +51,7 @@ func listRun(format *string, quiet *bool, verifyKeys *bool) func(*cobra.Command,
 	return func(cmd *cobra.Command, args []string) error {
 		// Load and validate configuration
 		cfg, err := loadListConfiguration()
+
 		if err != nil {
 			return err
 		}
@@ -269,7 +271,7 @@ func verifyPATAccess(pat config.PersonalAccessToken, secretMgr *secrets.Manager)
 // loadListConfiguration loads and validates the configuration for listing
 func loadListConfiguration() (*config.Config, error) {
 	cfg, err := config.Load()
-	if os.IsNotExist(err) {
+	if errors.Is(err, config.ErrConfigNotExists) {
 		fmt.Printf("No GitHub Apps configured. Run 'gh app-auth setup' to add one.\n")
 		return nil, nil
 	}

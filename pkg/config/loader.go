@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,14 @@ import (
 type Loader struct {
 	configPath string
 }
+
+// Common errors returned by the loader
+var (
+	ErrConfigNotExists  = errors.New("configuration file not found: ")
+	ErrConfigInvalid    = errors.New("invalid configuration: ")
+	ErrConfigUnreadable = errors.New("failed to read configuration file: ")
+	ErrConfigUnparsable = errors.New("failed to parse configuration: ")
+)
 
 // NewLoader creates a new configuration loader
 func NewLoader(configPath string) *Loader {
@@ -36,7 +45,7 @@ func (l *Loader) Load() (*Config, error) {
 
 	// Check if file exists
 	if _, err := os.Stat(l.configPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("configuration file not found %s: %w", l.configPath, err)
+		return nil, fmt.Errorf("%s: %w", l.configPath, ErrConfigNotExists)
 	}
 
 	// Note: We don't check file extension here, parseConfig will handle different formats
@@ -44,18 +53,18 @@ func (l *Loader) Load() (*Config, error) {
 	// Read file content
 	data, err := os.ReadFile(l.configPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read configuration file: %w", err)
+		return nil, fmt.Errorf("%w", ErrConfigUnreadable)
 	}
 
 	// Parse based on file extension
 	config, err := l.parseConfig(data, l.configPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse configuration: %w", err)
+		return nil, fmt.Errorf("%w", ErrConfigUnparsable)
 	}
 
 	// Validate configuration
 	if err := config.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid configuration: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 
 	return config, nil

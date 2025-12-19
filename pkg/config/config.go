@@ -1,12 +1,18 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+)
+
+// Common errors returned by config
+var (
+	ErrNoGitHubAppDefined = errors.New("at least one github_app or pat is required")
 )
 
 // CurrentConfigVersion is the latest configuration schema version
@@ -81,7 +87,7 @@ func (c *Config) Validate() error {
 	}
 
 	if len(c.GitHubApps) == 0 && len(c.PATs) == 0 {
-		return fmt.Errorf("at least one github_app or pat is required")
+		return ErrNoGitHubAppDefined
 	}
 
 	for i, app := range c.GitHubApps {

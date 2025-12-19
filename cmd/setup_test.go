@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -58,19 +59,23 @@ func TestNewSetupCmd(t *testing.T) {
 
 func TestValidateSetupInputs(t *testing.T) {
 	tests := []struct {
-		name          string
-		appID         int64
-		patterns      []string
-		useKeyring    bool
-		useFilesystem bool
-		wantErr       bool
-		wantKeyring   bool
+		name           string
+		appID          int64
+		patterns       []string
+		useKeyring     bool
+		useFilesystem  bool
+		keyFile        string
+		wantErr        bool
+		wantKeyring    bool
+		expectedErr    error
+		ghAppKeyEnvVar string
 	}{
 		{
 			name:        "valid inputs with keyring",
 			appID:       123456,
 			patterns:    []string{"github.com/org/*"},
 			useKeyring:  true,
+			keyFile:     "",
 			wantErr:     false,
 			wantKeyring: true,
 		},
@@ -80,8 +85,21 @@ func TestValidateSetupInputs(t *testing.T) {
 			patterns:      []string{"github.com/org/*"},
 			useKeyring:    true,
 			useFilesystem: true,
+			keyFile:       "",
 			wantErr:       false,
 			wantKeyring:   false, // filesystem overrides keyring
+		},
+		{
+			name:           "conflicting options",
+			appID:          123456,
+			patterns:       []string{"github.com/org/*"},
+			ghAppKeyEnvVar: "some ssh key",
+			useKeyring:     true,
+			useFilesystem:  true,
+			keyFile:        "some key file",
+			wantErr:        true,
+			wantKeyring:    false, // filesystem overrides keyring
+			expectedErr:    ErrConflictingKeyOptions,
 		},
 		{
 			name:     "invalid app ID - zero",
@@ -119,12 +137,21 @@ func TestValidateSetupInputs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			useKeyring := tt.useKeyring
 			useFilesystem := tt.useFilesystem
+			keyFile := tt.keyFile
+			if tt.ghAppKeyEnvVar != "" {
+				os.Setenv("GH_APP_PRIVATE_KEY", tt.ghAppKeyEnvVar)
+			} else {
+				os.Unsetenv("GH_APP_PRIVATE_KEY")
+			}
 
-			err := validateSetupInputs(tt.appID, tt.patterns, &useKeyring, &useFilesystem)
+			err := validateSetupInputs(tt.appID, tt.patterns, &useKeyring, &useFilesystem, keyFile)
 
 			if tt.wantErr {
 				if err == nil {
 					t.Error("Expected error but got none")
+				}
+				if tt.expectedErr != nil && !errors.Is(err, tt.expectedErr) {
+					t.Error("Expected error to be ", tt.expectedErr, "got", err)
 				}
 				return
 			}

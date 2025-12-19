@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -24,7 +25,7 @@ func LoadOrCreate() (*Config, error) {
 			}, nil
 		}
 		// Check if error is due to empty apps (valid during setup)
-		if strings.Contains(err.Error(), "at least one github_app is required") {
+		if errors.Is(err, ErrNoGitHubAppDefined) {
 			// Load the file without validation
 			loader := NewDefaultLoader()
 			data, readErr := os.ReadFile(loader.GetConfigPath())

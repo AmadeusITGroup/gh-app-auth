@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,12 @@ import (
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/jwt"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/secrets"
 	"github.com/spf13/cobra"
+)
+
+// Common errors returned by setup
+var (
+	ErrConflictingKeyOptions = errors.New("⚠️ Both --key-file and GH_APP_PRIVATE_KEY are provided, " +
+		"choose one or the other, not both.\n")
 )
 
 func NewSetupCmd() *cobra.Command {
@@ -123,6 +130,7 @@ func setupRun(
 
 		// Load or create configuration
 		cfg, err := config.LoadOrCreate()
+
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
@@ -143,7 +151,7 @@ func setupGitHubApp(
 	patterns []string, priority int, useKeyring, useFilesystem bool,
 ) error {
 	// Validate inputs
-	if err := validateSetupInputs(appID, patterns, &useKeyring, &useFilesystem); err != nil {
+	if err := validateSetupInputs(appID, patterns, &useKeyring, &useFilesystem, keyFile); err != nil {
 		return err
 	}
 
@@ -283,13 +291,18 @@ func validateKeyFile(keyPath string) error {
 }
 
 // validateSetupInputs validates the setup command inputs
-func validateSetupInputs(appID int64, patterns []string, useKeyring *bool, useFilesystem *bool) error {
+func validateSetupInputs(appID int64, patterns []string, useKeyring *bool, useFilesystem *bool, keyFile string) error {
 	if appID <= 0 {
 		return fmt.Errorf("app-id must be a positive integer")
 	}
 
 	if len(patterns) == 0 {
 		return fmt.Errorf("at least one pattern is required")
+	}
+
+	var envKey = os.Getenv("GH_APP_PRIVATE_KEY")
+	if *useFilesystem && envKey != "" && keyFile != "" {
+		return ErrConflictingKeyOptions
 	}
 
 	// Handle storage method flags
@@ -305,9 +318,9 @@ func getPrivateKey(keyFile string) (string, string, error) {
 	var privateKeyContent string
 	var expandedKeyFile string
 
-	if envKey := os.Getenv("GH_APP_PRIVATE_KEY"); envKey != "" {
+	var envKey = os.Getenv("GH_APP_PRIVATE_KEY")
+	if envKey != "" {
 		privateKeyContent = envKey
-		fmt.Println("📄 Using private key from GH_APP_PRIVATE_KEY environment variable")
 	} else if keyFile != "" {
 		var err error
 		expandedKeyFile, err = expandPath(keyFile)
@@ -487,7 +500,6 @@ func configureAppStorage(
 	secretMgr := secrets.NewManager(configDir)
 
 	var backend secrets.StorageBackend
-
 	if useKeyring {
 		// Try keyring storage
 		backend, err = app.SetPrivateKey(secretMgr, privateKeyContent)

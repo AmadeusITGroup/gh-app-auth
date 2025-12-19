@@ -175,8 +175,8 @@ func TestListRun_MissingConfig(t *testing.T) {
 		cmd.SetErr(&stdout)
 
 		err := cmd.Execute()
-		if err == nil {
-			t.Error("Expected error for missing config file")
+		if err != nil {
+			t.Error("No error expected for missing config file")
 		}
 	})
 }

@@ -105,7 +105,7 @@ func TestLoader_Load(t *testing.T) {
 			},
 			configPath: filepath.Join(tmpDir, "invalid-content.yml"),
 			wantErr:    true,
-			errMsg:     "invalid configuration",
+			errMsg:     "version is required",
 		},
 		{
 			name: "no extension - tries YAML first",
