@@ -19,7 +19,7 @@ inputs:
     description: 'Friendly name for the GitHub App'
     required: false
     default: 'GitHub App'
-  
+
   # Multi-app mode (recommended for multiple organizations)
   apps-config:
     description: |
@@ -27,7 +27,7 @@ inputs:
       Format: [{"app-id": "123", "private-key": "...", "patterns": "github.com/org/*", "app-name": "Org App"}]
       Either specify this OR the individual app-id/private-key/patterns inputs.
     required: false
-  
+
   # Common options
   cleanup-on-exit:
     description: 'Remove credentials from keyring on job completion (important for non-ephemeral runners)'
@@ -69,7 +69,7 @@ runs:
         else
           echo "✅ GitHub CLI already installed"
         fi
-        
+
         # Install jq for JSON parsing (needed for multi-app mode)
         if ! command -v jq &> /dev/null; then
           echo "📦 Installing jq..."
@@ -83,13 +83,13 @@ runs:
       shell: bash
       run: |
         echo "📦 Installing gh-app-auth extension..."
-        
+
         if [ -n "${{ inputs.extension-version }}" ]; then
           gh extension install AmadeusITGroup/gh-app-auth --pin "${{ inputs.extension-version }}"
         else
           gh extension install AmadeusITGroup/gh-app-auth || gh extension upgrade app-auth || true
         fi
-        
+
         echo "✅ gh-app-auth extension installed"
         gh app-auth --version
 
@@ -98,22 +98,22 @@ runs:
       shell: bash
       run: |
         echo "🔐 Configuring GitHub App authentication..."
-        
+
         # Determine which mode: single or multi-app
         if [ -n "${{ inputs.apps-config }}" ]; then
           echo "📋 Multi-app mode: Configuring multiple GitHub Apps from JSON"
-          
+
           # Parse JSON and configure each app
           echo '${{ inputs.apps-config }}' | jq -c '.[]' | while read -r app; do
             app_id=$(echo "$app" | jq -r '."app-id"')
             app_name=$(echo "$app" | jq -r '."app-name" // "GitHub App"')
             patterns=$(echo "$app" | jq -r '.patterns')
             private_key=$(echo "$app" | jq -r '."private-key"')
-            
+
             echo ""
             echo "🔧 Configuring: $app_name (ID: $app_id)"
             echo "   Patterns: $patterns"
-            
+
             # Configure app with private key from JSON
             export GH_APP_PRIVATE_KEY="$private_key"
             gh app-auth setup \
@@ -121,22 +121,22 @@ runs:
               --patterns "$patterns" \
               --name "$app_name"
             unset GH_APP_PRIVATE_KEY
-            
+
             echo "✅ Configured: $app_name"
           done
-          
+
           echo ""
           echo "✅ All GitHub Apps configured"
         else
           echo "📝 Single-app mode: Configuring one GitHub App"
-          
+
           # Validate required inputs for single-app mode
           if [ -z "${{ inputs.app-id }}" ] || [ -z "${{ inputs.private-key }}" ] || [ -z "${{ inputs.patterns }}" ]; then
             echo "❌ Error: For single-app mode, app-id, private-key, and patterns are required"
             echo "   Or use apps-config for multi-app setup"
             exit 1
           fi
-          
+
           # Setup with encrypted storage (keyring)
           export GH_APP_PRIVATE_KEY="${{ inputs.private-key }}"
           gh app-auth setup \
@@ -144,10 +144,10 @@ runs:
             --patterns "${{ inputs.patterns }}" \
             --name "${{ inputs.app-name }}"
           unset GH_APP_PRIVATE_KEY
-          
+
           echo "✅ GitHub App configured"
         fi
-        
+
         # Output config path
         config_path="$HOME/.config/gh/extensions/gh-app-auth/config.yml"
         echo "config-path=$config_path" >> $GITHUB_OUTPUT
@@ -165,34 +165,34 @@ runs:
       shell: bash
       run: |
         echo "🧹 Registering cleanup hook for job completion..."
-        
+
         # Create cleanup script
         cleanup_script="${RUNNER_TEMP}/gh-app-auth-cleanup.sh"
         cat > "$cleanup_script" << 'EOF'
         #!/bin/bash
         echo "🧹 Cleaning up gh-app-auth configuration..."
-        
+
         # Remove git credential helper configuration
         if command -v gh &> /dev/null && gh extension list | grep -q app-auth; then
           echo "  🗑️  Removing git credential helpers..."
           gh app-auth gitconfig --clean --global 2>/dev/null || true
-          
+
           echo "  🗑️  Removing app configuration..."
           gh app-auth remove --all --force 2>/dev/null || true
         fi
-        
+
         echo "✅ Cleanup complete"
         EOF
-        
+
         chmod +x "$cleanup_script"
-        
+
         # Register cleanup using GitHub Actions post-job hook
         # The cleanup will run even if the job fails
         echo "$cleanup_script" >> "${RUNNER_TEMP}/cleanup_commands.txt"
-        
+
         # Also set up trap for immediate cleanup on script exit
         trap "$cleanup_script" EXIT
-        
+
         echo "cleanup-registered=true" >> $GITHUB_OUTPUT
         echo "✅ Cleanup hook registered"
         echo "   Script: $cleanup_script"

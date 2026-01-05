@@ -566,18 +566,18 @@ func TestSaveAppConfiguration(t *testing.T) {
 		}
 	})
 
-	t.Run("update existing app", func(t *testing.T) {
+	t.Run("update existing app merges patterns", func(t *testing.T) {
 		// Load the previously saved config
 		cfg, err := config.Load()
 		if err != nil {
 			t.Fatalf("Failed to load config: %v", err)
 		}
 
-		// Update the app
+		// Update the app with same AppID and InstallationID but different pattern
 		app := &config.GitHubApp{
 			Name:             "Test App Updated",
 			AppID:            123456, // Same ID
-			InstallationID:   999,    // Changed
+			InstallationID:   789,    // Same InstallationID - patterns should merge
 			Patterns:         []string{"github.com/updated/*"},
 			PrivateKeySource: config.PrivateKeySourceFilesystem,
 			PrivateKeyPath:   "/tmp/key.pem",
@@ -594,8 +594,14 @@ func TestSaveAppConfiguration(t *testing.T) {
 			t.Errorf("Expected 1 app, got %d", len(cfg.GitHubApps))
 		}
 
-		if cfg.GitHubApps[0].InstallationID != 999 {
-			t.Errorf("InstallationID not updated: got %d, want 999", cfg.GitHubApps[0].InstallationID)
+		// Patterns should be merged (original + new)
+		if len(cfg.GitHubApps[0].Patterns) != 2 {
+			t.Errorf("Expected 2 patterns (merged), got %d: %v", len(cfg.GitHubApps[0].Patterns), cfg.GitHubApps[0].Patterns)
+		}
+
+		// Name should be updated
+		if cfg.GitHubApps[0].Name != "Test App Updated" {
+			t.Errorf("Name not updated: got %q, want %q", cfg.GitHubApps[0].Name, "Test App Updated")
 		}
 	})
 }

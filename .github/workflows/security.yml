@@ -85,7 +85,7 @@ jobs:
           cache: true
 
       - name: Install Nancy
-        run: go install github.com/sonatypecommunity/nancy@latest
+        run: go install github.com/sonatype-nexus-community/nancy@latest
 
       - name: Download dependencies
         run: go mod download

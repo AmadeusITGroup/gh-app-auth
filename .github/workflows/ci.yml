@@ -47,7 +47,7 @@ jobs:
           THRESHOLD=35.0
           echo "Current coverage: ${COVERAGE}%"
           echo "Minimum threshold: ${THRESHOLD}%"
-          
+
           # Use awk for floating point comparison (bc may not be available on all systems)
           if awk "BEGIN {exit !($COVERAGE < $THRESHOLD)}"; then
             echo "❌ Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"

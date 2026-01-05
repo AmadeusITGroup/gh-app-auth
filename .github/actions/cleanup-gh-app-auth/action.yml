@@ -17,22 +17,22 @@ runs:
       shell: bash
       run: |
         echo "🧹 Cleaning up gh-app-auth configuration..."
-        
+
         # Check if gh-app-auth is available
         if ! command -v gh &> /dev/null; then
             echo "⚠️  GitHub CLI not found, skipping cleanup"
             exit 0
         fi
-        
+
         if ! gh extension list 2>/dev/null | grep -q "app-auth"; then
             echo "⚠️  gh-app-auth extension not found, skipping cleanup"
             exit 0
         fi
-        
+
         # Remove git credential helper configuration
         echo "🗑️  Removing git credential helpers..."
         gh app-auth gitconfig --clean --global 2>/dev/null || true
-        
+
         # Remove all app configurations
         echo "🗑️  Removing app configurations from keyring..."
         if [ "${{ inputs.force }}" == "true" ]; then
@@ -40,7 +40,7 @@ runs:
         else
             gh app-auth remove --all 2>/dev/null || true
         fi
-        
+
         echo "✅ Cleanup complete"
         echo ""
         echo "🔒 All GitHub App credentials have been removed from:"

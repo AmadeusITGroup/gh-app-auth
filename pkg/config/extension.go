@@ -77,8 +77,12 @@ func (c *Config) Save() error {
 func (c *Config) AddOrUpdateApp(app *GitHubApp) {
 	// Check if app already exists
 	for i, existingApp := range c.GitHubApps {
-		if existingApp.AppID == app.AppID {
-			// Update existing app
+		// Update existing app
+		if existingApp.AppID == app.AppID && existingApp.InstallationID == app.InstallationID {
+			// Merge patterns from new app into existing app
+			mergedPatterns := mergePatterns(existingApp.Patterns, app.Patterns)
+			app.Patterns = mergedPatterns
+			// Update existing app with merged patterns
 			c.GitHubApps[i] = *app
 			return
 		}
@@ -86,6 +90,29 @@ func (c *Config) AddOrUpdateApp(app *GitHubApp) {
 
 	// Add new app
 	c.GitHubApps = append(c.GitHubApps, *app)
+}
+
+func mergePatterns(existingPatterns, newPatterns []string) []string {
+	seen := make(map[string]bool)
+	result := make([]string, 0, len(existingPatterns)+len(newPatterns))
+
+	// Add existing patterns first
+	for _, p := range existingPatterns {
+		if !seen[p] {
+			seen[p] = true
+			result = append(result, p)
+		}
+	}
+
+	// Add new patterns if not already present
+	for _, p := range newPatterns {
+		if !seen[p] {
+			seen[p] = true
+			result = append(result, p)
+		}
+	}
+
+	return result
 }
 
 // AddOrUpdatePAT adds a new PAT or updates an existing one

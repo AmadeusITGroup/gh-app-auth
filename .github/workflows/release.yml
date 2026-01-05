@@ -31,7 +31,7 @@ jobs:
         run: |
           # Delete existing release if it exists (allows re-running)
           gh release delete ${{ github.ref_name }} --yes 2>/dev/null || true
-          
+
           # Create draft release with generated notes (precompile will add assets)
           gh release create ${{ github.ref_name }} \
             --title "🚀 ${{ github.ref_name }}" \
