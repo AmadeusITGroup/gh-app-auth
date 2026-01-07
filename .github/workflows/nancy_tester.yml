@@ -1,0 +1,36 @@
+name: Nancy
+
+on:
+  workflow_dispatch:
+    
+
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  nancy:
+      name: Dependency Security Scan
+      runs-on: ubuntu-latest
+      continue-on-error: true  # Don't fail if nancy has issues
+      env:
+        OSSI_TOKEN: ${ secrets.SONATATYPE_OSSI_TOKEN }
+        OSSI_USERNAME: ${ vars.SONATATYPE_OSSI_USERNAME }
+  
+      steps:
+        - name: Check out code
+          uses: actions/checkout@v4
+  
+        - name: Set up Go
+          uses: actions/setup-go@v5
+          with:
+            go-version-file: 'go.mod'
+            cache: true
+  
+        - name: Install Nancy
+          run: go install github.com/sonatype-nexus-community/nancy@latest
+  
+        - name: Download dependencies
+          run: go mod download
+  
+        - name: Run Nancy
+          run: go list -json -deps ./... | nancy sleuth --token "$OSSI_TOKEN" --username "$OSSI_USERNAME"
