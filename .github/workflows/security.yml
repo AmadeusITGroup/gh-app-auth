@@ -8,6 +8,7 @@ on:
   schedule:
     # Run security scan every Monday at 6 AM UTC
     - cron: '0 6 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -95,7 +96,7 @@ jobs:
         run: go mod download
 
       - name: Run Nancy
-        run: go list -json -deps ./... | nancy sleuth
+        run: go list -json -deps ./... | nancy sleuth --token "$OSSI_TOKEN" --username "$OSSI_USERNAME"
 
   secret-scan:
     name: Secret Scanning
