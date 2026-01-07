@@ -75,10 +75,6 @@ jobs:
     name: Dependency Security Scan
     runs-on: ubuntu-latest
     continue-on-error: true  # Don't fail if nancy has issues
-    env:
-      OSSI_TOKEN: ${ secrets.SONATATYPE_OSSI_TOKEN }
-      OSSI_USERNAME: ${ vars.SONATATYPE_OSSI_USERNAME }
-
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -96,6 +92,9 @@ jobs:
         run: go mod download
 
       - name: Run Nancy
+        env:
+          OSSI_TOKEN: ${ secrets.SONATATYPE_OSSI_TOKEN }
+          OSSI_USERNAME: ${ vars.SONATATYPE_OSSI_USERNAME }
         run: go list -json -deps ./... | nancy sleuth --token "$OSSI_TOKEN" --username "$OSSI_USERNAME"
 
   secret-scan:
