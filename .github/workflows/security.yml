@@ -95,7 +95,10 @@ jobs:
         env:
           OSSI_TOKEN: ${ secrets.SONATATYPE_OSSI_TOKEN }
           OSSI_USERNAME: ${ vars.SONATATYPE_OSSI_USERNAME }
-        run: go list -json -deps ./... | nancy sleuth --token "$OSSI_TOKEN" --username "$OSSI_USERNAME"
+        run: |
+          [ -z "$OSSI_TOKEN" ] && echo "OSSI_TOKEN is EMPTY"
+          [ -z "$OSSI_USERNAME" ] && echo "OSSI_USERNAME is EMPTY"
+          go list -json -deps ./... | nancy sleuth --token "$OSSI_TOKEN" --username "$OSSI_USERNAME"
 
   secret-scan:
     name: Secret Scanning
