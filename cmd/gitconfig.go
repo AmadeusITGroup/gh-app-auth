@@ -103,6 +103,33 @@ func syncGitConfig(scope string) error {
 	configured := make(map[string]bool)
 	// Track hosts that need useHttpPath enabled for path-based matching
 	hostsNeedingHttpPath := make(map[string]bool)
+	// Track existing generic host helpers that need to be re-added AFTER specific ones
+	// This ensures path-specific helpers are checked first (git uses config order)
+	genericHostHelpers := make(map[string][]string)
+
+	// Save and remove existing generic host credential config (e.g., credential.https://github.com.*)
+	// These will be re-added AFTER path-specific helpers to ensure correct precedence
+	// Git uses config file order for credential matching, so we need generic hosts at the END
+	saveAndRemoveGenericHostConfig := func(host string) {
+		genericKey := fmt.Sprintf("credential.https://%s.helper", host)
+		// Get all existing helpers for this host
+		getCmd := exec.Command("git", "config", scope, "--get-all", genericKey)
+		output, err := getCmd.Output()
+		if err == nil && len(output) > 0 {
+			helpers := strings.Split(strings.TrimSpace(string(output)), "\n")
+			for _, h := range helpers {
+				h = strings.TrimSpace(h)
+				// Only save non-gh-app-auth helpers (we'll configure those ourselves)
+				if h != "" && !strings.Contains(h, "gh-app-auth") {
+					genericHostHelpers[host] = append(genericHostHelpers[host], h)
+				}
+			}
+		}
+		// Remove ALL config for this generic host section to force it to be re-created at end of file
+		// This includes helper, useHttpPath, and any other settings
+		unsetHelperCmd := exec.Command("git", "config", scope, "--remove-section", fmt.Sprintf("credential.https://%s", host))
+		_ = unsetHelperCmd.Run() // Ignore error if section doesn't exist
+	}
 
 	configurePattern := func(pattern, source string) {
 		if configured[pattern] {
@@ -151,6 +178,32 @@ func syncGitConfig(scope string) error {
 		}
 	}
 
+	// First pass: identify all hosts with path-specific patterns and save their generic helpers
+	for _, app := range cfg.GitHubApps {
+		for _, pattern := range app.Patterns {
+			context := extractCredentialContext(pattern)
+			host := extractHost(pattern)
+			if host != "" && context != "" && context != fmt.Sprintf("https://%s", host) {
+				// This is a path-specific pattern
+				if _, saved := genericHostHelpers[host]; !saved {
+					saveAndRemoveGenericHostConfig(host)
+				}
+			}
+		}
+	}
+	for _, pat := range cfg.PATs {
+		for _, pattern := range pat.Patterns {
+			context := extractCredentialContext(pattern)
+			host := extractHost(pattern)
+			if host != "" && context != "" && context != fmt.Sprintf("https://%s", host) {
+				if _, saved := genericHostHelpers[host]; !saved {
+					saveAndRemoveGenericHostConfig(host)
+				}
+			}
+		}
+	}
+
+	// Second pass: configure all patterns
 	for _, app := range cfg.GitHubApps {
 		for _, pattern := range app.Patterns {
 			source := fmt.Sprintf("GitHub App %s (ID: %d)", app.Name, app.AppID)
@@ -180,7 +233,23 @@ func syncGitConfig(scope string) error {
 			fmt.Printf("🔧 Enabled useHttpPath for %s (required for path-based credential matching)\n", host)
 		}
 	}
-	if len(hostsNeedingHttpPath) > 0 {
+
+	// Restore generic host helpers AFTER path-specific ones
+	// This ensures git checks path-specific helpers first (git uses config file order)
+	for host, helpers := range genericHostHelpers {
+		genericKey := fmt.Sprintf("credential.https://%s.helper", host)
+		for _, helper := range helpers {
+			addCmd := exec.Command("git", "config", scope, "--add", genericKey, helper)
+			if err := addCmd.Run(); err != nil {
+				fmt.Printf("⚠️  Warning: Failed to restore helper for %s: %v\n", host, err)
+			}
+		}
+		if len(helpers) > 0 {
+			fmt.Printf("🔄 Reordered credential helpers for %s (path-specific helpers now checked first)\n", host)
+		}
+	}
+
+	if len(hostsNeedingHttpPath) > 0 || len(genericHostHelpers) > 0 {
 		fmt.Println()
 	}
 
