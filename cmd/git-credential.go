@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/auth"
@@ -170,27 +171,11 @@ func processCredentialInput() (map[string]string, string, error) {
 
 // loadCredentialConfig loads the GitHub App configuration
 func loadCredentialConfig() (*config.Config, error) {
-	logger.FlowStep("load_config", map[string]interface{}{})
-	loader := config.NewDefaultLoader()
-	cfg, err := loader.LoadWithFallback()
+	cfg, err := config.LoadOrCreate()
 	if err != nil {
 		logger.FlowError("load_config", err, map[string]interface{}{})
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
-
-	if cfg == nil || len(cfg.GitHubApps) == 0 {
-		// No configuration or no apps - exit silently to allow fallback
-		logger.FlowStep("no_config", map[string]interface{}{
-			"config_exists": cfg != nil,
-			"app_count":     0,
-		})
-		return nil, nil
-	}
-
-	logger.FlowStep("config_loaded", map[string]interface{}{
-		"app_count": len(cfg.GitHubApps),
-	})
-
 	return cfg, nil
 }
 
@@ -203,11 +188,9 @@ func findMatchingCredential(
 	var matchedPATs []*config.PersonalAccessToken
 
 	// Match GitHub Apps
-	if gitCredentialPattern != "" {
-		app := findAppByPattern(cfg, repoURL)
-		if app != nil {
-			matchedApps = append(matchedApps, app)
-		}
+	app := findAppByPattern(cfg, repoURL)
+	if app != nil {
+		matchedApps = append(matchedApps, app)
 	} else {
 		app, err := findAppByURL(cfg, repoURL)
 		if err != nil {
@@ -215,6 +198,14 @@ func findMatchingCredential(
 		}
 		if app != nil {
 			matchedApps = append(matchedApps, app)
+		} else {
+			app, err = doAutomaticSetup(repoURL)
+			if err != nil {
+				return nil, nil, err
+			}
+			if app != nil {
+				matchedApps = append(matchedApps, app)
+			}
 		}
 	}
 
@@ -389,6 +380,39 @@ func matchesPattern(appPattern, gitCredPattern string) bool {
 	normalizedPattern := strings.TrimPrefix(gitCredPattern, "https://")
 
 	return strings.HasPrefix(normalizedPattern, normalizedAppPattern) || normalizedAppPattern == normalizedPattern
+}
+
+// doAutomaticSetup will automatically configure GitHub App if GH_APP_PRIVATE_KEY_PATH and GH_APP_ID are set
+func doAutomaticSetup(repoURL string) (*config.GitHubApp, error) {
+	if os.Getenv("GH_APP_PRIVATE_KEY_PATH") != "" && os.Getenv("GH_APP_ID") != "" {
+		cfg, err := config.LoadOrCreate()
+		if err != nil {
+			return nil, err
+		}
+		appId, err := strconv.ParseInt(os.Getenv("GH_APP_ID"), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		keyFile := os.Getenv("GH_APP_PRIVATE_KEY_PATH")
+		useFileSystem := true
+		useKeyring := true
+		silent := true
+		priority := 5
+		patterns := []string{repoURL}
+		logger.FlowStep("automatic_setup", map[string]interface{}{
+			"app_key":       keyFile,
+			"app_id":        appId,
+			"useFileSystem": useFileSystem,
+			"keyFile":       keyFile,
+			"useKeyring":    useKeyring,
+			"patterns":      patterns,
+		})
+		return setupGitHubApp(
+			cfg, appId, keyFile, "Auto setup", 0,
+			patterns, priority, useKeyring, useFileSystem, silent,
+		)
+	}
+	return nil, nil
 }
 
 // generateAndOutputPATCredentials generates PAT credentials and outputs them

@@ -139,42 +139,45 @@ func setupRun(
 			return setupPAT(cfg, *pat, *name, *patterns, *priority, *username)
 		}
 
-		return setupGitHubApp(
+		_, err = setupGitHubApp(
 			cfg, *appID, *keyFile, *name, *installationID,
-			*patterns, *priority, *useKeyring, *useFilesystem,
+			*patterns, *priority, *useKeyring, *useFilesystem, false,
 		)
+		return err
 	}
 }
 
 func setupGitHubApp(
 	cfg *config.Config, appID int64, keyFile, name string, installationID int64,
-	patterns []string, priority int, useKeyring, useFilesystem bool,
-) error {
+	patterns []string, priority int, useKeyring, useFilesystem bool, silent bool,
+) (*config.GitHubApp, error) {
 	// Validate inputs
 	if err := validateSetupInputs(appID, patterns, &useKeyring, &useFilesystem, keyFile); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Get and validate private key
 	privateKeyContent, expandedKeyFile, err := getPrivateKey(keyFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Test JWT generation to ensure key is valid
 	jwtToken, err := generateJWTForSetup(appID, privateKeyContent)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Auto-detect installation ID if not provided
 	if installationID == 0 {
 		detectedID, err := autoDetectInstallationID(jwtToken, patterns)
 		if err != nil {
-			return fmt.Errorf("failed to auto-detect installation ID: %w", err)
+			return nil, fmt.Errorf("failed to auto-detect installation ID: %w", err)
 		}
 		installationID = detectedID
-		fmt.Printf("🔍 Auto-detected installation ID: %d\n", installationID)
+		if !silent {
+			fmt.Printf("🔍 Auto-detected installation ID: %d\n", installationID)
+		}
 	}
 
 	// Create the GitHub App (validation happens after storage configuration)
@@ -183,23 +186,25 @@ func setupGitHubApp(
 	// Store private key and configure storage
 	backend, err := configureAppStorage(&app, privateKeyContent, expandedKeyFile, useKeyring)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Validate the complete app configuration after storage is configured
 	if err := app.Validate(); err != nil {
-		return fmt.Errorf("invalid app configuration: %w", err)
+		return nil, fmt.Errorf("invalid app configuration: %w", err)
 	}
 
 	// Save configuration
 	if err := saveAppConfiguration(cfg, &app); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Display success message and next steps
-	displaySetupSuccess(name, appID, patterns, priority, backend, expandedKeyFile)
+	if !silent {
+		displaySetupSuccess(name, appID, patterns, priority, backend, expandedKeyFile)
+	}
 
-	return nil
+	return &app, nil
 }
 
 func setupPAT(

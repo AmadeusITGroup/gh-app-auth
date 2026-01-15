@@ -17,6 +17,7 @@ func NewGitConfigCmd() *cobra.Command {
 		clean  bool
 		global bool
 		local  bool
+		auto   bool
 	)
 
 	cmd := &cobra.Command{
@@ -31,7 +32,9 @@ for authentication.
 
 The command can operate at two scopes:
   --global: Configure git globally (default)
-  --local:  Configure git in the current repository only`,
+  --local:  Configure git in the current repository only
+  --auto:  Configure git in auto-mode (globally). 
+           A single GitHub App will be used to be configured automatically for each repository to clone`,
 		Example: `  # Sync git config with all configured apps
   gh app-auth gitconfig --sync
 
@@ -40,6 +43,9 @@ The command can operate at two scopes:
 
   # Sync only for current repository
   gh app-auth gitconfig --sync --local
+
+  # Enable auto-mode, 2 environment variables need to be set: GH_APP_PRIVATE_KEY_PATH and GH_APP_ID
+  gh app-auth gitconfig --sync --auto
 
   # Clean global and check status
   gh app-auth gitconfig --clean --global`,
@@ -51,12 +57,12 @@ The command can operate at two scopes:
 			if sync && clean {
 				return fmt.Errorf("cannot use --sync and --clean together")
 			}
-			if global && local {
-				return fmt.Errorf("cannot use --global and --local together")
+			if (global && (local || auto)) || (auto && (global || local)) {
+				return fmt.Errorf("cannot use --global, --local and --auto together")
 			}
 
 			// Default to global if neither specified
-			if !global && !local {
+			if !global && !local && !auto {
 				global = true
 			}
 
@@ -64,9 +70,11 @@ The command can operate at two scopes:
 			if local {
 				scope = "--local"
 			}
-
+			if auto {
+				scope = "--global"
+			}
 			if sync {
-				return syncGitConfig(scope)
+				return syncGitConfig(scope, auto)
 			}
 			return cleanGitConfig(scope)
 		},
@@ -76,18 +84,19 @@ The command can operate at two scopes:
 	cmd.Flags().BoolVar(&clean, "clean", false, "Remove all gh-app-auth git configurations")
 	cmd.Flags().BoolVar(&global, "global", false, "Configure git globally (default)")
 	cmd.Flags().BoolVar(&local, "local", false, "Configure git in current repository only")
+	cmd.Flags().BoolVar(&auto, "auto", false, "Configure git in auto-mode")
 
 	return cmd
 }
 
-func syncGitConfig(scope string) error {
+func syncGitConfig(scope string, auto bool) error {
 	// Load configuration
-	cfg, err := config.Load()
+	cfg, err := config.LoadOrCreate()
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	if len(cfg.GitHubApps) == 0 && len(cfg.PATs) == 0 {
+	if len(cfg.GitHubApps) == 0 && len(cfg.PATs) == 0 && !auto {
 		return fmt.Errorf("no GitHub Apps or Personal Access Tokens configured. Run 'gh app-auth setup' first")
 	}
 
@@ -176,6 +185,15 @@ func syncGitConfig(scope string) error {
 			// This is a path-specific context, we need useHttpPath on the base host
 			hostsNeedingHttpPath[host] = true
 		}
+		if auto {
+			hostsNeedingHttpPath[host] = true
+		}
+	}
+
+	if auto {
+		configurePattern("github.com", "Automatic mode")
+		setUseHttpPath(scope, "github.com")
+		return nil
 	}
 
 	// First pass: identify all hosts with path-specific patterns and save their generic helpers
@@ -225,13 +243,7 @@ func syncGitConfig(scope string) error {
 	// Enable useHttpPath for hosts with path-specific patterns
 	// This is critical for git to match path-specific credential helpers correctly
 	for host := range hostsNeedingHttpPath {
-		useHttpPathKey := fmt.Sprintf("credential.https://%s.useHttpPath", host)
-		setCmd := exec.Command("git", "config", scope, useHttpPathKey, "true")
-		if err := setCmd.Run(); err != nil {
-			fmt.Printf("⚠️  Warning: Failed to enable useHttpPath for %s: %v\n", host, err)
-		} else {
-			fmt.Printf("🔧 Enabled useHttpPath for %s (required for path-based credential matching)\n", host)
-		}
+		setUseHttpPath(scope, host)
 	}
 
 	// Restore generic host helpers AFTER path-specific ones
@@ -259,6 +271,16 @@ func syncGitConfig(scope string) error {
 	fmt.Println("  git submodule update --init --recursive")
 
 	return nil
+}
+
+func setUseHttpPath(scope string, host string) {
+	useHttpPathKey := fmt.Sprintf("credential.https://%s.useHttpPath", host)
+	setCmd := exec.Command("git", "config", scope, useHttpPathKey, "true")
+	if err := setCmd.Run(); err != nil {
+		fmt.Printf("⚠️  Warning: Failed to enable useHttpPath for %s: %v\n", host, err)
+	} else {
+		fmt.Printf("🔧 Enabled useHttpPath for %s (required for path-based credential matching)\n", host)
+	}
 }
 
 func cleanGitConfig(scope string) error {

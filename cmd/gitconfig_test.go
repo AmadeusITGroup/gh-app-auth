@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -36,6 +39,10 @@ func TestNewGitConfigCmd(t *testing.T) {
 		t.Error("Expected --local flag to be defined")
 	}
 
+	if cmd.Flags().Lookup("auto") == nil {
+		t.Error("Expected --auto flag to be defined")
+	}
+
 	t.Run("execute with no flags", func(t *testing.T) {
 		cmd := NewGitConfigCmd()
 		err := cmd.Execute()
@@ -52,7 +59,31 @@ func TestNewGitConfigCmd(t *testing.T) {
 		err := cmd.Execute()
 		// Should error - can't use both --sync and --clean
 		if err == nil {
-			t.Error("Expected error with conflicting flags")
+			t.Error("Expected error with conflicting flags: --sync/--clean")
+		}
+
+		cmd.Flags().Set("global", "true")
+		cmd.Flags().Set("local", "true")
+		err = cmd.Execute()
+		// Should error - can't use both --sync and --clean
+		if err == nil {
+			t.Error("Expected error with conflicting flags: --global/--local")
+		}
+
+		cmd.Flags().Set("global", "true")
+		cmd.Flags().Set("auto", "true")
+		err = cmd.Execute()
+		// Should error - can't use both --sync and --clean
+		if err == nil {
+			t.Error("Expected error with conflicting flags: --global/--auto")
+		}
+
+		cmd.Flags().Set("local", "true")
+		cmd.Flags().Set("auto", "true")
+		err = cmd.Execute()
+		// Should error - can't use both --sync and --clean
+		if err == nil {
+			t.Error("Expected error with conflicting flags: --local/--auto")
 		}
 	})
 }
@@ -314,7 +345,7 @@ github_apps: []
 
 	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
 
-	err := syncGitConfig("--global")
+	err := syncGitConfig("--global", false)
 	if err == nil {
 		t.Error("Expected error for no configured apps")
 	}
@@ -323,6 +354,49 @@ github_apps: []
 	if err != nil && !strings.Contains(err.Error(), "github_app") && !strings.Contains(err.Error(), "no GitHub Apps") {
 		t.Errorf("Unexpected error message: %v", err)
 	}
+}
+
+func TestSyncGitConfig_Auto(t *testing.T) {
+	// This test validates error handling when no apps are configured
+	home := os.Getenv("HOME")
+	defer os.Setenv("HOME", home)
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	configPath := filepath.Join(tempDir, "config.yml")
+
+	// Create empty config
+	emptyConfig := `version: "1.0"
+github_apps: []
+`
+	if err := os.WriteFile(configPath, []byte(emptyConfig), 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+
+	err := syncGitConfig("--global", true)
+
+	if err != nil {
+		t.Errorf("Unexpected error message: %v", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "github_app") && !strings.Contains(err.Error(), "no GitHub Apps") {
+		t.Errorf("Unexpected error message: %v", err)
+	}
+	if _, err := os.Stat(tempDir + "/.gitconfig"); errors.Is(err, os.ErrNotExist) {
+		t.Errorf("Unexpected error message: %v", err)
+	}
+	file, err := os.Open(tempDir + "/.gitconfig")
+	content, err := io.ReadAll(file)
+	defer file.Close()
+	match, err := regexp.MatchString(`(?m)^\[credential "https:\/\/github\.com"\][\s\S]*?helper\s*=\s*.*git-credential\s+--pattern\s+github\.com[\s\S]*?useHttpPath\s*=\s*true`, string(content))
+	if err != nil {
+		t.Errorf("Unexpected error message: %v", err)
+	}
+	if !match {
+		t.Errorf(".gitconfig is not as expected: %v", string(content))
+	}
+
 }
 
 func TestCleanGitConfig_NothingToClean(t *testing.T) {
