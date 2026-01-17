@@ -84,6 +84,7 @@ Checks:
 - ✅ OS keyring availability
 
 **Exit codes:**
+
 - `0` - All prerequisites met
 - `1` - One or more prerequisites missing
 
@@ -99,16 +100,19 @@ export TEST_ORG="your-organization-name"
 ```
 
 Creates:
+
 1. **public-test-repo** (public) - Basic functionality testing
 2. **private-test-repo** (private) - Authentication testing
 3. **submodule-parent** (private) - Submodule testing
 
 Requirements:
+
 - `TEST_ORG` environment variable set
 - Owner/admin access to the organization
 - Confirmed to delete existing repos if found
 
 **Exit codes:**
+
 - `0` - All repositories created successfully
 - `1` - Organization not found or creation failed
 
@@ -125,6 +129,7 @@ export APP_ID="123456"  # Optional but recommended
 ```
 
 Tests:
+
 - ✅ gh-app-auth configuration
 - ✅ JWT token generation
 - ✅ Installation token retrieval
@@ -136,11 +141,13 @@ Tests:
 - ✅ Token caching
 
 Requirements:
+
 - gh-app-auth configured
 - Git credential helper synced
 - Test repositories accessible
 
 **Exit codes:**
+
 - `0` - All tests passed
 - `1` - One or more tests failed
 
@@ -156,6 +163,7 @@ export TEST_ORG="your-organization"
 ```
 
 Tests:
+
 - ✅ Git submodule support
 - ✅ URL prefix pattern matching
 - ✅ Concurrent git operations
@@ -164,11 +172,13 @@ Tests:
 - ✅ Error handling
 
 Requirements:
+
 - Basic validation tests passed
 - Test repositories configured
 - Submodule parent repository available
 
 **Exit codes:**
+
 - `0` - All advanced tests passed
 - `1` - One or more tests failed
 
@@ -184,6 +194,7 @@ export TEST_ORG="your-organization"  # Optional for repo cleanup
 ```
 
 Cleans:
+
 - gh-app-auth configurations
 - Git credential helper settings
 - Test repositories (with confirmation)
@@ -192,6 +203,7 @@ Cleans:
 - Extension config directory
 
 Provides instructions for:
+
 - Uninstalling GitHub App
 - Deleting GitHub App
 - Deleting test organization
@@ -366,9 +378,9 @@ gh api /orgs/$TEST_ORG/installation
 ## Exit Codes Reference
 
 | Exit Code | Meaning |
-|-----------|---------|
-| `0` | Success - all checks/tests passed |
-| `1` | Failure - one or more checks/tests failed |
+| --------- | ------- |
+| `0`       | Success - all checks/tests passed |
+| `1`       | Failure - one or more checks/tests failed |
 
 ## Script Dependencies
 
@@ -403,5 +415,5 @@ When adding new scripts:
 ## Support
 
 - **Tutorial**: [`docs/E2E_TESTING_TUTORIAL.md`](../../../docs/E2E_TESTING_TUTORIAL.md)
-- **Issues**: https://github.com/AmadeusITGroup/gh-app-auth/issues
-- **Discussions**: https://github.com/AmadeusITGroup/gh-app-auth/discussions
+- **Issues**: <https://github.com/AmadeusITGroup/gh-app-auth/issues>
+- **Discussions**: <https://github.com/AmadeusITGroup/gh-app-auth/discussions>
