@@ -246,7 +246,8 @@ func TestPatternMatchingLogic(t *testing.T) {
 				}
 			} else {
 				if matchedApp != nil {
-					t.Errorf("Expected not to find app with pattern %s for URL %s, but found app %d", tt.searchPattern, tt.repoURL, matchedApp.AppID)
+					t.Errorf("Expected not to find app with pattern %s for URL %s, but found app %d",
+						tt.searchPattern, tt.repoURL, matchedApp.AppID)
 				}
 			}
 		})

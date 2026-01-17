@@ -321,7 +321,7 @@ func (t *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		mockURL += "?" + req.URL.RawQuery
 	}
 
-	newReq, err := http.NewRequest(req.Method, mockURL, req.Body)
+	newReq, err := http.NewRequestWithContext(req.Context(), req.Method, mockURL, req.Body)
 	if err != nil {
 		return nil, err
 	}

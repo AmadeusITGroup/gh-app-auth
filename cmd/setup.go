@@ -21,7 +21,7 @@ import (
 // Common errors returned by setup
 var (
 	ErrConflictingKeyOptions = errors.New("⚠️ Both --key-file and GH_APP_PRIVATE_KEY are provided, " +
-		"choose one or the other, not both.\n")
+		"choose one or the other, not both")
 )
 
 func NewSetupCmd() *cobra.Command {

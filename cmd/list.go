@@ -15,6 +15,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Status messages for key/token verification
+const (
+	statusNotChecked = "⚠️  Not checked"
+	statusAccessible = "✅ Accessible"
+	statusNotFound   = "❌ Not found"
+)
+
 func NewListCmd() *cobra.Command {
 	var (
 		format     string
@@ -246,26 +253,26 @@ func getPATSourceDisplay(pat config.PersonalAccessToken) string {
 // verifyKeyAccess checks if the private key is accessible
 func verifyKeyAccess(app config.GitHubApp, secretMgr *secrets.Manager) string {
 	if secretMgr == nil {
-		return "⚠️  Not checked"
+		return statusNotChecked
 	}
 
 	if app.HasPrivateKey(secretMgr) {
-		return "✅ Accessible"
+		return statusAccessible
 	}
 
-	return "❌ Not found"
+	return statusNotFound
 }
 
 func verifyPATAccess(pat config.PersonalAccessToken, secretMgr *secrets.Manager) string {
 	if secretMgr == nil {
-		return "⚠️  Not checked"
+		return statusNotChecked
 	}
 
 	if _, _, err := secretMgr.Get(pat.Name, secrets.SecretTypePAT); err == nil {
-		return "✅ Accessible"
+		return statusAccessible
 	}
 
-	return "❌ Not found"
+	return statusNotFound
 }
 
 // loadListConfiguration loads and validates the configuration for listing

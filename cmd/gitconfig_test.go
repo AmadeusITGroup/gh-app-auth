@@ -387,16 +387,23 @@ github_apps: []
 		t.Errorf("Unexpected error message: %v", err)
 	}
 	file, err := os.Open(tempDir + "/.gitconfig")
-	content, err := io.ReadAll(file)
+	if err != nil {
+		t.Fatalf("Failed to open .gitconfig: %v", err)
+	}
 	defer file.Close()
-	match, err := regexp.MatchString(`(?m)^\[credential "https:\/\/github\.com"\][\s\S]*?helper\s*=\s*.*git-credential\s+--pattern\s+github\.com[\s\S]*?useHttpPath\s*=\s*true`, string(content))
+	content, err := io.ReadAll(file)
+	if err != nil {
+		t.Fatalf("Failed to read .gitconfig: %v", err)
+	}
+	pattern := `(?m)^\[credential "https:\/\/github\.com"\][\s\S]*?` +
+		`helper\s*=\s*.*git-credential\s+--pattern\s+github\.com[\s\S]*?useHttpPath\s*=\s*true`
+	match, err := regexp.MatchString(pattern, string(content))
 	if err != nil {
 		t.Errorf("Unexpected error message: %v", err)
 	}
 	if !match {
 		t.Errorf(".gitconfig is not as expected: %v", string(content))
 	}
-
 }
 
 func TestCleanGitConfig_NothingToClean(t *testing.T) {

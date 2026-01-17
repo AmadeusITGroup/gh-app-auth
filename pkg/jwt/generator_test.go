@@ -20,6 +20,7 @@ func generateTestKey() (*rsa.PrivateKey, error) {
 
 // writeTestKeyFile writes a test private key to a temporary file
 func writeTestKeyFile(t *testing.T, key *rsa.PrivateKey, format string) string {
+	t.Helper()
 	tmpDir, err := os.MkdirTemp("", "jwt-test-key")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -163,6 +164,7 @@ func TestGenerator_GenerateToken_Errors(t *testing.T) {
 			name:  "world-readable key file",
 			appID: 12345,
 			setupKeyFile: func(t *testing.T) string {
+				t.Helper()
 				testKey, err := generateTestKey()
 				if err != nil {
 					t.Fatalf("Failed to generate test key: %v", err)
@@ -181,6 +183,7 @@ func TestGenerator_GenerateToken_Errors(t *testing.T) {
 			name:  "nonexistent key file",
 			appID: 12345,
 			setupKeyFile: func(t *testing.T) string {
+				t.Helper()
 				return "/nonexistent/path/key.pem"
 			},
 			wantErrContains: "failed to load private key",
@@ -189,6 +192,7 @@ func TestGenerator_GenerateToken_Errors(t *testing.T) {
 			name:  "invalid PEM file",
 			appID: 12345,
 			setupKeyFile: func(t *testing.T) string {
+				t.Helper()
 				tmpDir, err := os.MkdirTemp("", "jwt-test-invalid")
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
@@ -207,6 +211,7 @@ func TestGenerator_GenerateToken_Errors(t *testing.T) {
 			name:  "unsupported key type",
 			appID: 12345,
 			setupKeyFile: func(t *testing.T) string {
+				t.Helper()
 				tmpDir, err := os.MkdirTemp("", "jwt-test-unsupported")
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
@@ -241,6 +246,7 @@ func TestGenerator_GenerateToken_Errors(t *testing.T) {
 			name:  "permission denied",
 			appID: 12345,
 			setupKeyFile: func(t *testing.T) string {
+				t.Helper()
 				tmpDir, err := os.MkdirTemp("", "jwt-test-perms")
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
@@ -330,8 +336,9 @@ func TestGenerator_ValidateToken(t *testing.T) {
 			errMsg:  "failed to parse header JSON",
 		},
 		{
-			name:    "invalid algorithm",
-			token:   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOjEyMzQ1LCJpYXQiOjE2MzA0NDM2MDAsImV4cCI6MTYzMDQ0NDIwMH0.signature",
+			name: "invalid algorithm",
+			token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
+				"eyJpc3MiOjEyMzQ1LCJpYXQiOjE2MzA0NDM2MDAsImV4cCI6MTYzMDQ0NDIwMH0.signature",
 			wantErr: true,
 			errMsg:  "invalid algorithm",
 		},

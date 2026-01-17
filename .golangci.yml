@@ -2,283 +2,164 @@ version: "2"
 
 run:
   timeout: 5m
-  issues-exit-code: 1
-  tests: true
   go: "1.21"
 
 output:
   formats:
     text:
+      path: stdout
       print-issued-lines: true
       print-linter-name: true
       colors: true
-  sort-order:
-    - linter
-    - file
+
+formatters:
+  enable:
+    - gofmt
 
 linters:
+  default: none
   enable:
-    # Default linters
-    - errcheck      # Check for unchecked errors
-    - gosimple      # Simplify code
-    - govet         # Go vet
-    - ineffassign   # Detect ineffectual assignments
-    - staticcheck   # Static analysis
-    - typecheck     # Type checking
-    - unused        # Check for unused code
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose
+    - contextcheck
+    - dupl
+    - durationcheck
+    - errname
+    - exhaustive
+    - forcetypeassert
+    - goconst
+    - goheader
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - lll
+    - makezero
+    - misspell
+    - nakedret
+    - nilerr
+    - noctx
+    - nolintlint
+    - prealloc
+    - predeclared
+    - rowserrcheck
+    - sqlclosecheck
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
 
-    # Additional security and quality linters
-    - bodyclose     # Check HTTP response body is closed
-    - contextcheck  # Check context usage
-    # - cyclop        # Check cyclomatic complexity (using gocyclo instead)
-    - dupl          # Check code duplication
-    - durationcheck  # Check time.Duration usage
-    - errname       # Check error naming
-    # - exhauststruct # Removed in newer versions of golangci-lint
-    - exhaustive    # Check exhaustive switch statements
-    # - exportloopref # Deprecated in Go 1.22+ (replaced by copyloopvar)
-    # - forbidigo     # Forbid specific identifiers (disabled for CLI output)
-    - forcetypeassert  # Check type assertions
-    # - funlen        # Check function length (disabled - CLI commands are naturally long)
-    # - gci           # Control Go package import order (disabled for flexibility)
-    # - gocognit      # Check cognitive complexity (disabled - CLI commands naturally complex)
-    - goconst       # Check for repeated strings that should be constants
-    # - gocritic      # Go critic (disabled - too opinionated for CLI context)
-    # - gocyclo       # Check cyclomatic complexity (disabled - CLI commands have high complexity)
-    # - godot         # Check comments end in period (disabled - too strict)
-    - gofmt         # Check code formatting
-    # - gofumpt       # Stricter gofmt (disabled - too strict)
-    - goheader      # Check file headers
-    # - goimports     # Check imports formatting (disabled - conflicts with local formatting)
-    # - mnd           # Check magic numbers (disabled - too strict for CLI parsing)
-    - gomodguard    # Check module usage
-    - goprintffuncname  # Check printf function naming
-    - gosec         # Security checker
-    - lll           # Check line length
-    - makezero      # Check slice initialization
-    - misspell      # Check spelling
-    - nakedret      # Check naked returns
-    # - nestif        # Check nested if statements (disabled - too strict for CLI logic)
-    - nilerr        # Check nil error returns
-    # - nilnil        # Check nil nil returns (disabled - nil, nil is valid for no match)
-    # - nlreturn      # Check blank lines before returns (disabled for flexibility)
-    - noctx         # Check context usage
-    - nolintlint    # Check nolint directives
-    - prealloc      # Check slice preallocation
-    - predeclared   # Check for predeclared identifier usage
-    # - revive        # Replacement for golint (disabled - too opinionated)
-    - rowserrcheck  # Check database/sql rows error
-    - sqlclosecheck  # Check SQL close
-    - thelper       # Check test helper functions
-    - tparallel     # Check t.Parallel() usage
-    - unconvert     # Check unnecessary conversions
-    - unparam       # Check unused function parameters
-    - wastedassign  # Check wasted assignments
-    - whitespace    # Check whitespace
+  settings:
+    dupl:
+      threshold: 100
 
-  disable:
-    - gochecknoinits  # Allow init functions for our use case
-    - gochecknoglobals  # Allow globals for configuration
+    exhaustive:
+      default-signifies-exhaustive: true
 
-linters-settings:
-  cyclop:
-    max-complexity: 15
-    package-average: 10.0
-    skip-tests: true
+    goconst:
+      min-len: 2
+      min-occurrences: 3
 
-  dupl:
-    threshold: 100
+    goheader:
+      template: ""
 
-  errorlint:
-    errorf: true
-    asserts: true
-    comparison: true
+    gomodguard:
+      blocked:
+        modules: []
+        versions: []
 
-  exhaustive:
-    check-generated: false
-    default-signifies-exhaustive: true
+    gosec:
+      severity: medium
+      confidence: medium
+      excludes:
+        - G104
+        - G204
+        - G304
+        - G601
 
-  forbidigo:
-    forbid:
-      - ^print.*$
-      - 'fmt\.Print.*'
-      - 'log\.Print.*'
-    exclude_godoc_examples: false
+    lll:
+      line-length: 120
 
-  funlen:
-    lines: 100
-    statements: 50
+    misspell:
+      locale: US
 
-  gci:
-    sections:
-      - standard
-      - default
-      - prefix(github.com/AmadeusITGroup/gh-app-auth)
-    skip-generated: true
+    nakedret:
+      max-func-lines: 30
 
-  gocognit:
-    min-complexity: 15
+    nolintlint:
+      allow-unused: false
+      require-explanation: false
+      require-specific: false
 
-  goconst:
-    min-len: 2
-    min-occurrences: 3
-    ignore-tests: true
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: false
 
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport
-      - ifElseChain
-      - octalLiteral
-      - whyNoLint
+    staticcheck:
+      checks:
+        - all
+        - -ST1000  # Package comments not required
+        - -ST1003  # Naming conventions (allow appId, httpPath, etc.)
+        - -ST1005  # Error string punctuation
+        - -ST1016  # Receiver name consistency
+        - -ST1021  # Comment format on exported types
 
-  gocyclo:
-    min-complexity: 20  # Increased for CLI commands
+    thelper:
+      test:
+        first: true
+        name: true
+        begin: true
+      benchmark:
+        first: true
+        name: true
+        begin: true
 
-  gofumpt:
-    extra-rules: true
+    unparam:
+      check-exported: false
 
-  goheader:
-    template: ""  # No header required for now
+    whitespace:
+      multi-if: false
+      multi-func: false
 
-  goimports:
-    local-prefixes: github.com/AmadeusITGroup/gh-app-auth
-
-  gomnd:
-    checks:
-      - argument
-      - case
-      - condition
-      - operation
-      - return
-      - assign
-    ignored-numbers:
-      - '0'
-      - '1'
-      - '2'
-      - '3'
-      - '10'
-      - '16'
-      - '64'
-      - '100'
-      - '400'
-      - '404'
-      - '500'
-      - '600'
-      - '1000'
-      - '1024'
-
-  gomodguard:
-    blocked:
-      modules: []
-      versions: []
-
-  gosec:
-    severity: "medium"
-    confidence: "medium"
-    excludes:
-      - G104  # Allow some unhandled errors in tests
-      - G204  # Allow subprocess with variable input (needed for git commands)
-      - G304  # Allow file inclusion via variable (CLI needs to read config files)
-      - G601  # Allow implicit memory aliasing in for loop (Go 1.22+ handles this)
-
-  lll:
-    line-length: 120
-    tab-width: 1
-
-  misspell:
-    locale: US
-    ignore-words: []
-
-  nakedret:
-    max-func-lines: 30
-
-  nestif:
-    min-complexity: 5
-
-  nlreturn:
-    block-size: 2
-
-  nolintlint:
-    allow-leading-space: true
-    allow-unused: false
-    require-explanation: false
-    require-specific: false
-
-  prealloc:
-    simple: true
-    range-loops: true
-    for-loops: false
-
-  revive:
+  exclusions:
+    generated: strict
+    paths:
+      - vendor
+      - .github
     rules:
-      - name: atomic
-      - name: line-length-limit
-        arguments: [120]
-      - name: argument-limit
-        arguments: [5]
-      - name: cyclomatic
-        arguments: [15]
-      - name: max-public-structs
-        arguments: [10]
-      - name: file-header
-        disabled: true
+      - path: _test\.go
+        linters:
+          - errcheck
+          - dupl
+          - gosec
+          - goconst
+          - noctx
+          - forcetypeassert
 
-  staticcheck:
-    checks: ["all"]
+      - path: test.*\.go
+        linters:
+          - gosec
+          - noctx
 
-  thelper:
-    test:
-      first: true
-      name: true
-      begin: true
-    benchmark:
-      first: true
-      name: true
-      begin: true
+      - path: test/testutil/.*\.go
+        linters:
+          - noctx
 
-  unparam:
-    check-exported: false
+      - source: "https?://"
+        linters:
+          - lll
 
-  whitespace:
-    multi-if: false
-    multi-func: false
+      # CLI git commands don't need context cancellation
+      - path: cmd/gitconfig\.go
+        linters:
+          - noctx
 
 issues:
-  exclude-dirs:
-    - vendor
-    - .github
-  exclude-files:
-    - ".*_test.go$"  # Skip some test file checks
-  uniq-by-line: true
-  exclude-rules:
-    # Exclude some linters from running on tests files
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - errcheck
-        - dupl
-        - gosec
-        - funlen
-        - goconst
-        - gomnd
-
-    # Exclude security checks for test keys
-    - path: test.*\.go
-      linters:
-        - gosec
-
-    # Exclude line length for long URLs or keys in tests
-    - source: "https?://"
-      linters:
-        - lll
-
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-  new: false

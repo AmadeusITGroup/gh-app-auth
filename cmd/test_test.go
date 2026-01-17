@@ -268,6 +268,7 @@ func TestLoadTestConfiguration(t *testing.T) {
 		{
 			name: "missing configuration",
 			setupConfig: func(t *testing.T) string {
+				t.Helper()
 				return filepath.Join(t.TempDir(), "nonexistent.yml")
 			},
 			wantErr: true,

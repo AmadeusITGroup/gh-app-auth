@@ -9,6 +9,7 @@ This directory contains reusable GitHub Actions for setting up and cleaning up G
 Configures GitHub App authentication with automatic git credential helper setup.
 
 **Features:**
+
 - Installs GitHub CLI and gh-app-auth extension
 - Configures GitHub App with encrypted keyring storage
 - Automatically syncs git credential helpers
@@ -44,28 +45,28 @@ jobs:
 
 **Inputs:**
 
-| Input | Required | Default | Description |
-|-------|----------|---------|-------------|
-| **Single-App Mode** | | | |
-| `app-id` | No* | - | GitHub App ID (for single app setup) |
-| `private-key` | No* | - | GitHub App private key (PEM format) |
-| `patterns` | No* | - | Repository patterns (comma-separated) |
-| `app-name` | No | `'GitHub App'` | Friendly name for the app |
-| **Multi-App Mode** | | | |
-| `apps-config` | No* | - | JSON array of app configurations (see examples) |
-| **Common Options** | | | |
-| `cleanup-on-exit` | No | `'true'` | Remove credentials on job completion |
-| `sync-git-config` | No | `'true'` | Auto-sync git credential helpers |
-| `extension-version` | No | `''` | Specific version to install (default: latest) |
+| Input               | Required | Default        | Description                                         |
+| ------------------- | -------- | -------------- | --------------------------------------------------- |
+| **Single-App Mode** |          |                |                                                     |
+| `app-id`            | No*      | -              | GitHub App ID (for single app setup)                |
+| `private-key`       | No*      | -              | GitHub App private key (PEM format)                 |
+| `patterns`          | No*      | -              | Repository patterns (comma-separated)               |
+| `app-name`          | No       | `'GitHub App'` | Friendly name for the app                           |
+| **Multi-App Mode**  |          |                |                                                     |
+| `apps-config`       | No*      | -              | JSON array of app configurations (see examples)     |
+| **Common Options**  |          |                |                                                     |
+| `cleanup-on-exit`   | No       | `'true'`       | Remove credentials on job completion                |
+| `sync-git-config`   | No       | `'true'`       | Auto-sync git credential helpers                    |
+| `extension-version` | No       | `''`           | Specific version to install (default: latest)       |
 
 _*Note: Either specify `app-id`/`private-key`/`patterns` for single-app mode OR `apps-config` for multi-app mode. One mode is required._
 
 **Outputs:**
 
-| Output | Description |
-|--------|-------------|
-| `config-path` | Path to the gh-app-auth configuration file |
-| `cleanup-registered` | Whether cleanup hook was registered |
+| Output               | Description                                 |
+| -------------------- | ------------------------------------------- |
+| `config-path`        | Path to the gh-app-auth configuration file  |
+| `cleanup-registered` | Whether cleanup hook was registered         |
 
 ---
 
@@ -74,6 +75,7 @@ _*Note: Either specify `app-id`/`private-key`/`patterns` for single-app mode OR 
 Removes GitHub App authentication configuration and credentials. **Important for non-ephemeral runners** to prevent credential leakage between jobs.
 
 **Features:**
+
 - Removes git credential helper configuration
 - Removes credentials from system keyring
 - Cleans up configuration files
@@ -108,9 +110,9 @@ jobs:
 
 **Inputs:**
 
-| Input | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `force` | No | `'true'` | Force cleanup without confirmation |
+| Input   | Required | Default  | Description                         |
+| ------- | -------- | -------- | ----------------------------------- |
+| `force` | No       | `'true'` | Force cleanup without confirmation  |
 
 ---
 
@@ -166,6 +168,7 @@ jobs:
 ```
 
 **Benefits of JSON mode:**
+
 - ✅ **Single action call** - No need to repeat the action multiple times
 - ✅ **Clear structure** - All configurations in one place
 - ✅ **Maintainable** - Easy to add/remove organizations
