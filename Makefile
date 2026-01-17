@@ -1,6 +1,6 @@
 # gh-app-auth Makefile
 
-.PHONY: help build test lint clean install dev-setup security-scan release deps vet gocyclo staticcheck ineffassign misspell test-coverage-check
+.PHONY: help build test lint clean install dev-setup security-scan release deps vet gocyclo staticcheck ineffassign misspell test-coverage-check markdownlint yamllint actionlint cli-smoke-test
 
 # Default target
 help:
@@ -18,6 +18,9 @@ help:
 	@echo "  gocyclo            Run gocyclo (cyclomatic complexity)"
 	@echo "  ineffassign        Run ineffassign (ineffectual assignments)"
 	@echo "  misspell           Run misspell (spelling checker)"
+	@echo "  markdownlint       Run markdownlint on .md files"
+	@echo "  yamllint           Run yamllint on .yml/.yaml files"
+	@echo "  actionlint         Run actionlint on GitHub workflow files"
 	@echo "  lint-all           Run all individual linters"
 	@echo "  fmt                Format code"
 	@echo "  clean              Clean build artifacts"
@@ -29,7 +32,7 @@ help:
 	@echo "  security-scan      Run security scans"
 	@echo "  deps               Download and verify dependencies"
 	@echo "  dev                Quick development cycle (fmt + lint + test + build)"
-	@echo "  ci                 CI pipeline simulation"
+	@echo "  ci                 CI pipeline simulation (mirrors GitHub CI)"
 	@echo "  quality            Full quality check (all linters + tests + security)"
 	@echo "  release            Build release binaries for all platforms"
 	@echo ""
@@ -128,8 +131,33 @@ misspell:
 	@echo "Running misspell..."
 	$(MISSPELL) -error .
 
+# Run markdownlint (requires npx/node)
+markdownlint:
+	@echo "Running markdownlint..."
+	@command -v npx >/dev/null 2>&1 || { echo "⚠️  npx not found, skipping markdownlint"; exit 0; }
+	npx markdownlint-cli2 "**/*.md" "!node_modules/**" || echo "⚠️  Markdown lint issues found"
+
+# Run yamllint (requires pip install yamllint)
+yamllint:
+	@echo "Running yamllint..."
+	@command -v yamllint >/dev/null 2>&1 || { echo "⚠️  yamllint not found, skipping (install: pip install yamllint)"; exit 0; }
+	yamllint -d relaxed . || echo "⚠️  YAML lint issues found"
+
+# Run actionlint on GitHub workflow files (requires actionlint binary)
+actionlint:
+	@echo "Running actionlint..."
+	@command -v actionlint >/dev/null 2>&1 || { echo "⚠️  actionlint not found, skipping (install: go install github.com/rhysd/actionlint/cmd/actionlint@latest)"; exit 0; }
+	actionlint || echo "⚠️  Action lint issues found"
+
+# CLI smoke test - verify binary works
+cli-smoke-test: build
+	@echo "Running CLI smoke tests..."
+	./$(BINARY_NAME) --help > /dev/null
+	./$(BINARY_NAME) --version > /dev/null
+	@echo "✅ CLI smoke tests passed"
+
 # Run all individual linters
-lint-all: vet staticcheck gocyclo ineffassign misspell
+lint-all: vet staticcheck gocyclo ineffassign misspell markdownlint yamllint actionlint
 	@echo "All individual linters completed!"
 
 # Format code
@@ -253,11 +281,52 @@ validate-lint-tools:
 dev: fmt lint test build
 	@echo "Development cycle complete!"
 
-# CI pipeline simulation
-ci: deps validate-tools validate-lint-tools lint security-scan build
-	@echo "Running coverage check (CI threshold: 35%)..."
-	@$(MAKE) test-coverage-check COVERAGE_THRESHOLD=35.0
-	@echo "CI pipeline complete!"
+# CI pipeline simulation (mirrors GitHub CI workflows)
+# Runs: deps → vet → lint → test-race → coverage-check → security → build → smoke-test
+ci: deps validate-tools validate-lint-tools
+	@echo ""
+	@echo "=========================================="
+	@echo "  CI Pipeline Simulation"
+	@echo "=========================================="
+	@echo ""
+	@echo "Step 1/8: Running go vet..."
+	go vet ./...
+	@echo ""
+	@echo "Step 2/8: Running golangci-lint..."
+	$(GOLANGCI_LINT) run --timeout=5m
+	@echo ""
+	@echo "Step 3/8: Running tests with race detection..."
+	go test -race -coverprofile=coverage.out -covermode=atomic ./...
+	@echo ""
+	@echo "Step 4/8: Checking coverage threshold (CI: 35%)..."
+	@COVERAGE=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	echo "Current coverage: $$COVERAGE%"; \
+	if awk "BEGIN {exit !($$COVERAGE < 35.0)}"; then \
+		echo "❌ Coverage $$COVERAGE% is below threshold 35.0%"; \
+		exit 1; \
+	else \
+		echo "✅ Coverage $$COVERAGE% meets threshold 35.0%"; \
+	fi
+	@echo ""
+	@echo "Step 5/8: Running security scans..."
+	@$(MAKE) security-scan
+	@echo ""
+	@echo "Step 6/8: Building binary..."
+	go build -v -o $(BINARY_NAME) .
+	@echo ""
+	@echo "Step 7/8: Running CLI smoke tests..."
+	./$(BINARY_NAME) --help > /dev/null
+	./$(BINARY_NAME) --version > /dev/null
+	@echo "✅ CLI smoke tests passed"
+	@echo ""
+	@echo "Step 8/8: Running additional linters (non-blocking)..."
+	@$(MAKE) markdownlint || true
+	@$(MAKE) yamllint || true
+	@$(MAKE) actionlint || true
+	@echo ""
+	@echo "=========================================="
+	@echo "  ✅ CI Pipeline Complete!"
+	@echo "=========================================="
 
 # Full quality check (all linters + tests)
 quality: validate-lint-tools fmt lint-all test-coverage-check security-scan
