@@ -75,7 +75,10 @@ Automatically configure git for every pattern:
 gh app-auth gitconfig --sync --global
 ```
 
-Use `--local` to scope to the current repository only. Run `gh app-auth gitconfig --clean` to undo.
+**Options:**
+- `--local` - Scope to the current repository only
+- `--auto` - Auto-mode for CI/CD (uses `GH_APP_ID` and `GH_APP_PRIVATE_KEY_PATH` env vars)
+- `--clean` - Remove all gh-app-auth git configurations
 
 ## 5. Verify Configuration
 

@@ -149,9 +149,9 @@ func (c *TokenCache) zeroToken(token string) {
 ## Performance Impact
 
 ### Cache Benefits
-- **Reduced API Calls**: ~55x fewer calls to GitHub API per hour
+- **Reduced API Calls**: One call per 55 minutes instead of per operation
 - **Faster Operations**: No JWT generation or API roundtrip on cache hit
-- **Lower Rate Limits**: Fewer API requests = more quota available
+- **Lower Rate Limits**: Fewer API requests preserves quota
 
 ### Typical Latency
 - **Cache Hit**: <1ms (memory lookup)
@@ -271,7 +271,7 @@ A: All cached tokens are lost. Next git operation will regenerate tokens automat
 A: Cache is automatically cleared on process exit. To force refresh, restart the credential helper or wait for natural expiration (55 minutes).
 
 **Q: How many API calls does caching save?**  
-A: Without caching: 1 API call per git operation. With caching: ~1 API call per hour (55-minute cache window). For 100 git operations/hour: 100 calls → 2 calls (98% reduction).
+A: Without caching: 1 API call per git operation. With caching: ~1 API call per 55 minutes. The savings depend on how many git operations you perform within the cache window.
 
 **Q: Is the cache secure?**  
 A: Memory-only cache is reasonably secure for process lifetime. Tokens are zeroed on cleanup (best-effort). For maximum security, tokens are never written to disk unencrypted.

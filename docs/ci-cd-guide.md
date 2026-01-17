@@ -97,6 +97,47 @@ jobs:
           make build
 ```
 
+### Auto Mode (Simplified Setup)
+
+For CI/CD environments where a single GitHub App has access to all needed repositories, use `--auto` mode for simplified configuration:
+
+```yaml
+name: CI with Auto Mode
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Install gh-app-auth
+        run: gh extension install AmadeusITGroup/gh-app-auth
+      
+      - name: Configure Auto Mode
+        env:
+          GH_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GH_APP_PRIVATE_KEY_PATH: /tmp/app-key.pem
+        run: |
+          echo "${{ secrets.GITHUB_APP_PRIVATE_KEY }}" > /tmp/app-key.pem
+          chmod 600 /tmp/app-key.pem
+          gh app-auth gitconfig --sync --auto
+      
+      - name: Checkout (works for any org the app can access)
+        run: |
+          git clone --recurse-submodules \
+            https://github.com/any-org/any-repo.git repo
+      
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/app-key.pem
+```
+
+**When to use auto mode:**
+- Single GitHub App with broad access (e.g., organization-wide installation)
+- Dynamic environments where repository patterns aren't known in advance
+- Simplified setup without per-organization pattern configuration
+
 ### Custom Composite Action
 
 Create `.github/actions/setup-gh-app-auth/action.yml`:

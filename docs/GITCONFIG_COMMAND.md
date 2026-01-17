@@ -114,6 +114,38 @@ gh app-auth gitconfig --sync --local
 - Testing configuration without affecting other repos
 - Overriding global configuration for specific projects
 
+### Auto Mode
+
+Configures a single global credential helper that dynamically handles all repositories:
+
+```bash
+gh app-auth gitconfig --sync --auto
+```
+
+**Requirements:**
+- `GH_APP_PRIVATE_KEY_PATH` environment variable must be set (path to private key file)
+- `GH_APP_ID` environment variable must be set
+
+**How it works:**
+1. Sets up a single global git credential helper
+2. The helper automatically authenticates for any repository using the configured GitHub App
+3. No need to configure patterns for each organization
+
+**Use cases:**
+- CI/CD environments where a single GitHub App has access to all needed repositories
+- Simplified setup when one app covers all authentication needs
+- Dynamic environments where repository patterns aren't known in advance
+
+**Example:**
+```bash
+export GH_APP_PRIVATE_KEY_PATH="/path/to/app.pem"
+export GH_APP_ID="123456"
+gh app-auth gitconfig --sync --auto
+
+# Now any git clone will use the GitHub App
+git clone https://github.com/any-org/any-repo
+```
+
 ## How Pattern Matching Works
 
 The `gitconfig` command intelligently extracts credential contexts from your patterns:

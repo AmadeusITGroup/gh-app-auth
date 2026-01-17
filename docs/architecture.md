@@ -31,6 +31,7 @@ graph LR
 - **Token Exchange**: JWT → Installation access token
 - **Credential Provider**: Git credential helper interface
 
+### 3. Configuration Layer (`pkg/config/`)
 - **App Management**: GitHub App configurations
 - **PAT Management**: PAT entries with name, username (optional), patterns, priority, and secure storage metadata
 - **Pattern Matching**: Repository-specific credential selection (apps and PATs share the same routing logic)
@@ -101,16 +102,15 @@ graph LR
 ## Performance Considerations
 
 ### Token Caching
-- **JWT tokens**: Generated on-demand (~10min validity), NOT cached (cheap to generate)
-- **Installation tokens**: Cached in memory for 55 minutes (expensive to obtain via API)
-- **Performance impact**: ~98% reduction in GitHub API calls (1 call/hour vs 1 call/operation)
+- **JWT tokens**: Generated on-demand (~10min validity), not cached
+- **Installation tokens**: Cached in memory for 55 minutes
 - **Cache hits**: <1ms (memory lookup)
 - **Cache miss**: 200-500ms (JWT generation + API call + keyring access)
-- **Automatic expiration**: Tokens validated on every access, regenerated transparently when expired
+- **Automatic expiration**: Tokens validated on every access, regenerated when expired
 
 ### Pattern Matching
-- Efficient regex-based pattern matching
-- Priority-based app selection
+- Longest-prefix matching algorithm
+- Priority-based app selection when prefixes tie
 - Minimal overhead for credential requests
 
 ### Error Handling

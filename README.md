@@ -4,15 +4,14 @@ A GitHub CLI extension that enables GitHub App authentication for Git operations
 
 ## Features
 
-- 🔐 **Dual Authentication**: Use GitHub Apps **and** Personal Access Tokens (PATs) with secure priority-based routing (GitHub.com + GitHub Enterprise + Bitbucket Server)
-- 🔑 **Encrypted Storage**: Private keys stored in OS-native encrypted keyring (Keychain, Credential Manager, Secret Service)
-- 🎯 **Repository-Specific**: Configure different apps for different repository patterns
-- 🔄 **Git Integration**: Seamless git credential helper integration
-- 💾 **Smart Token Caching**: In-memory caching of installation tokens (55-min TTL) reduces API calls by ~98%, automatic expiration handling
-- 🔒 **Security**: 71% risk reduction with encrypted key storage and proper permission validation
-- 🏢 **Enterprise Ready**: Multi-organization and enterprise GitHub support
-- 🌍 **Environment Variables**: Support for CI/CD with `GH_APP_PRIVATE_KEY`
-- ♻️  **Graceful Degradation**: Automatic fallback to filesystem if keyring unavailable
+- **Dual Authentication**: GitHub Apps and Personal Access Tokens (PATs) with priority-based routing
+- **Encrypted Storage**: Private keys stored in OS-native keyring (Keychain, Credential Manager, Secret Service)
+- **Pattern Routing**: Configure different apps for different repository URL prefixes
+- **Git Integration**: Git credential helper protocol support
+- **Token Caching**: In-memory caching of installation tokens (55-min TTL)
+- **Multi-Host**: GitHub.com, GitHub Enterprise, and Bitbucket Server support
+- **CI/CD Ready**: Environment variable support (`GH_APP_PRIVATE_KEY`)
+- **Graceful Degradation**: Automatic fallback to filesystem if keyring unavailable
 
 ## Installation
 
@@ -22,7 +21,7 @@ gh extension install AmadeusITGroup/gh-app-auth
 
 ## Quick Start
 
-### Option 1: Encrypted Storage (Recommended) 🔐
+### Option 1: Encrypted Storage (Recommended)
 
 1. **Create a GitHub App** in your organization settings
 2. **Download the private key** file
@@ -42,7 +41,6 @@ unset GH_APP_PRIVATE_KEY
 ### Option 2: File-based (Legacy)
 
 ```bash
-# Store key reference (file remains on disk)
 # Store key reference (file remains on disk)
 gh app-auth setup \
   --app-id 123456 \
@@ -72,7 +70,7 @@ gh app-auth setup \
 
 PATs support the same pattern routing as apps. When both an app and a PAT match the same pattern, the entry with the higher priority wins (PATs default to higher priority for personal workflows). PATs also work for other Git providers (e.g., Bitbucket) when paired with `--username`.
 
-### Setup Git Credential Helper (Automatic) ✨
+### Setup Git Credential Helper
 
 ```bash
 # Automatically configure git for all configured apps
@@ -96,9 +94,9 @@ gh app-auth test --repo github.com/myorg/private-repo
 git clone https://github.com/myorg/private-repo.git
 ```
 
-## URL Prefix Routing 🎯
+## URL Prefix Routing
 
-Route different repositories to different GitHub Apps using URL prefix matching:
+Route different repositories to different GitHub Apps using longest-prefix matching:
 
 ```bash
 # Configure App 1 for AmadeusITGroup
@@ -110,27 +108,20 @@ git config --global credential.'https://github.com/myorg'.helper \
   '!gh app-auth git-credential --pattern "https://github.com/myorg"'
 ```
 
-**Benefits:**
-- ✅ **Multiple Apps**: Use different GitHub Apps for different organizations
-- ✅ **URL Prefix Matching**: Aligns with git's native credential helper behavior
-- ✅ **Fine-Grained Control**: Per-organization or per-repository configuration
-- ✅ **Enterprise Support**: Separate apps for GitHub Enterprise and GitHub.com
-
-See [URL Prefix Routing Guide](docs/PATTERN_ROUTING.md) for detailed examples and use cases.
+See [URL Prefix Routing Guide](docs/PATTERN_ROUTING.md) for detailed examples.
 
 ## Commands
 
-- `gh app-auth setup` - Configure GitHub Apps **or** Personal Access Tokens (use `--pat`)
-- `gh app-auth list` - List configured GitHub Apps **and PATs** (use `--verify-keys` to check key/pat accessibility)
-- `gh app-auth remove` - Remove GitHub App (**--app-id**) or PAT (**--pat-name**) configuration (automatically deletes encrypted keys/tokens)
+- `gh app-auth setup` - Configure GitHub Apps or Personal Access Tokens (`--pat`)
+- `gh app-auth list` - List configured credentials (`--verify-keys` to check accessibility)
+- `gh app-auth remove` - Remove GitHub App (`--app-id`) or PAT (`--pat-name`) configuration
 - `gh app-auth test` - Test authentication for a repository
-- `gh app-auth scope` - Detect which GitHub App will handle a repository URL (shows matched app, pattern, and git config context)
-- `gh app-auth config` - Show configuration file location and content
-  - `--path` - Show only the config file path
-  - `--show` - Display the config file content
+- `gh app-auth scope` - Fetch and display GitHub App installation scope (which repos the app can access)
+- `gh app-auth config` - Show configuration file location (`--path`) or content (`--show`)
 - `gh app-auth gitconfig` - Manage git credential helper configuration
-  - `--sync` - Automatically configure git for all apps
+  - `--sync` - Configure git for all apps/PATs
   - `--clean` - Remove all gh-app-auth git configurations
+  - `--auto` - Auto-mode using `GH_APP_ID` and `GH_APP_PRIVATE_KEY_PATH` env vars
 - `gh app-auth migrate` - Migrate private keys to encrypted storage
 - `gh app-auth git-credential` - Git credential helper (internal)
 
@@ -146,11 +137,11 @@ This extension now supports **encrypted storage** for private keys using OS-nati
 
 ### Benefits
 
-- ✅ **71% risk reduction** - Keys encrypted at rest
-- ✅ **No plain text** - Keys never stored in config files
-- ✅ **Per-app isolation** - Each app's key stored separately
-- ✅ **Automatic cleanup** - Keys deleted when removing apps
-- ✅ **Graceful fallback** - Uses filesystem if keyring unavailable
+- Keys encrypted at rest using OS-native encryption
+- Keys never stored in config files
+- Each app's key stored separately
+- Keys deleted when removing apps
+- Falls back to filesystem if keyring unavailable
 
 ### Using Encrypted Storage
 
@@ -212,11 +203,11 @@ This extension automatically caches GitHub App installation tokens **within each
    - Tokens zeroed from memory on cleanup (best-effort)
    - Cache lost on process restart (requires re-authentication)
 
-### Performance Impact
+### Performance
 
-- **First operation**: ~200-500ms (JWT generation + API call to GitHub)
+- **First operation**: ~200-500ms (JWT generation + API call)
 - **Cached operations**: <1ms (memory lookup)
-- **API call reduction**: ~98% (1 call per hour vs 1 call per operation)
+- **Caching benefit**: One API call per 55 minutes instead of per operation
 
 ### Why Memory-Only?
 
@@ -303,14 +294,13 @@ jobs:
           cd $(basename ${{ github.repository }})
 ```
 
-**Benefits of the new approach:**
-- ✅ No temporary files created
-- ✅ No chmod needed
-- ✅ No cleanup required
-- ✅ Keys stored securely in memory only
-- ✅ Cleaner CI/CD logs
+**Benefits:**
+- No temporary files created
+- No chmod needed
+- No cleanup required
+- Keys stored securely in memory only
 
-#### Reusable Actions (Recommended) ✨
+#### Reusable Actions
 
 Use our pre-built composite actions for even simpler setup:
 
@@ -342,10 +332,10 @@ jobs:
 ```
 
 **Features:**
-- ✅ **One-step setup** - Installs GitHub CLI, extension, and configures git
-- ✅ **Auto-sync git config** - No manual credential helper setup needed
-- ✅ **Automatic cleanup** - Removes credentials on non-ephemeral runners
-- ✅ **Multiple organizations** - Supports comma-separated patterns
+- One-step setup: installs GitHub CLI, extension, and configures git
+- Auto-syncs git credential helpers
+- Automatic cleanup on non-ephemeral runners
+- Supports comma-separated patterns for multiple organizations
 
 See [GitHub Actions Documentation](.github/actions/README.md) for advanced usage.
 
@@ -599,23 +589,23 @@ git config --global credential."https://github.example.com/corp".helper \
 
 ### Advantages Over Robot Accounts
 
-- ✅ **No License Costs**: GitHub Apps don't consume user licenses
-- ✅ **Better Governance**: Fine-grained permissions per repository/organization  
-- ✅ **Audit Trail**: All actions clearly attributed to the GitHub App
-- ✅ **No Recertification**: No periodic password resets or token rotation
-- ✅ **Multi-Org Native**: Single App can be installed across multiple organizations
-- ✅ **Automatic Token Refresh**: Extension handles 1-hour expiry transparently
+- GitHub Apps don't consume user licenses
+- Fine-grained permissions per repository/organization
+- Actions attributed to the GitHub App in audit logs
+- No periodic password resets or token rotation
+- Single App can be installed across multiple organizations
+- Extension handles 1-hour token expiry transparently
 
 ## Documentation
 
-### 📺 Presentation
+### Presentation
 
 - **[Project Presentation](docs/presentation.md)** - Comprehensive webinar presentation covering problem, solutions, architecture, and results
   - View online at [GitHub Pages](https://AmadeusITGroup.github.io/gh-app-auth/) (when published)
   - Build locally: `make presentation` (requires `make presentation-setup` first)
   - See [Presentation Build Guide](docs/PRESENTATION_BUILD.md) for detailed instructions
 
-### 📚 Guides
+### Guides
 
 - [Installation Guide](docs/installation.md)
 - [Configuration Reference](docs/configuration.md)
@@ -625,7 +615,7 @@ git config --global credential."https://github.example.com/corp".helper \
 - [Architecture Overview](docs/architecture.md)
 - [Project Origin](docs/origin_of_the_project.md) - Understanding the problems we solve
 
-### 🧪 Testing
+### Testing
 
 - [E2E Testing Tutorial](docs/E2E_TESTING_TUTORIAL.md) - **Complete guide to setting up real-world test environments**
   - Step-by-step setup with GitHub organizations, apps, and repositories

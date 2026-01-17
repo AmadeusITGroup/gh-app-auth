@@ -109,11 +109,11 @@ sequenceDiagram
 
 | Area | Impact |
 |------|--------|
-| **Cost** | $44/month per robot account × teams |
-| **Developer Time** | 30-60 min setup per pipeline |
-| **Build Reliability** | 15% failure rate on long jobs |
+| **Cost** | License fees per robot account |
+| **Developer Time** | Manual setup per pipeline |
+| **Build Reliability** | Failures on long-running jobs |
 | **Security** | Shared credentials, broad permissions |
-| **Maintenance** | Weekly debugging sessions required |
+| **Maintenance** | Ongoing debugging required |
 
 ---
 
@@ -249,7 +249,7 @@ git clone https://x-access-token:$token@github.com/org/repo.git
 
 ---
 
-# Our Solution {#our-solution}
+# Our Solution
 
 ## The gh-app-auth Extension
 
@@ -288,8 +288,8 @@ git clone --recurse-submodules https://github.com/myorg/repo.git
 ### 🔑 Encrypted Private Key Storage
 - OS-native encrypted keyring (Keychain, Credential Manager, Secret Service)
 - No plain text keys in config files
-- 71% risk reduction in attack surface
-- Meets NIST, PCI DSS, SOC 2, ISO 27001, GDPR, HIPAA standards
+- Reduced attack surface compared to plaintext storage
+- Supports compliance requirements (keys encrypted at rest)
 
 ---
 
@@ -554,31 +554,28 @@ System Keyring (OS-managed, encrypted)
 
 ---
 
-## Security Improvement: 71% Risk Reduction
+## Security Improvement
 
-| Attack Vector | Standard Approach | gh-app-auth | Reduction |
-|---------------|-------------------|-------------|-----------|
-| File read as user | 🔴 HIGH | 🟢 LOW | **-75%** |
-| Backup exposure | 🔴 HIGH | 🟢 LOW | **-80%** |
-| Disk forensics | 🔴 HIGH | 🟢 LOW | **-90%** |
-| Permission errors | 🟡 MEDIUM | 🟢 LOW | **-60%** |
-| Log exposure | 🟡 MEDIUM | 🟢 LOW | **-70%** |
-| **Total Risk** | **7/10** 🔴 | **2/10** 🟢 | **-71%** ✅ |
+| Attack Vector | Standard Approach | gh-app-auth |
+|---------------|-------------------|-------------|
+| File read as user | 🔴 HIGH | 🟢 LOW |
+| Backup exposure | 🔴 HIGH | 🟢 LOW |
+| Disk forensics | 🔴 HIGH | 🟢 LOW |
+| Permission errors | 🟡 MEDIUM | 🟢 LOW |
+| Log exposure | 🟡 MEDIUM | 🟢 LOW |
 
 ---
 
-## Compliance Standards
+## Compliance Considerations
 
-| Standard | Status |
-|----------|--------|
-| NIST SP 800-53 | ✅ PASSES |
-| PCI DSS 3.2 | ✅ PASSES |
-| SOC 2 Type II | ✅ PASSES |
-| ISO 27001 | ✅ PASSES |
-| GDPR Art. 32 | ✅ PASSES |
-| HIPAA | ✅ PASSES |
+Encrypted key storage supports common compliance requirements:
 
-**Result**: Enterprise-ready security out of the box
+- Keys encrypted at rest (OS-native encryption)
+- No plaintext secrets in configuration files
+- Audit trail via GitHub App attribution
+- Automatic cleanup on credential removal
+
+**Note**: Actual compliance depends on your organization's specific requirements and implementation.
 
 ---
 
@@ -682,20 +679,18 @@ gh app-auth remove --app-id 12345
 
 ---
 
-## Performance Impact
+## Performance Characteristics
 
-| Operation | Latency | Notes |
-|-----------|---------|-------|
-| Setup | 100ms | One-time operation |
-| First Auth | 215ms | Includes key retrieval + JWT |
-| Cached Auth | 5ms | No overhead |
-| Key Load | 15ms | Minimal impact |
+| Operation | Typical Latency | Notes |
+|-----------|-----------------|-------|
+| Setup | ~100ms | One-time operation |
+| First Auth | 200-500ms | Key retrieval + JWT + API call |
+| Cached Auth | <1ms | Memory lookup only |
 
-**Analysis:**
-- ✅ Minimal overhead (<100ms target met)
-- ✅ 95% performance improvement with in-memory caching
-- ✅ No impact on cached operations
-- ✅ Timeout protection (3-second max)
+**Notes:**
+- Caching reduces API calls (one per 55 minutes instead of per operation)
+- Keyring access has 3-second timeout protection
+- Actual latency varies by system and network
 
 ---
 
@@ -916,42 +911,26 @@ graph LR
 
 ## Time Savings
 
-```mermaid
-graph LR
-    subgraph before["Before"]
-        B1["30-60 minutes<br/>per pipeline setup"]
-        B2["× 50 pipelines"]
-        B3["= 25-50 hours"]
-        B1 --> B2 --> B3
-    end
-    
-    subgraph after["After"]
-        A1["5 minutes<br/>per pipeline"]
-        A2["× 50 pipelines"]
-        A3["= 4.2 hours"]
-        A1 --> A2 --> A3
-    end
-    
-    before -.->|"⏱️ Time Saved: 83-92% reduction"| after
-    
-    style before fill:#ffebee,stroke:#c62828,stroke-width:2px
-    style after fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-```
+**Manual GitHub App Setup** (per pipeline):
+- Generate JWT token code
+- Implement token exchange logic
+- Add refresh handling for long jobs
+- Debug authentication issues
+
+**With gh-app-auth** (per pipeline):
+- One-time `gh app-auth setup` command
+- One-time `gh app-auth gitconfig --sync` command
+- Works automatically thereafter
 
 ---
 
 ## Reliability Improvement
 
-```mermaid
-graph LR
-    before["Before<br/>15% long-running<br/>job failure rate"]
-    after["After<br/>0% token-related<br/>failures"]
-    
-    before -.->|"📈 Improvement:<br/>100% elimination<br/>of token failures"| after
-    
-    style before fill:#ffebee,stroke:#c62828,stroke-width:2px
-    style after fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-```
+**Before**: Long-running jobs fail when tokens expire mid-execution
+
+**After**: Automatic token refresh handles expiration transparently
+
+**Result**: Token expiration no longer causes build failures
 
 ---
 
@@ -959,7 +938,7 @@ graph LR
 
 **Before** (PATs/Robot Accounts):
 - PATs with broad permissions
-- 90-day manual rotation
+- Manual rotation required
 - Shared credentials
 - Poor audit trail
 - Unencrypted keys on disk
@@ -969,9 +948,9 @@ graph LR
 - Automatic token refresh (no rotation needed)
 - Isolated per-org credentials
 - Complete audit trail
-- **Encrypted key storage (71% risk reduction)**
+- Encrypted key storage
 
-**Result**: 80% reduction in permission scope + 71% reduction in key exposure risk
+**Result**: Reduced permission scope and improved key protection
 
 ---
 
@@ -1005,46 +984,44 @@ Security: ENCRYPTED
 ## Technical Achievements
 
 ### Performance
-- ✅ < 100ms credential generation latency
-- ✅ 95% token cache hit rate
-- ✅ Zero memory leaks in continuous operation
-- ✅ 10,000+ daily authentications supported
+- First auth: 200-500ms (JWT + API call)
+- Cached auth: <1ms (memory lookup)
+- Token caching reduces API calls
 
 ### Reliability
-- ✅ 99.99% authentication success rate
-- ✅ 100% elimination of token expiry failures
-- ✅ Graceful fallback support
-- ✅ Zero production incidents
+- Automatic token refresh on expiration
+- Graceful fallback to filesystem if keyring unavailable
+- Comprehensive error handling
 
 ---
 
-## Adoption Metrics
+## Benefits Summary
 
-| Metric | Target | Actual | Status |
-|--------|--------|--------|--------|
-| Adoption rate | 50% | 73% | ✅ Exceeded |
-| Build failures | <5% | 0.1% | ✅ Exceeded |
-| Setup time | <10 min | 4 min | ✅ Exceeded |
-| Developer satisfaction | 4.0/5 | 4.7/5 | ✅ Exceeded |
-| Cost savings | $3K/yr | $5.3K/yr | ✅ Exceeded |
+| Area | Improvement |
+|------|-------------|
+| **Cost** | GitHub Apps don't consume user licenses |
+| **Setup** | One-time configuration, works automatically |
+| **Reliability** | Automatic token refresh handles expiration |
+| **Security** | Encrypted key storage, fine-grained permissions |
+| **Maintenance** | No manual token rotation needed |
 
 ---
 
 ## Before vs. After Summary
 
 ### Before gh-app-auth
-- 💰 Robot accounts: $5,280/year
-- ⏱️ Setup time: 30-60 min/pipeline
-- 🔥 Failure rate: 15% on long jobs
-- 🔧 Maintenance: Weekly debugging
-- 🔐 Security: Shared credentials, broad access
+- Robot accounts consume user licenses
+- Manual JWT generation and token exchange
+- Token expiration causes long-running job failures
+- Manual credential management per pipeline
+- Unencrypted keys on disk
 
 ### After gh-app-auth
-- 💰 Cost: $0 (GitHub Apps are free)
-- ⏱️ Setup time: 2-5 min/pipeline
-- 🔥 Failure rate: 0.1%
-- 🔧 Maintenance: Minimal
-- 🔐 Security: Fine-grained, auditable
+- GitHub Apps don't consume licenses
+- Automatic JWT and token handling
+- Automatic token refresh on expiration
+- One-time setup, works automatically
+- Encrypted key storage
 
 ---
 
@@ -1121,33 +1098,18 @@ graph TB
 
 ## Real-World Enterprise Benefits
 
-### Cost Savings
-```mermaid
-graph LR
-    subgraph metrics["Enterprise Impact"]
-        robot["Robot Accounts<br/>$5,280/year → $0"]
-        time["Developer Time<br/>25-50 hours → 4 hours"]
-        incidents["Security Incidents<br/>2-3/year → 0"]
-    end
-    
-    style metrics fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-```
+### Cost
+- GitHub Apps don't consume user licenses (unlike robot accounts)
 
-### Security Improvements
-```
-Risk Score: 7/10 → 2/10 (71% reduction)
-Compliance: 2/6 → 6/6 standards
-Permission Scope: Broad → Fine-grained
-Audit Trail: Poor → Complete
-```
+### Security
+- Keys encrypted at rest using OS-native encryption
+- Fine-grained permissions via GitHub Apps
+- Complete audit trail
 
-### Operational Excellence
-```
-Setup Time: 30-60 min → 2-5 min
-Token Failures: 15% → 0%
-Maintenance: Weekly → Minimal
-Developer Satisfaction: 3.5/5 → 4.7/5
-```
+### Operations
+- One-time setup per organization
+- Automatic token refresh eliminates expiration failures
+- Minimal ongoing maintenance
 
 ---
 
@@ -1185,12 +1147,12 @@ Developer Satisfaction: 3.5/5 → 4.7/5
 2. **Core Features**: Automation + encrypted storage + multi-org
 3. **Enterprise Ready**: Security, compliance, reliability
 
-### Results
-- 💰 **$5,280/year saved** per organization
-- ⏱️ **83-92% time reduction** in setup
-- 🔒 **71% security improvement** with encryption
-- 📈 **100% elimination** of token failures
-- ✅ **6/6 compliance standards** met
+### Key Benefits
+- GitHub Apps don't consume user licenses
+- Simplified setup compared to manual JWT handling
+- Encrypted key storage improves security posture
+- Automatic token refresh eliminates expiration failures
+- Supports compliance requirements (keys encrypted at rest)
 
 ---
 
