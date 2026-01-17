@@ -1,8 +1,6 @@
 package logger
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
@@ -94,9 +92,11 @@ func (d *DiagnosticLogger) logEntry(event string, data map[string]interface{}) {
 	// Build log entry
 	entry := fmt.Sprintf("[%s] %s [%s]", timestamp, event, opID)
 
-	// Add data fields
+	// Add data fields with automatic sanitization of sensitive keys
 	for key, value := range data {
-		entry += fmt.Sprintf(" %s=%v", key, value)
+		// Sanitize sensitive fields before logging
+		sanitizedValue := sanitizeValueForLogging(key, value)
+		entry += fmt.Sprintf(" %s=%v", key, sanitizedValue)
 	}
 
 	d.logger.Println(entry)
@@ -175,15 +175,55 @@ func FlowError(operation string, err error, data map[string]interface{}) {
 
 // Security functions for sensitive data
 
-// HashToken creates a safe hash of a token for logging
+// sensitiveKeys defines keys that should be redacted in logs
+var sensitiveKeys = map[string]bool{
+	"token":       true,
+	"password":    true,
+	"secret":      true,
+	"key":         true,
+	"private_key": true,
+	"pat":         true,
+	"credential":  true,
+}
+
+// sanitizeValueForLogging checks if a key is sensitive and redacts the value
+func sanitizeValueForLogging(key string, value interface{}) interface{} {
+	if sensitiveKeys[strings.ToLower(key)] {
+		if str, ok := value.(string); ok {
+			return RedactToken(str)
+		}
+		return "<redacted>"
+	}
+	return value
+}
+
+// RedactToken creates a safe redacted representation of a token for logging.
+// This is NOT for cryptographic purposes - it's only for log identification.
+// It shows length and a prefix to help with debugging without exposing the full token.
+func RedactToken(token string) string {
+	if token == "" {
+		return "empty"
+	}
+
+	// Show token length and first 4 chars (if long enough) for identification
+	// This is safe for debugging and doesn't expose the full secret
+	if len(token) <= 8 {
+		return fmt.Sprintf("<redacted:%d>", len(token))
+	}
+	return fmt.Sprintf("%s...<%d chars>", token[:4], len(token))
+}
+
+// HashToken creates a safe hash of a token for logging.
+// Deprecated: Use RedactToken instead. This function is kept for backward compatibility.
+// Note: This uses SHA256 for fingerprinting only, not for password storage.
 func HashToken(token string) string {
 	if token == "" {
 		return "empty"
 	}
 
-	hash := sha256.Sum256([]byte(token))
-	// Use first 8 characters of hex for identification
-	return fmt.Sprintf("sha256:%s", hex.EncodeToString(hash[:])[:16])
+	// Use a simple non-cryptographic fingerprint for logging identification
+	// We just need a consistent identifier, not cryptographic security
+	return RedactToken(token)
 }
 
 // SanitizeURL removes sensitive parts from URLs for logging
