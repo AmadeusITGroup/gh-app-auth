@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -174,56 +175,157 @@ func FlowError(operation string, err error, data map[string]interface{}) {
 }
 
 // Security functions for sensitive data
+//
+// This implements a multi-layered approach to sensitive data redaction following
+// industry best practices from OWASP, gitleaks, trufflehog, and GitHub secret scanning:
+//
+// 1. Key-based redaction: Redact values where the key name suggests sensitivity
+// 2. Value-based pattern detection: Scan values for known secret patterns regardless of key
+// 3. High-entropy detection: Flag suspiciously random strings that might be secrets
+//
+// References:
+// - OWASP Logging Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+// - gitleaks patterns: https://github.com/gitleaks/gitleaks
+// - GitHub secret scanning: https://docs.github.com/en/code-security/secret-scanning
 
-// sensitiveKeys defines keys that should be redacted in logs
-var sensitiveKeys = map[string]bool{
-	"token":       true,
-	"password":    true,
-	"secret":      true,
-	"key":         true,
-	"private_key": true,
-	"pat":         true,
-	"credential":  true,
+// sensitiveKeyPatterns defines key name patterns that indicate sensitive data.
+// Uses substring matching - patterns are checked against lowercase key names.
+// Note: Order matters for some patterns to avoid false positives.
+var sensitiveKeyPatterns = []string{
+	"password",
+	"passwd",
+	"pwd",
+	"token",
+	"secret",
+	"_key", // api_key, private_key, etc. (underscore prefix avoids matching "key" in "monkey")
+	"key_", // key_id, key_file, etc.
+	"credential",
+	"auth",
+	"bearer",
+	"apikey",
+	"private",
+	"_pat", // github_pat, etc. (underscore prefix avoids matching "path")
+	"pat_", // pat_token, etc.
 }
 
-// sanitizeValueForLogging checks if a key is sensitive and redacts the value
+// sensitiveValuePatterns defines regex patterns to detect secrets in values.
+// Based on patterns from gitleaks, trufflehog, and GitHub secret scanning.
+var sensitiveValuePatterns = []*regexp.Regexp{
+	// GitHub tokens (classic and fine-grained)
+	regexp.MustCompile(`^gh[pousr]_[A-Za-z0-9_]{36,}$`),
+	// GitHub App tokens
+	regexp.MustCompile(`^ghu_[A-Za-z0-9_]{36,}$`),
+	regexp.MustCompile(`^ghs_[A-Za-z0-9_]{36,}$`),
+	// AWS Access Key ID
+	regexp.MustCompile(`^(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}$`),
+	// Private keys (PEM format)
+	regexp.MustCompile(`-----BEGIN[A-Z ]*PRIVATE KEY-----`),
+	// JWT tokens
+	regexp.MustCompile(`^eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*$`),
+	// Generic API key patterns (long alphanumeric strings)
+	regexp.MustCompile(`^[A-Za-z0-9_-]{32,}$`),
+	// Slack tokens (xoxb, xoxa, xoxp, xoxr, xoxs)
+	regexp.MustCompile(`^xox[baprs]-[0-9a-zA-Z-]{10,}$`),
+	// Basic auth in URLs
+	regexp.MustCompile(`://[^:]+:[^@]+@`),
+}
+
+// isSensitiveKey checks if a key name indicates sensitive data
+func isSensitiveKey(key string) bool {
+	lowerKey := strings.ToLower(key)
+	for _, pattern := range sensitiveKeyPatterns {
+		if strings.Contains(lowerKey, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// isSensitiveValue checks if a value matches known secret patterns
+func isSensitiveValue(value string) bool {
+	// Skip very short strings (unlikely to be secrets)
+	if len(value) < 8 {
+		return false
+	}
+
+	// Check against known secret patterns
+	for _, pattern := range sensitiveValuePatterns {
+		if pattern.MatchString(value) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// sanitizeValueForLogging applies multi-layered redaction to protect sensitive data.
+// It checks both the key name AND the value content to ensure secrets are not logged.
 func sanitizeValueForLogging(key string, value interface{}) interface{} {
-	if sensitiveKeys[strings.ToLower(key)] {
+	// Layer 1: Key-based redaction
+	if isSensitiveKey(key) {
 		if str, ok := value.(string); ok {
-			return RedactToken(str)
+			return RedactSecret(str)
 		}
 		return "<redacted>"
 	}
+
+	// Layer 2: Value-based pattern detection (for string values)
+	if str, ok := value.(string); ok {
+		if isSensitiveValue(str) {
+			return RedactSecret(str)
+		}
+	}
+
 	return value
 }
 
-// RedactToken creates a safe redacted representation of a token for logging.
+// RedactSecret creates a safe redacted representation of a secret for logging.
 // This is NOT for cryptographic purposes - it's only for log identification.
-// It shows length and a prefix to help with debugging without exposing the full token.
-func RedactToken(token string) string {
-	if token == "" {
-		return "empty"
+// It shows the type of secret detected and length, without exposing the actual value.
+func RedactSecret(secret string) string {
+	if secret == "" {
+		return "<empty>"
 	}
 
-	// Show token length and first 4 chars (if long enough) for identification
-	// This is safe for debugging and doesn't expose the full secret
-	if len(token) <= 8 {
-		return fmt.Sprintf("<redacted:%d>", len(token))
-	}
-	return fmt.Sprintf("%s...<%d chars>", token[:4], len(token))
+	// Identify the type of secret for debugging purposes
+	secretType := identifySecretType(secret)
+
+	// Return redacted form with type hint and length
+	return fmt.Sprintf("<redacted:%s:%d>", secretType, len(secret))
 }
 
-// HashToken creates a safe hash of a token for logging.
-// Deprecated: Use RedactToken instead. This function is kept for backward compatibility.
-// Note: This uses SHA256 for fingerprinting only, not for password storage.
-func HashToken(token string) string {
-	if token == "" {
-		return "empty"
+// identifySecretType returns a hint about what kind of secret was detected
+func identifySecretType(value string) string {
+	switch {
+	case strings.HasPrefix(value, "ghp_") || strings.HasPrefix(value, "gho_") ||
+		strings.HasPrefix(value, "ghu_") || strings.HasPrefix(value, "ghs_") ||
+		strings.HasPrefix(value, "ghr_"):
+		return "github_token"
+	case strings.HasPrefix(value, "AKIA") || strings.HasPrefix(value, "ASIA"):
+		return "aws_key"
+	case strings.HasPrefix(value, "eyJ"):
+		return "jwt"
+	case strings.HasPrefix(value, "xox"):
+		return "slack_token"
+	case strings.Contains(value, "-----BEGIN") && strings.Contains(value, "PRIVATE KEY"):
+		return "private_key"
+	case strings.Contains(value, "://") && strings.Contains(value, "@"):
+		return "url_with_creds"
+	default:
+		return "secret"
 	}
+}
 
-	// Use a simple non-cryptographic fingerprint for logging identification
-	// We just need a consistent identifier, not cryptographic security
-	return RedactToken(token)
+// RedactToken is an alias for RedactSecret for backward compatibility.
+// Deprecated: Use RedactSecret instead.
+func RedactToken(token string) string {
+	return RedactSecret(token)
+}
+
+// HashToken creates a safe representation of a token for logging.
+// Deprecated: Use RedactSecret instead. This function is kept for backward compatibility.
+func HashToken(token string) string {
+	return RedactSecret(token)
 }
 
 // SanitizeURL removes sensitive parts from URLs for logging

@@ -18,8 +18,8 @@ func TestLoggerFunctions_Callable(t *testing.T) {
 
 		// Empty token case
 		emptyResult := HashToken("")
-		if emptyResult != "empty" {
-			t.Errorf("HashToken(\"\") = %q, want %q", emptyResult, "empty")
+		if emptyResult != "<empty>" {
+			t.Errorf("HashToken(\"\") = %q, want %q", emptyResult, "<empty>")
 		}
 	})
 
@@ -224,7 +224,7 @@ func TestHashToken_Variations(t *testing.T) {
 		{
 			name:     "empty token",
 			token:    "",
-			wantHash: "empty",
+			wantHash: "<empty>",
 		},
 		{
 			name:  "short token",
@@ -301,4 +301,218 @@ func TestSanitizeURL_EdgeCases(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestIsSensitiveKey tests key-based sensitivity detection
+func TestIsSensitiveKey(t *testing.T) {
+	tests := []struct {
+		key      string
+		expected bool
+	}{
+		// Exact/substring matches
+		{"password", true},
+		{"token", true},
+		{"secret", true},
+		{"credential", true},
+		// Substring matches
+		{"user_password", true},
+		{"api_token", true},
+		{"client_secret", true},
+		{"auth_header", true},
+		{"private_key", true},
+		{"access_token", true},
+		{"bearer_token", true},
+		{"api_key", true},
+		{"key_file", true},
+		{"github_pat", true},
+		{"pat_token", true},
+		// Case insensitive
+		{"PASSWORD", true},
+		{"Token", true},
+		{"API_KEY", true},
+		// Non-sensitive keys (should NOT match)
+		{"username", false},
+		{"host", false},
+		{"path", false}, // should not match "_pat" pattern
+		{"protocol", false},
+		{"operation", false},
+		{"message", false},
+		{"monkey", false},   // should not match "key" pattern
+		{"keystone", false}, // should not match "key" pattern (no underscore)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			result := isSensitiveKey(tt.key)
+			if result != tt.expected {
+				t.Errorf("isSensitiveKey(%q) = %v, want %v", tt.key, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestIsSensitiveValue tests value-based pattern detection
+func TestIsSensitiveValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected bool
+	}{
+		// GitHub tokens
+		{"GitHub PAT classic", "ghp_1234567890abcdefghijklmnopqrstuvwxyz12", true},
+		{"GitHub OAuth token", "gho_1234567890abcdefghijklmnopqrstuvwxyz12", true},
+		{"GitHub user token", "ghu_1234567890abcdefghijklmnopqrstuvwxyz12", true},
+		{"GitHub server token", "ghs_1234567890abcdefghijklmnopqrstuvwxyz12", true},
+		{"GitHub refresh token", "ghr_1234567890abcdefghijklmnopqrstuvwxyz12", true},
+		// AWS keys
+		{"AWS Access Key AKIA", "AKIAIOSFODNN7EXAMPLE", true},
+		{"AWS Access Key ASIA", "ASIAISAMPLEKEYID1234", true},
+		// JWT tokens
+		{"JWT token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
+			"eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U", true},
+		// Private keys
+		{"PEM private key", "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBg...", true},
+		{"RSA private key", "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQ...", true},
+		// Slack tokens
+		{"Slack bot token", "xoxb-1234567890-abcdefghij", true},
+		// URLs with credentials
+		{"URL with creds", "https://user:password@github.com/repo", true},
+		// Long alphanumeric (potential API keys)
+		{"Long alphanumeric", "abcdefghijklmnopqrstuvwxyz123456", true},
+		// Non-sensitive values
+		{"Short string", "abc", false},
+		{"Normal text", "hello world", false},
+		{"Normal URL", "https://github.com/repo", false},
+		{"Empty string", "", false},
+		{"Number", "12345678", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isSensitiveValue(tt.value)
+			if result != tt.expected {
+				t.Errorf("isSensitiveValue(%q) = %v, want %v", tt.name, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestSanitizeValueForLogging tests the multi-layered sanitization
+func TestSanitizeValueForLogging(t *testing.T) {
+	tests := []struct {
+		name        string
+		key         string
+		value       interface{}
+		shouldMatch string // substring that should be in result if redacted
+	}{
+		// Key-based redaction
+		{"password key", "password", "mysecretpassword", "<redacted:"},
+		{"token key", "api_token", "sometoken123", "<redacted:"},
+		{"secret key", "client_secret", "secretvalue", "<redacted:"},
+		// Value-based redaction (regardless of key name)
+		{"GitHub token in random key", "some_data", "ghp_1234567890abcdefghijklmnopqrstuvwxyz12", "<redacted:github_token:"},
+		{"JWT in random key", "payload",
+			"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
+				"eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
+			"<redacted:jwt:"},
+		{"AWS key in random key", "identifier", "AKIAIOSFODNN7EXAMPLE", "<redacted:aws_key:"},
+		// Non-sensitive data should pass through
+		{"safe key and value", "host", "github.com", ""},
+		{"safe numeric", "count", 42, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeValueForLogging(tt.key, tt.value)
+			resultStr, isString := result.(string)
+
+			if tt.shouldMatch != "" {
+				if !isString {
+					t.Errorf("Expected string result for redacted value, got %T", result)
+					return
+				}
+				if !contains(resultStr, tt.shouldMatch) {
+					t.Errorf("sanitizeValueForLogging(%q, %v) = %q, should contain %q",
+						tt.key, tt.value, resultStr, tt.shouldMatch)
+				}
+			} else {
+				// Should pass through unchanged
+				if result != tt.value {
+					t.Errorf("sanitizeValueForLogging(%q, %v) = %v, want %v (unchanged)",
+						tt.key, tt.value, result, tt.value)
+				}
+			}
+		})
+	}
+}
+
+// TestIdentifySecretType tests secret type identification
+func TestIdentifySecretType(t *testing.T) {
+	tests := []struct {
+		value    string
+		expected string
+	}{
+		{"ghp_1234567890abcdefghijklmnopqrstuvwxyz12", "github_token"},
+		{"gho_1234567890abcdefghijklmnopqrstuvwxyz12", "github_token"},
+		{"ghu_1234567890abcdefghijklmnopqrstuvwxyz12", "github_token"},
+		{"ghs_1234567890abcdefghijklmnopqrstuvwxyz12", "github_token"},
+		{"ghr_1234567890abcdefghijklmnopqrstuvwxyz12", "github_token"},
+		{"AKIAIOSFODNN7EXAMPLE", "aws_key"},
+		{"ASIAISAMPLEKEYID1234", "aws_key"},
+		{"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig", "jwt"},
+		{"xoxb-1234567890-abc", "slack_token"},
+		{"-----BEGIN PRIVATE KEY-----\ndata", "private_key"},
+		{"https://user:pass@host.com", "url_with_creds"},
+		{"some_random_secret_value", "secret"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			result := identifySecretType(tt.value)
+			if result != tt.expected {
+				t.Errorf("identifySecretType(%q) = %q, want %q", tt.value, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestRedactSecret tests the redaction output format
+func TestRedactSecret(t *testing.T) {
+	tests := []struct {
+		name     string
+		secret   string
+		contains string
+	}{
+		{"empty", "", "<empty>"},
+		{"GitHub token", "ghp_1234567890abcdefghijklmnopqrstuvwxyz12", "<redacted:github_token:"},
+		{"generic secret", "mysupersecretpassword", "<redacted:secret:"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := RedactSecret(tt.secret)
+			if !contains(result, tt.contains) {
+				t.Errorf("RedactSecret(%q) = %q, should contain %q", tt.secret, result, tt.contains)
+			}
+			// Ensure original secret is not in output
+			if tt.secret != "" && len(tt.secret) > 8 && contains(result, tt.secret) {
+				t.Errorf("RedactSecret output should not contain original secret")
+			}
+		})
+	}
+}
+
+// helper function
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
