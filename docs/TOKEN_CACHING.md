@@ -5,12 +5,14 @@
 `gh-app-auth` uses two types of tokens for authentication:
 
 ### 1. JWT Tokens (Short-lived)
+
 - **Purpose**: Authenticate as the GitHub App to request installation tokens
 - **Validity**: ~10 minutes (GitHub default)
 - **Storage**: Generated on-demand, **NOT cached**
 - **Security**: Generated fresh each time, minimal exposure window
 
 ### 2. Installation Tokens (Long-lived)
+
 - **Purpose**: Authenticate git operations and API calls
 - **Validity**: 1 hour (GitHub default)
 - **Storage**: **In-memory cache scoped to the running process only** (55-minute TTL with 5-minute safety buffer)
@@ -20,6 +22,7 @@
 ## Current Implementation
 
 ### Token Cache Location
+
 Installation tokens are cached **only in memory** using `pkg/cache/cache.go`:
 
 ```go
@@ -37,11 +40,13 @@ type CachedToken struct {
 ```
 
 ### Cache Key Format
+
 ```go
 cacheKey := fmt.Sprintf("app_%d_inst_%d", appID, installationID)
 ```
 
 ### Expiration Check
+
 Tokens are automatically checked for expiration on every `Get()` call:
 
 ```go
@@ -55,6 +60,7 @@ func (c *TokenCache) Get(key string) (string, bool) {
 ```
 
 ### Automatic Cleanup
+
 Background goroutine runs every minute to remove expired tokens:
 
 ```go
@@ -67,6 +73,7 @@ func (c *TokenCache) startCleanupWorker() {
 ```
 
 ### Memory Security
+
 Tokens are zeroed out on deletion (best-effort):
 
 ```go
@@ -123,6 +130,7 @@ func (c *TokenCache) zeroToken(token string) {
 ## Usage Flow
 
 ### First Request (Cache Miss)
+
 ```
 1. Check cache → Not found
 2. Load private key from secure storage (keyring/filesystem)
@@ -133,6 +141,7 @@ func (c *TokenCache) zeroToken(token string) {
 ```
 
 ### Subsequent Requests (Cache Hit)
+
 ```
 1. Check cache → Found and valid
 2. Return cached token immediately
@@ -140,6 +149,7 @@ func (c *TokenCache) zeroToken(token string) {
 ```
 
 ### Token Expiration
+
 ```
 1. Check cache → Found but expired (time.Now() > ExpiresAt)
 2. Return "not found"
@@ -149,11 +159,13 @@ func (c *TokenCache) zeroToken(token string) {
 ## Performance Impact
 
 ### Cache Benefits
+
 - **Reduced API Calls**: One call per 55 minutes instead of per operation
 - **Faster Operations**: No JWT generation or API roundtrip on cache hit
 - **Lower Rate Limits**: Fewer API requests preserves quota
 
 ### Typical Latency
+
 - **Cache Hit**: <1ms (memory lookup)
 - **Cache Miss**: 200-500ms (JWT gen + API call + keyring access)
 
@@ -180,12 +192,14 @@ func (c *TokenCache) zeroToken(token string) {
 ### Why NOT Implemented Yet
 
 **Persistent Token Storage Risks:**
+
 - Installation tokens are powerful (1-hour validity, full repo access)
 - Storing in keyring increases attack surface
 - If keyring compromised, attacker has hour-long access window
 - Current approach: tokens ephemeral, limited to process lifetime
 
 **Security vs. Convenience Tradeoff:**
+
 - Memory-only = More secure, less convenient
 - Persistent = More convenient, less secure
 - Current design prioritizes security
@@ -193,6 +207,7 @@ func (c *TokenCache) zeroToken(token string) {
 ## Debugging
 
 ### Check Cache Status
+
 ```bash
 # No built-in command yet, but you can observe behavior:
 
@@ -204,6 +219,7 @@ time git clone https://github.com/org/repo2.git
 ```
 
 ### Cache Statistics
+
 Cache size and stats available programmatically:
 
 ```go
@@ -217,12 +233,14 @@ stats := auth.tokenCache.GetStats()
 The official `gh` CLI stores OAuth tokens differently:
 
 ### gh CLI Approach
+
 - **Token Type**: Personal OAuth tokens (indefinite validity until revoked)
 - **Storage**: OS keyring (persistent)
 - **Security**: Encrypted at rest, persistent across sessions
 - **Use Case**: User authentication, not programmatic GitHub Apps
 
 ### gh-app-auth Approach
+
 - **Token Type**: GitHub App installation tokens (1-hour validity)
 - **Storage**: Memory only (ephemeral)
 - **Security**: Process-lifetime only, no persistent storage
@@ -245,16 +263,19 @@ The official `gh` CLI stores OAuth tokens differently:
 ## Recommendations
 
 ### For Development
+
 - Memory-only cache is sufficient
 - Process restarts are infrequent
 - Re-authentication overhead is acceptable (200-500ms)
 
 ### For CI/CD
+
 - Memory-only cache is ideal
 - Ephemeral environments (containers) restart frequently anyway
 - Tokens don't need to persist beyond job execution
 
 ### For Long-Running Daemons
+
 - Consider implementing persistent cache
 - Balance security vs. convenience
 - Monitor for suspicious keyring access

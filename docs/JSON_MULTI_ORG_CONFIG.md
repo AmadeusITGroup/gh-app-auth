@@ -35,6 +35,7 @@ steps:
 ```
 
 **Problems:**
+
 - ❌ Repetitive - same action called multiple times
 - ❌ Verbose - lots of boilerplate
 - ❌ Error-prone - easy to forget `sync-git-config` coordination
@@ -70,6 +71,7 @@ steps:
 ```
 
 **Benefits:**
+
 - ✅ Single action call
 - ✅ Clear structure - all configs in one place
 - ✅ Easy to maintain - add/remove orgs by editing JSON
@@ -247,6 +249,7 @@ Then in your repository secrets, create `GITHUB_APPS_CONFIG`:
 ```
 
 **Benefits:**
+
 - ✅ Centralized configuration
 - ✅ Easy to update all at once
 - ✅ Can be reused across workflows
@@ -296,6 +299,7 @@ Use GitHub Actions expressions to conditionally include organizations:
 ### From Multiple Actions to JSON
 
 **Before:**
+
 ```yaml
 - uses: AmadeusITGroup/gh-app-auth/.github/actions/setup-gh-app-auth@main
   with:
@@ -313,6 +317,7 @@ Use GitHub Actions expressions to conditionally include organizations:
 ```
 
 **After:**
+
 ```yaml
 - uses: AmadeusITGroup/gh-app-auth/.github/actions/setup-gh-app-auth@main
   with:
@@ -377,16 +382,19 @@ echo '[{"app-id":"123","private-key":"...","patterns":"github.com/org/*"}]' | jq
 ## Best Practices
 
 1. **Use app-name**: Always specify friendly names for better logs
+
    ```json
    {"app-id": "123", "app-name": "Frontend Team", ...}
    ```
 
 2. **Store in secrets**: For complex setups, store the entire JSON in a secret
+
    ```yaml
    apps-config: ${{ secrets.APPS_CONFIG }}
    ```
 
 3. **Format for readability**: Use multi-line YAML with proper indentation
+
    ```yaml
    apps-config: |
      [
@@ -396,6 +404,7 @@ echo '[{"app-id":"123","private-key":"...","patterns":"github.com/org/*"}]' | jq
    ```
 
 4. **Document patterns**: Add comments about what each app covers (using YAML comments)
+
    ```yaml
    apps-config: |
      [
@@ -407,6 +416,7 @@ echo '[{"app-id":"123","private-key":"...","patterns":"github.com/org/*"}]' | jq
    ```
 
 5. **Test locally**: Validate JSON before committing:
+
    ```bash
    cat config.json | jq -e . > /dev/null && echo "Valid JSON"
    ```

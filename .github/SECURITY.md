@@ -11,13 +11,17 @@ The gh-app-auth extension handles sensitive authentication data including privat
 If you believe you have found a security vulnerability, please report it through one of these channels:
 
 #### 1. Private Vulnerability Reporting (Preferred)
+
 Use GitHub's private vulnerability reporting feature:
+
 - Go to the [Security tab](https://github.com/AmadeusITGroup/gh-app-auth/security) of this repository
 - Click "Report a vulnerability"
 - Fill out the form with detailed information
 
 #### 2. Email
+
 Send an email to the maintainers with:
+
 - **Subject**: `[SECURITY] Vulnerability Report - gh-app-auth`
 - **Description**: Detailed description of the vulnerability
 - **Impact**: Potential impact and affected components
@@ -40,6 +44,7 @@ Please include as much information as possible:
 This security policy covers:
 
 #### In Scope
+
 - **Private Key Security**: RSA private key file handling and validation
 - **Token Security**: JWT generation and installation token caching
 - **Input Validation**: Command-line arguments and configuration parsing
@@ -48,6 +53,7 @@ This security policy covers:
 - **Credential Helper Security**: Git credential protocol implementation
 
 #### Out of Scope
+
 - **GitHub.com Infrastructure**: Issues with GitHub's servers or services
 - **GitHub CLI Core**: Issues in the base GitHub CLI (report to [cli/cli](https://github.com/cli/cli))
 - **Operating System**: OS-level security issues
@@ -63,6 +69,7 @@ This security policy covers:
 ### Security Updates
 
 Security updates will be:
+
 - Released as soon as possible after verification
 - Announced in release notes with appropriate detail
 - Tagged with security advisory when applicable
@@ -73,17 +80,20 @@ Security updates will be:
 To use gh-app-auth securely:
 
 #### Private Key Security
+
 - **File Permissions**: Ensure private key files have restrictive permissions (600 or 400)
 - **Key Storage**: Store private keys in secure locations (e.g., `~/.ssh/`)
 - **Key Rotation**: Rotate GitHub App private keys regularly
 - **No Sharing**: Never share or commit private keys to version control
 
 #### Configuration Security
+
 - **File Permissions**: Keep configuration files readable only by your user
 - **Environment Variables**: Use environment variables in CI/CD instead of hardcoded values
 - **Repository Patterns**: Use specific patterns to limit access scope
 
 #### System Security
+
 - **Regular Updates**: Keep gh-app-auth and dependencies updated
 - **Minimal Permissions**: Run with least necessary privileges
 - **Audit Logs**: Monitor authentication activity in GitHub App settings
@@ -91,11 +101,13 @@ To use gh-app-auth securely:
 ### Known Security Considerations
 
 #### By Design
+
 - **Local Storage**: Tokens are cached locally for performance (55-minute expiration)
 - **Memory Usage**: Sensitive data exists in memory during processing
 - **File System Access**: Extension requires file system access for keys and config
 
 #### Mitigations
+
 - **Automatic Cleanup**: Tokens are cleared on expiration
 - **Permission Validation**: File permissions are checked before key loading
 - **Input Validation**: All inputs are validated to prevent injection attacks
@@ -105,14 +117,13 @@ To use gh-app-auth securely:
 ### Security Features
 
 Current security implementations:
+
 - ✅ Private key file permission validation (600/400 only)
 - ✅ Secure token caching with automatic expiration
 - ✅ Path traversal protection for configuration files
 - ✅ Input validation for all command-line arguments
 - ✅ Memory cleanup of sensitive data
 - ✅ No logging of sensitive information
-
-
 
 ---
 

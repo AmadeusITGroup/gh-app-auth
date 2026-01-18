@@ -5,6 +5,7 @@ This directory contains end-to-end tests that validate complete workflows with r
 ## Overview
 
 E2E tests differ from unit tests in that they:
+
 - Build and execute the actual binary
 - May interact with real external services (GitHub API)
 - Test complete user workflows from start to finish
@@ -65,6 +66,7 @@ Test complete user workflows with mocked external dependencies:
 - **Cleanup**: Verify credential cleanup
 
 **Example:**
+
 ```go
 func TestCompleteSetupWorkflow(t *testing.T) {
     // 1. Setup GitHub App
@@ -126,6 +128,7 @@ For real API testing, create test GitHub Apps with minimal permissions:
 4. Install the app to a test organization or repository
 
 5. Set environment variables:
+
    ```bash
    export GITHUB_APP_ID="<your-app-id>"
    export GITHUB_APP_PRIVATE_KEY="$(cat ~/Downloads/test-app.pem)"
@@ -145,6 +148,7 @@ For real API testing, create test GitHub Apps with minimal permissions:
 ### Best Practices
 
 1. **Use Build Tags for Real API Tests**
+
    ```go
    // +build e2e
    
@@ -152,6 +156,7 @@ For real API testing, create test GitHub Apps with minimal permissions:
    ```
 
 2. **Skip When Credentials Missing**
+
    ```go
    if os.Getenv("GITHUB_APP_ID") == "" {
        t.Skip("Skipping: credentials not provided")
@@ -159,6 +164,7 @@ For real API testing, create test GitHub Apps with minimal permissions:
    ```
 
 3. **Clean Up Resources**
+
    ```go
    t.Cleanup(func() {
        // Remove test configurations
@@ -168,6 +174,7 @@ For real API testing, create test GitHub Apps with minimal permissions:
    ```
 
 4. **Use Subtests for Scenarios**
+
    ```go
    func TestWorkflow(t *testing.T) {
        t.Run("setup", func(t *testing.T) { ... })

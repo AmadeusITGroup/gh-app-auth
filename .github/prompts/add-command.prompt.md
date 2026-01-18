@@ -10,6 +10,7 @@ Create a new command for the gh-app-auth CLI extension.
 ## Requirements
 
 Ask the user for:
+
 1. Command name (e.g., `verify`, `export`)
 2. Brief description of what the command does
 3. Required flags and their types

@@ -24,9 +24,9 @@ Please delete options that are not relevant:
 
 ## Changes Made
 
-- 
-- 
-- 
+-
+-
+-
 
 ## Testing
 
@@ -39,9 +39,9 @@ Please describe the tests that you ran to verify your changes:
 
 ### Test Configuration
 
-- **OS**: 
-- **Go version**: 
-- **GitHub CLI version**: 
+- **OS**:
+- **Go version**:
+- **GitHub CLI version**:
 
 ## Security Considerations
 

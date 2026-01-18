@@ -34,6 +34,7 @@ graph TB
 ```
 
 **Key Features:**
+
 - **Timeout Protection**: 3-second timeout on all keyring operations to prevent hangs
 - **Error Handling**: Wraps `zalando/go-keyring` errors with timeout-specific error types
 - **Service Naming**: Uses format `gh:{hostname}` for service identification
@@ -135,6 +136,7 @@ func (c *AuthConfig) Login(hostname, username, token, gitProtocol string,
 ```
 
 **Degradation Strategy:**
+
 1. **Attempt**: Store in OS keyring/keychain
 2. **On Success**: Remove plain text tokens, return `insecureStorageUsed=false`
 3. **On Failure**: Silently fall back to config file, return `insecureStorageUsed=true`
@@ -158,6 +160,7 @@ hosts:
 ```
 
 **User Switching:**
+
 - Active token stored at: `gh:github.com[""]` (empty user key)
 - User-specific tokens: `gh:github.com["username"]`
 - Switching copies user token to active slot
@@ -181,6 +184,7 @@ Post-Migration (v1):
 ```
 
 **Migration Process:**
+
 1. Detect config version (or absence thereof)
 2. For each host, fetch token (keyring or config)
 3. Fetch username (config or API call)
@@ -202,6 +206,7 @@ Post-Migration (v1):
 #### 2. **Timeout Protection**
 
 All keyring operations have a 3-second timeout to prevent:
+
 - Hung processes waiting for keyring unlock
 - UI freezes on systems with broken keyring
 - Indefinite waits on remote/SSH sessions
@@ -236,6 +241,7 @@ type TimeoutError struct {
 ### Current Architecture Limitations
 
 **Current State:**
+
 ```mermaid
 graph TB
     subgraph Current["Current State"]
@@ -257,6 +263,7 @@ graph TB
 ```
 
 **Problems:**
+
 1. **Private keys stored unencrypted** on filesystem
 2. **No protection** if filesystem permissions compromised
 3. **Keys in plain text** in config file paths
@@ -863,6 +870,7 @@ func TestKeyringUnavailable(t *testing.T) {
 This proposal brings **enterprise-grade security** to gh-app-auth while maintaining **100% backward compatibility** and **graceful degradation**. The implementation follows gh-cli's proven architecture patterns and provides a smooth migration path for existing users.
 
 **Key Wins:**
+
 - ✅ Private keys encrypted using OS-native secure storage
 - ✅ Zero-touch experience for users with working keyrings
 - ✅ Automatic fallback maintains existing functionality

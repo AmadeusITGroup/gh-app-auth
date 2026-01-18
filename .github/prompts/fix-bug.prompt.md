@@ -39,21 +39,25 @@ Systematically investigate and fix a bug in gh-app-auth.
 ## Common Bug Categories
 
 ### Authentication Failures
+
 - Check pattern matching in `pkg/matcher/`
 - Verify token generation in `pkg/jwt/`
 - Check keyring access in `pkg/secrets/`
 
 ### Configuration Issues
+
 - Check YAML parsing in `pkg/config/`
 - Verify path expansion
 - Check environment variable handling
 
 ### Git Credential Problems
+
 - Check stdin parsing in `cmd/git-credential.go`
 - Verify output format matches git protocol
 - Test multi-stage credential flow
 
 ### Token Expiration
+
 - Check cache TTL in `pkg/cache/`
 - Verify expiration detection
 - Test automatic refresh

@@ -53,6 +53,7 @@ export INSTALLATION_ID="12345678"
 ```
 
 Features:
+
 - Checks prerequisites automatically
 - Guides through organization setup
 - Creates test repositories
@@ -75,6 +76,7 @@ Features:
 ```
 
 Checks:
+
 - ✅ GitHub CLI installed and authenticated
 - ✅ Git installed
 - ✅ jq (JSON processor) installed

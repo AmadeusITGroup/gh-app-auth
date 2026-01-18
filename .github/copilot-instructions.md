@@ -7,6 +7,7 @@ This project is a GitHub CLI extension written in Go that provides Git credentia
 **Purpose**: Simplify Git authentication for CI/CD pipelines and multi-organization setups by providing a unified credential helper that supports GitHub Apps, PATs, and multiple Git providers (GitHub, Bitbucket).
 
 **Key Problems Solved**:
+
 - Cross-organization repository access with GitHub Apps
 - Automatic token refresh (GitHub App tokens expire after 1 hour)
 - Pattern-based credential routing
@@ -55,6 +56,7 @@ gh-app-auth/
 ## Code Conventions
 
 ### Go Style
+
 - Follow standard Go idioms and `gofmt`
 - Use table-driven tests
 - Error messages should be lowercase (staticcheck ST1005)
@@ -62,12 +64,14 @@ gh-app-auth/
 - Use meaningful variable names (not single letters except loops)
 
 ### CLI Commands
+
 - Commands use Cobra framework
 - Each command has `NewXxxCmd()` constructor and `xxxRun()` execution
 - Support both flags and environment variables
 - Output uses color for interactive terminals, plain text for pipes
 
 ### Security Principles
+
 - Never log tokens, private keys, or secrets in plain text
 - Use token hashes (SHA-256) for debugging
 - Validate file permissions for private keys (600/400)
@@ -75,6 +79,7 @@ gh-app-auth/
 - Zero sensitive data from memory when possible
 
 ### Configuration
+
 - Config file: `~/.config/gh/extensions/gh-app-auth/config.yml`
 - Support both YAML and JSON formats
 - Pattern matching uses longest-prefix-first, then priority
@@ -91,17 +96,20 @@ gh-app-auth/
 ## Common Tasks
 
 ### Adding a New Command
+
 1. Create `cmd/newcommand.go` with `NewNewCommandCmd()`
 2. Register in `cmd/root.go`
 3. Add corresponding tests in `cmd/newcommand_test.go`
 4. Update help text and documentation
 
 ### Modifying Pattern Matching
+
 - Changes go in `pkg/matcher/matcher.go`
 - Ensure backward compatibility with existing configs
 - Add tests for edge cases
 
 ### Working with Secrets
+
 - Use `pkg/secrets/secrets.go` for all secret operations
 - Never hardcode test tokens or keys
 - Mock keyring in tests using interfaces

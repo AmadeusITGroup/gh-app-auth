@@ -31,12 +31,14 @@ gh app-auth gitconfig --sync
 ```
 
 **What it does:**
+
 1. Reads your gh-app-auth configuration
 2. Extracts all configured patterns (Apps + PATs)
 3. Configures git credential helpers for each pattern
 4. Sets up automatic token authentication
 
 **Output example:**
+
 ```
 Configuring git credential helpers (--global)...
 
@@ -64,11 +66,13 @@ gh app-auth gitconfig --clean
 ```
 
 **What it does:**
+
 1. Scans git configuration for gh-app-auth helpers
 2. Removes each configured helper
 3. Leaves other git configurations intact
 
 **Output example:**
+
 ```
 Cleaning gh-app-auth git configurations (--global)...
 
@@ -79,6 +83,7 @@ Cleaning gh-app-auth git configurations (--global)...
 ```
 
 **Use cases:**
+
 - Switching between different authentication methods
 - Troubleshooting authentication issues
 - Cleaning up after testing
@@ -96,6 +101,7 @@ gh app-auth gitconfig --clean --global
 ```
 
 **Equivalent to:**
+
 ```bash
 git config --global credential.*.helper ...
 ```
@@ -110,6 +116,7 @@ gh app-auth gitconfig --sync --local
 ```
 
 **Use cases:**
+
 - Repository-specific authentication
 - Testing configuration without affecting other repos
 - Overriding global configuration for specific projects
@@ -123,20 +130,24 @@ gh app-auth gitconfig --sync --auto
 ```
 
 **Requirements:**
+
 - `GH_APP_PRIVATE_KEY_PATH` environment variable must be set (path to private key file)
 - `GH_APP_ID` environment variable must be set
 
 **How it works:**
+
 1. Sets up a single global git credential helper
 2. The helper automatically authenticates for any repository using the configured GitHub App
 3. No need to configure patterns for each organization
 
 **Use cases:**
+
 - CI/CD environments where a single GitHub App has access to all needed repositories
 - Simplified setup when one app covers all authentication needs
 - Dynamic environments where repository patterns aren't known in advance
 
 **Example:**
+
 ```bash
 export GH_APP_PRIVATE_KEY_PATH="/path/to/app.pem"
 export GH_APP_ID="123456"
@@ -161,6 +172,7 @@ The `gitconfig` command intelligently extracts credential contexts from your pat
 ### Examples
 
 **Single Organization:**
+
 ```bash
 # Configuration
 gh app-auth setup --app-id 123 --patterns "github.com/myorg/*"
@@ -174,6 +186,7 @@ git clone https://github.com/other-org/repo  # Uses default git auth
 ```
 
 **Multiple Organizations:**
+
 ```bash
 # Configure multiple apps
 gh app-auth setup --app-id 123 --patterns "github.com/org1/*"
@@ -186,6 +199,7 @@ git clone https://github.com/org2/repo  # Uses App 456
 ```
 
 **Enterprise GitHub:**
+
 ```bash
 gh app-auth setup --app-id 789 --patterns "github.enterprise.com/*/*"
 gh app-auth gitconfig --sync
@@ -378,6 +392,7 @@ git config --global --unset-all credential."https://github.com/org2".helper
 ```
 
 **Problems:**
+
 - ❌ Error-prone (typos, wrong patterns)
 - ❌ Tedious for multiple apps
 - ❌ Hard to remember exact commands
@@ -396,6 +411,7 @@ gh app-auth gitconfig --clean
 ```
 
 **Benefits:**
+
 - ✅ One command configures everything
 - ✅ Automatically handles all configured apps
 - ✅ No typos or manual errors
@@ -411,6 +427,7 @@ Error: no GitHub Apps configured. Run 'gh app-auth setup' first
 ```
 
 **Solution:** Configure at least one GitHub App first:
+
 ```bash
 gh app-auth setup --app-id 123456 --key-file app.pem --patterns "github.com/org/*"
 gh app-auth gitconfig --sync
@@ -424,6 +441,7 @@ Error: gh-app-auth executable not found in PATH or extension directory
 ```
 
 **Solution:** Ensure gh-app-auth is properly installed:
+
 ```bash
 gh extension list | grep app-auth
 gh extension install AmadeusITGroup/gh-app-auth
@@ -437,11 +455,13 @@ Username:  # Should not prompt!
 ```
 
 **Possible causes:**
+
 1. Pattern mismatch
 2. Git config not synced
 3. Wrong scope (local vs global)
 
 **Debug:**
+
 ```bash
 # Check what's configured
 gh app-auth list
@@ -463,6 +483,7 @@ $ gh app-auth gitconfig --sync
 ```
 
 **Solution:** Check your patterns are correctly formatted:
+
 - ✅ Good: `github.com/org/*`
 - ✅ Good: `github.enterprise.com/*/*`
 - ❌ Bad: `org/*` (missing host)

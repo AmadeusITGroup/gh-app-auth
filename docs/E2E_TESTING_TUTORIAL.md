@@ -97,7 +97,7 @@ Local Machine
 
 **Web UI (Required):**
 
-1. Go to https://github.com/settings/organizations
+1. Go to <https://github.com/settings/organizations>
 2. Click "New organization" → "Create a free organization"
 3. Name: `gh-app-auth-testing` (or your choice)
 4. Complete setup
@@ -466,6 +466,7 @@ After successful E2E validation:
 4. **Monitoring**: Set up alerts for authentication failures
 
 For production deployments, see:
+
 - [CI/CD Integration Guide](../README.md#cicd-integration)
 - [Security Best Practices](SECURITY.md)
 - [GitHub Actions Examples](../.github/workflows/)
@@ -474,6 +475,6 @@ For production deployments, see:
 
 ## Support
 
-- **Issues**: https://github.com/AmadeusITGroup/gh-app-auth/issues
-- **Discussions**: https://github.com/AmadeusITGroup/gh-app-auth/discussions
-- **Documentation**: https://github.com/AmadeusITGroup/gh-app-auth/tree/main/docs
+- **Issues**: <https://github.com/AmadeusITGroup/gh-app-auth/issues>
+- **Discussions**: <https://github.com/AmadeusITGroup/gh-app-auth/discussions>
+- **Documentation**: <https://github.com/AmadeusITGroup/gh-app-auth/tree/main/docs>

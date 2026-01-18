@@ -295,6 +295,7 @@ jobs:
 ```
 
 **Benefits:**
+
 - No temporary files created
 - No chmod needed
 - No cleanup required
@@ -332,6 +333,7 @@ jobs:
 ```
 
 **Features:**
+
 - One-step setup: installs GitHub CLI, extension, and configures git
 - Auto-syncs git credential helpers
 - Automatic cleanup on non-ephemeral runners

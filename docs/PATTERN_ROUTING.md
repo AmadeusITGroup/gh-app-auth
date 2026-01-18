@@ -18,19 +18,23 @@ The `--pattern` flag allows you to explicitly specify which GitHub App should ha
 ### Traditional Approach vs Pattern Routing
 
 **Without `--pattern` (Auto-matching):**
+
 ```bash
 # All repos use first matching pattern from config
 git config --global credential.helper '!/path/to/gh-app-auth git-credential'
 ```
+
 - Relies on pattern priority in config file
 - First match wins
 - Less explicit about which app handles which repo
 
 **With `--pattern` (Explicit routing):**
+
 ```bash
 # Explicitly route specific org to specific app
 git config credential.'https://github.com/myorg'.helper '!/path/to/gh-app-auth git-credential --pattern "github.com/myorg/*"'
 ```
+
 - Git's native URL scoping
 - Explicit app selection
 - Multiple apps can coexist
@@ -152,6 +156,7 @@ The pattern you pass to `--pattern` must be identical:
 **Scenario**: You work with two organizations, each with its own GitHub App.
 
 **Setup**:
+
 ```bash
 # Organization A
 git config --global credential.'https://github.com/orgA'.helper \
@@ -163,6 +168,7 @@ git config --global credential.'https://github.com/orgB'.helper \
 ```
 
 **Usage**:
+
 ```bash
 # Automatically uses orgA's app
 git clone https://github.com/orgA/private-repo
@@ -176,6 +182,7 @@ git clone https://github.com/orgB/private-repo
 **Scenario**: You have repos on both GitHub Enterprise and GitHub.com.
 
 **Setup**:
+
 ```bash
 # Enterprise
 git config --global credential.'https://github.enterprise.com'.helper \
@@ -191,6 +198,7 @@ git config --global credential.'https://github.com'.helper \
 **Scenario**: Test a new GitHub App on one repository before rolling out.
 
 **Setup**:
+
 ```bash
 cd /path/to/test-repo
 
@@ -224,6 +232,7 @@ tail -f ~/.config/gh/extensions/gh-app-auth/debug.log
 **Cause**: The pattern doesn't exist in any configured app.
 
 **Solution**: Check your config file and ensure the pattern matches exactly:
+
 ```bash
 gh app-auth list  # View configured patterns
 ```
@@ -233,6 +242,7 @@ gh app-auth list  # View configured patterns
 **Cause**: Git isn't calling your credential helper.
 
 **Solution**: Verify git configuration:
+
 ```bash
 git config --get-all credential.helper
 git config --get-all credential."https://github.com/org".helper
@@ -272,6 +282,7 @@ GIT_TRACE=1 git ls-remote https://github.com/org/repo 2>&1 | grep credential
 ### Pattern Exposure
 
 Patterns are visible in git configuration:
+
 ```bash
 git config --list | grep credential
 ```
@@ -281,6 +292,7 @@ This is safe because patterns are **public information** (repository URLs), not 
 ### Private Keys
 
 Private keys remain protected:
+
 - Stored separately from patterns
 - File permissions: `0600`
 - Never logged or exposed
@@ -288,6 +300,7 @@ Private keys remain protected:
 ### Token Handling
 
 Tokens generated via pattern routing have the same security as auto-matched tokens:
+
 - Short-lived (1 hour expiration)
 - Scoped to repository
 - Cached securely
@@ -297,11 +310,13 @@ Tokens generated via pattern routing have the same security as auto-matched toke
 ### From Auto-Matching to Pattern Routing
 
 **Before** (auto-matching):
+
 ```bash
 git config --global credential.helper '!gh-app-auth git-credential'
 ```
 
 **After** (pattern routing):
+
 ```bash
 # Clear old config
 git config --global --unset credential.helper
@@ -340,6 +355,7 @@ git config --global --add credential.helper \
 ### Per-Repository Override
 
 Repository config takes precedence over global:
+
 ```bash
 # Global: use App A
 git config --global credential.'https://github.com/org'.helper \

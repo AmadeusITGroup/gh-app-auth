@@ -32,6 +32,7 @@ Many enterprises need a documented approach to support cross-org repository acce
 ### 3) CI/CD Complexity with Multi-Org Git Submodules
 
 CI pipelines (Jenkins, GitHub Actions, etc.) cloning across organizations require:
+
 - Advanced submodule credential configuration
 - Parent credentials propagation
 - Multiple GitHub App installations with token refresh logic
@@ -53,4 +54,3 @@ This extension provides:
 4. **Git integration** - Native credential helper for seamless git operations
 5. **Secure storage** - OS-native keyring integration for private keys and tokens
 6. **CI/CD ready** - Designed for both local development and automated pipelines
-

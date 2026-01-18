@@ -27,6 +27,7 @@ chmod 600 ~/.ssh/my-app.private-key.pem
 #### OS Keyring (Recommended)
 
 Keys are encrypted using platform-native security:
+
 - **macOS**: Keychain (AES-256)
 - **Windows**: Credential Manager (DPAPI)
 - **Linux**: Secret Service API (GNOME Keyring, KWallet)
@@ -55,6 +56,7 @@ For automated pipelines, use your CI system's secrets management:
 ### In-Memory Only
 
 Installation tokens are:
+
 - **Never written to disk**
 - **Cached in memory** for 55 minutes (GitHub provides 60-minute validity)
 - **Zeroed from memory** on cleanup (best-effort)

@@ -37,6 +37,7 @@ Organizations face four critical challenges when automating Git operations with 
 **The Dilemma**: Simplicity vs. Governance
 
 ### Robot Accounts (User Accounts as Service Accounts)
+
 - ✅ Simple to use (works like human accounts)
 - ✅ Single credential for everything
 - ❌ Consumes GitHub user license ($21-44/month)
@@ -45,6 +46,7 @@ Organizations face four critical challenges when automating Git operations with 
 - ❌ Security risks with shared credentials
 
 ### GitHub Apps
+
 - ✅ No license cost
 - ✅ Fine-grained permissions
 - ✅ Clear audit trail
@@ -126,6 +128,7 @@ sequenceDiagram
 ## Alternative 1: Robot Accounts
 
 ### Implementation
+
 ```bash
 # Jenkins/GitHub Actions
 credentials:
@@ -134,6 +137,7 @@ credentials:
 ```
 
 ### Evaluation
+
 - ✅ **Simple**: Works like human accounts
 - ✅ **Universal**: Single credential for all repos
 - ❌ **Costly**: License fees ($21-44/month)
@@ -147,11 +151,13 @@ credentials:
 ## Alternative 2: Personal Access Tokens (PATs)
 
 ### Implementation
+
 ```bash
 git clone https://PAT_TOKEN@github.com/org/repo.git
 ```
 
 ### Evaluation
+
 - ✅ **Easy**: Quick to generate
 - ✅ **Free**: No license cost
 - ❌ **Security nightmare**: Long-lived tokens
@@ -166,6 +172,7 @@ git clone https://PAT_TOKEN@github.com/org/repo.git
 ## Alternative 3: Deploy Keys
 
 ### Implementation
+
 ```bash
 # Per-repository SSH key
 ssh-keygen -t ed25519 -C "deploy-key"
@@ -173,6 +180,7 @@ ssh-keygen -t ed25519 -C "deploy-key"
 ```
 
 ### Evaluation
+
 - ✅ **Secure**: Repository-specific
 - ✅ **Read-only option**: Available
 - ❌ **Scalability**: One key per repo
@@ -186,6 +194,7 @@ ssh-keygen -t ed25519 -C "deploy-key"
 ## Alternative 4: GitHub Actions Built-in Token
 
 ### Implementation
+
 ```yaml
 - uses: actions/checkout@v4
   with:
@@ -193,6 +202,7 @@ ssh-keygen -t ed25519 -C "deploy-key"
 ```
 
 ### Evaluation
+
 - ✅ **Automatic**: No manual setup
 - ✅ **Secure**: Short-lived, scoped
 - ❌ **GitHub Actions only**: No Jenkins, GitLab CI support
@@ -206,6 +216,7 @@ ssh-keygen -t ed25519 -C "deploy-key"
 ## Alternative 5: Manual GitHub App Integration
 
 ### Implementation
+
 ```bash
 # Generate JWT
 jwt=$(generate_github_app_jwt $APP_ID $PRIVATE_KEY)
@@ -222,6 +233,7 @@ git clone https://x-access-token:$token@github.com/org/repo.git
 ---
 
 ### Evaluation
+
 - ✅ **Powerful**: Fine-grained permissions
 - ✅ **Org-managed**: Central control
 - ✅ **Audit trail**: Clear attribution
@@ -262,6 +274,7 @@ git clone https://x-access-token:$token@github.com/org/repo.git
 A GitHub CLI extension that automates GitHub App authentication for Git operations.
 
 ### The Dream
+
 ```bash
 # One-time setup
 gh app-auth setup \
@@ -280,12 +293,14 @@ git clone --recurse-submodules https://github.com/myorg/repo.git
 ## Key Features
 
 ### 🔐 Automatic Authentication
+
 - Generates JWT and exchanges for installation tokens (GitHub Apps)
 - Retrieves Personal Access Tokens from encrypted storage when patterns require PATs
 - Caches installation tokens for 55 minutes
 - Transparent to Git operations with automatic refresh on expiry
 
 ### 🔑 Encrypted Private Key Storage
+
 - OS-native encrypted keyring (Keychain, Credential Manager, Secret Service)
 - No plain text keys in config files
 - Reduced attack surface compared to plaintext storage
@@ -294,18 +309,21 @@ git clone --recurse-submodules https://github.com/myorg/repo.git
 ---
 
 ### 🏢 Multi-Organization Native
+
 - Configure multiple GitHub Apps **and Personal Access Tokens**
 - URL prefix-based automatic selection (aligns with git's native behavior)
 - Seamless cross-org submodule support (GitHub.com, GitHub Enterprise, Bitbucket Server)
 - Git-native credential helper URL scoping with priority-based routing
 
 ### ⚙️ CI/CD Optimized
+
 - Works in GitHub Actions, Jenkins, GitLab CI, etc.
 - Supports long-running jobs (>1 hour)
 - Environment variable support (no temp files!)
 - Handles token refresh automatically
 
 ### 🔄 Dual Credential Routing
+
 - One configuration file handles both automation (GitHub Apps) and personal workflows (PATs)
 - PATs stored in the same encrypted keyring with filesystem fallback
 - Priority controls decide when PATs override apps (e.g., local developer overrides CI bot)
@@ -314,6 +332,7 @@ git clone --recurse-submodules https://github.com/myorg/repo.git
 ---
 
 ### 🛡️ Enterprise Security
+
 - Encrypted storage with graceful filesystem fallback
 - Secure token caching with TTL
 - No credential exposure in logs
@@ -321,6 +340,7 @@ git clone --recurse-submodules https://github.com/myorg/repo.git
 - Automatic key cleanup on removal
 
 ### 🚀 Developer Friendly
+
 - One-command setup
 - Works like robot accounts (but better!)
 - Comprehensive error messages
@@ -523,6 +543,7 @@ graph TB
 ```
 
 **Common Security Risks:**
+
 - ❌ Keys readable by any process running as your user
 - ❌ Backup tools copy keys in plain text
 - ❌ Disk forensics can recover deleted keys
@@ -548,6 +569,7 @@ System Keyring (OS-managed, encrypted)
 ```
 
 **Platform Support:**
+
 - 🍎 **macOS**: Keychain (AES-256, Secure Enclave on M1+)
 - 🪟 **Windows**: Credential Manager (DPAPI, TPM-backed)
 - 🐧 **Linux**: Secret Service (GNOME Keyring, KWallet)
@@ -596,6 +618,7 @@ unset GH_APP_PRIVATE_KEY
 ```
 
 **What happens:**
+
 1. Private key read from environment variable
 2. Key stored in OS-native encrypted keyring
 3. Config file contains only metadata (no key!)
@@ -634,6 +657,7 @@ graph TD
 ## Key Management Features
 
 ### 🔍 Verification
+
 ```bash
 # Check where keys are stored
 gh app-auth list
@@ -652,6 +676,7 @@ gh app-auth list --verify-keys
 ---
 
 ### 🔄 Migration Support
+
 ```bash
 # Preview migration to encrypted storage
 gh app-auth migrate --dry-run
@@ -666,6 +691,7 @@ gh app-auth migrate --force
 ---
 
 ### 🗑️ Automatic Cleanup
+
 ```bash
 # Remove app (automatically deletes encrypted key)
 gh app-auth remove --app-id 12345
@@ -688,6 +714,7 @@ gh app-auth remove --app-id 12345
 | Cached Auth | <1ms | Memory lookup only |
 
 **Notes:**
+
 - Caching reduces API calls (one per 55 minutes instead of per operation)
 - Keyring access has 3-second timeout protection
 - Actual latency varies by system and network
@@ -798,6 +825,7 @@ jobs:
 ```
 
 **Benefits:**
+
 - ✅ No temporary files
 - ✅ No chmod needed
 - ✅ No cleanup required
@@ -912,12 +940,14 @@ graph LR
 ## Time Savings
 
 **Manual GitHub App Setup** (per pipeline):
+
 - Generate JWT token code
 - Implement token exchange logic
 - Add refresh handling for long jobs
 - Debug authentication issues
 
 **With gh-app-auth** (per pipeline):
+
 - One-time `gh app-auth setup` command
 - One-time `gh app-auth gitconfig --sync` command
 - Works automatically thereafter
@@ -937,6 +967,7 @@ graph LR
 ## Security Improvement
 
 **Before** (PATs/Robot Accounts):
+
 - PATs with broad permissions
 - Manual rotation required
 - Shared credentials
@@ -944,6 +975,7 @@ graph LR
 - Unencrypted keys on disk
 
 **After** (gh-app-auth):
+
 - Fine-grained GitHub App permissions
 - Automatic token refresh (no rotation needed)
 - Isolated per-org credentials
@@ -957,6 +989,7 @@ graph LR
 ## Developer Experience
 
 ### Before
+
 ```bash
 # 20+ lines of custom JWT generation code
 # Manual token exchange API calls
@@ -969,6 +1002,7 @@ Maintainability: LOW
 ```
 
 ### After
+
 ```bash
 export GH_APP_PRIVATE_KEY="$(cat app.pem)"
 gh app-auth setup --app-id 123456 --patterns "https://github.com/myorg"
@@ -984,11 +1018,13 @@ Security: ENCRYPTED
 ## Technical Achievements
 
 ### Performance
+
 - First auth: 200-500ms (JWT + API call)
 - Cached auth: <1ms (memory lookup)
 - Token caching reduces API calls
 
 ### Reliability
+
 - Automatic token refresh on expiration
 - Graceful fallback to filesystem if keyring unavailable
 - Comprehensive error handling
@@ -1010,6 +1046,7 @@ Security: ENCRYPTED
 ## Before vs. After Summary
 
 ### Before gh-app-auth
+
 - Robot accounts consume user licenses
 - Manual JWT generation and token exchange
 - Token expiration causes long-running job failures
@@ -1017,6 +1054,7 @@ Security: ENCRYPTED
 - Unencrypted keys on disk
 
 ### After gh-app-auth
+
 - GitHub Apps don't consume licenses
 - Automatic JWT and token handling
 - Automatic token refresh on expiration
@@ -1099,14 +1137,17 @@ graph TB
 ## Real-World Enterprise Benefits
 
 ### Cost
+
 - GitHub Apps don't consume user licenses (unlike robot accounts)
 
 ### Security
+
 - Keys encrypted at rest using OS-native encryption
 - Fine-grained permissions via GitHub Apps
 - Complete audit trail
 
 ### Operations
+
 - One-time setup per organization
 - Automatic token refresh eliminates expiration failures
 - Minimal ongoing maintenance
@@ -1116,6 +1157,7 @@ graph TB
 ## Deployment Readiness
 
 ### Technical Validation ✅
+
 - 34 tests, 100% passing
 - Zero breaking changes
 - Full backward compatibility
@@ -1123,6 +1165,7 @@ graph TB
 - Production deployments successful
 
 ### Documentation ✅
+
 - Comprehensive architecture guide
 - Security comparison analysis
 - Migration documentation
@@ -1132,6 +1175,7 @@ graph TB
 ---
 
 ### Support & Operations ✅
+
 - Clear error messages
 - Built-in verification tools
 - Dry-run migration preview
@@ -1143,11 +1187,13 @@ graph TB
 ## The Complete Picture
 
 ### Solution Highlights
+
 1. **Problem Solved**: CI/CD authentication complexity
 2. **Core Features**: Automation + encrypted storage + multi-org
 3. **Enterprise Ready**: Security, compliance, reliability
 
 ### Key Benefits
+
 - GitHub Apps don't consume user licenses
 - Simplified setup compared to manual JWT handling
 - Encrypted key storage improves security posture
@@ -1188,7 +1234,7 @@ git clone --recurse-submodules \
 
 ---
 
-# Thank You!
+# Thank You
 
 ## Questions?
 

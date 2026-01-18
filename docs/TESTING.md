@@ -51,6 +51,7 @@ go test -v ./cmd/... -run TestReadCredentialInput
 Tests parsing of git's credential input format.
 
 **Test Cases:**
+
 - Complete input (protocol, host, path)
 - Host only (no path)
 - With username field
@@ -58,6 +59,7 @@ Tests parsing of git's credential input format.
 - Extra whitespace handling
 
 **Example:**
+
 ```go
 input := `protocol=https
 host=github.com
@@ -73,6 +75,7 @@ result, err := readCredentialInput(strings.NewReader(input))
 Tests URL construction from git credential input.
 
 **Test Cases:**
+
 - Complete HTTPS URL
 - Host only (no path)
 - No protocol (defaults to https)
@@ -84,6 +87,7 @@ Tests URL construction from git credential input.
 - HTTP protocol
 
 **Example:**
+
 ```go
 input := map[string]string{
     "protocol": "https",
@@ -99,6 +103,7 @@ result := buildRepositoryURL(input)
 Tests real-world git scenarios.
 
 **Test Cases:**
+
 - `git clone` with HTTPS
 - `git fetch` operation
 - Initial connection (host only)
@@ -112,45 +117,54 @@ Tests real-world git scenarios.
 ### Test Scenarios
 
 #### TestGitCredentialHelper_NoConfig
+
 Verifies silent exit when no configuration file exists.
 
 **Expected:** Exit code 0, no output (allows fallback to other helpers)
 
 #### TestGitCredentialHelper_NoMatchingApp
+
 Verifies silent exit when no app matches the repository pattern.
 
 **Expected:** Exit code 0, no output
 
 #### TestGitCredentialHelper_HostOnly
+
 Verifies handling of host-only requests (no repository path).
 
 **Expected:** Exit code 0, no output (git will call again with full path)
 
 #### TestGitCredentialHelper_Store
+
 Tests the `store` operation (git storing credentials).
 
 **Expected:** Exit code 0 (we don't actually store anything)
 
 #### TestGitCredentialHelper_Erase
+
 Tests the `erase` operation (git clearing credentials).
 
 **Expected:** Exit code 0
 
 #### TestGitCredentialHelper_InvalidOperation
+
 Tests rejection of unsupported operations.
 
 **Expected:** Exit code != 0, error message
 
 #### TestGitCredentialProtocol_MultiStage
+
 Simulates git's two-stage credential request protocol.
 
 **Stage 1:** Host only → Silent exit
 **Stage 2:** Full path → Attempt authentication
 
 #### TestGitCredentialHelper_OutputFormat
+
 Verifies the output format matches git's expectations.
 
 **Expected Format:**
+
 ```
 username=app-name[bot]
 password=ghs_token123
@@ -199,6 +213,7 @@ go build -o gh-app-auth
 ### Output
 
 The script provides color-coded output:
+
 - 🟢 **Green** - Test passed
 - 🟡 **Yellow** - Expected failure (normal behavior)
 - 🔴 **Red** - Test failed
@@ -238,6 +253,7 @@ echo -e "protocol=https\nhost=github.com\npath=myorg/myrepo\n" | \
 Git uses a multi-stage protocol:
 
 1. **Stage 1:** Request with host only
+
    ```
    protocol=https
    host=github.com
@@ -245,6 +261,7 @@ Git uses a multi-stage protocol:
    ```
 
 2. **Stage 2:** Request with full path
+
    ```
    protocol=https
    host=github.com
@@ -257,6 +274,7 @@ Git uses a multi-stage protocol:
 - **No config:** Exit silently (code 0, no output)
 - **No match:** Exit silently (code 0, no output)
 - **Match found:** Output credentials in format:
+
   ```
   username=app-name[bot]
   password=ghs_token123
@@ -273,6 +291,7 @@ Git uses a multi-stage protocol:
 ## Continuous Integration
 
 Tests run automatically on:
+
 - Every push to main
 - Every pull request
 - Via GitHub Actions workflow
@@ -394,6 +413,7 @@ go test -v ./test/integration/... -timeout 60s
 ### Manual Script Hangs
 
 The script may hang if waiting for input. Use Ctrl+C to cancel and check:
+
 - Binary path is correct
 - Config file exists (if testing with real app)
 - Network connectivity (if testing authentication)
@@ -401,11 +421,13 @@ The script may hang if waiting for input. Use Ctrl+C to cancel and check:
 ## Best Practices
 
 1. **Run tests before committing:**
+
    ```bash
    make test
    ```
 
 2. **Test with real GitHub App periodically:**
+
    ```bash
    ./test/manual/test-git-credential.sh ./gh-app-auth
    ```

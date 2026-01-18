@@ -38,9 +38,9 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement through:
 
-- GitHub Issues (for public matters)
-- GitHub Discussions (for community discussion)
-- Direct contact with maintainers (for sensitive matters)
+* GitHub Issues (for public matters)
+* GitHub Discussions (for community discussion)
+* Direct contact with maintainers (for sensitive matters)
 
 All complaints will be reviewed and investigated promptly and fairly.
 
@@ -76,10 +76,10 @@ Community leaders will follow these Community Impact Guidelines in determining t
 
 ## Attribution
 
-This Code of Conduct is adapted from the [Contributor Covenant][homepage], version 2.1, available at https://www.contributor-covenant.org/version/2/1/code_of_conduct.html.
+This Code of Conduct is adapted from the [Contributor Covenant][homepage], version 2.1, available at <https://www.contributor-covenant.org/version/2/1/code_of_conduct.html>.
 
 Community Impact Guidelines were inspired by [Mozilla's code of conduct enforcement ladder](https://github.com/mozilla/diversity).
 
 [homepage]: https://www.contributor-covenant.org
 
-For answers to common questions about this code of conduct, see the FAQ at https://www.contributor-covenant.org/faq. Translations are available at https://www.contributor-covenant.org/translations.
+For answers to common questions about this code of conduct, see the FAQ at <https://www.contributor-covenant.org/faq>. Translations are available at <https://www.contributor-covenant.org/translations>.

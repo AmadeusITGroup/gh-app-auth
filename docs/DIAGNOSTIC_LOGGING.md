@@ -8,6 +8,7 @@ PAT flows include `generate_pat_credentials` and `output_pat_credentials` steps 
 [2025-10-13T20:02:03.402Z] FLOW_STEP [...] step=pat_retrieved pat_name="Bitbucket PAT" token_hash=sha256:...
 [2025-10-13T20:02:03.403Z] FLOW_STEP [...] step=output_pat_credentials username=your-username token_hash=sha256:...
 ```
+
 # Diagnostic Logging
 
 The `gh-app-auth` extension includes comprehensive diagnostic logging to help debug git credential flows. This logging is designed to be non-intrusive and secure.
@@ -133,6 +134,7 @@ token_hash=sha256:a1b2c3d4e5f6a1b2
 ```
 
 This allows you to:
+
 - Verify if the same token was generated multiple times
 - Identify token-related issues without exposing secrets
 - Correlate operations using the same token
@@ -184,6 +186,7 @@ Here's what a successful git credential flow looks like:
 Git often calls the credential helper twice:
 
 **Stage 1: Host Only**
+
 ```
 [19:52:15.123Z] FLOW_START [session_1234_op1] operation=get
 [19:52:15.124Z] FLOW_STEP [session_1234_op2] step=parse_input protocol=https host=github.com
@@ -192,6 +195,7 @@ Git often calls the credential helper twice:
 ```
 
 **Stage 2: Full Path**
+
 ```
 [19:52:15.200Z] FLOW_START [session_1234_op5] operation=get
 [19:52:15.201Z] FLOW_STEP [session_1234_op6] step=parse_input protocol=https host=github.com path=myorg/repo
@@ -308,11 +312,13 @@ BEGIN { prev = "" }
 ### No Log File Created
 
 **Check:**
+
 1. Environment variable is set: `echo $GH_APP_AUTH_DEBUG_LOG`
 2. Directory is writable: `ls -la ~/.config/gh/extensions/gh-app-auth/`
 3. Disk space available: `df -h`
 
 **Solution:**
+
 ```bash
 # Ensure directory exists
 mkdir -p ~/.config/gh/extensions/gh-app-auth
@@ -324,10 +330,12 @@ export GH_APP_AUTH_DEBUG_LOG="/tmp/gh-app-auth.log"
 ### Empty Log File
 
 **Check:**
+
 1. Git is actually calling the credential helper
 2. Operations are completing (may be silent exits)
 
 **Solution:**
+
 ```bash
 # Force credential helper call
 echo -e "protocol=https\nhost=github.com\npath=myorg/repo\n" | \
@@ -337,6 +345,7 @@ echo -e "protocol=https\nhost=github.com\npath=myorg/repo\n" | \
 ### Log File Too Large
 
 **Rotate logs:**
+
 ```bash
 # Archive current log
 mv ~/.config/gh/extensions/gh-app-auth/debug.log{,.$(date +%Y%m%d)}
@@ -348,11 +357,13 @@ touch ~/.config/gh/extensions/gh-app-auth/debug.log
 ### Performance Impact
 
 Logging has minimal performance impact:
+
 - Only active when explicitly enabled
 - Async file writes
 - Structured data (no complex formatting)
 
 To disable:
+
 ```bash
 unset GH_APP_AUTH_DEBUG_LOG
 ```

@@ -29,7 +29,9 @@ Add comprehensive tests for the specified code in gh-app-auth.
 ## Test Categories
 
 ### Unit Tests
+
 Test individual functions in isolation:
+
 ```go
 func TestFunctionName(t *testing.T) {
     tests := []struct {
@@ -46,7 +48,9 @@ func TestFunctionName(t *testing.T) {
 ```
 
 ### Integration Tests
+
 Test component interactions:
+
 ```go
 func TestWorkflow(t *testing.T) {
     // Setup temporary config
@@ -58,7 +62,9 @@ func TestWorkflow(t *testing.T) {
 ```
 
 ### Command Tests
+
 Test CLI commands:
+
 ```go
 func TestNewExampleCmd(t *testing.T) {
     cmd := NewExampleCmd()
@@ -75,6 +81,7 @@ func TestNewExampleCmd(t *testing.T) {
 ## Test Utilities
 
 Use helpers from `test/testutil/`:
+
 - `testutil.CreateTestConfig()` - Create test configuration
 - `testutil.MockGitHubAPI()` - Mock GitHub API responses
 - `testutil.TempConfigDir()` - Temporary config directory
@@ -82,6 +89,7 @@ Use helpers from `test/testutil/`:
 ## Coverage Targets
 
 Ensure these minimums:
+
 - New code: 80%+ coverage
 - Security code: 90%+ coverage
 - No decrease in overall coverage
@@ -89,6 +97,7 @@ Ensure these minimums:
 ## Verification
 
 After adding tests:
+
 ```bash
 # Run tests
 go test -v ./path/to/package/...

@@ -35,6 +35,7 @@ unset GH_APP_PRIVATE_KEY  # optional cleanup
 ```
 
 Alternate file-based input:
+
 ```bash
 gh app-auth setup \
   --app-id 123456 \
@@ -76,6 +77,7 @@ gh app-auth gitconfig --sync --global
 ```
 
 **Options:**
+
 - `--local` - Scope to the current repository only
 - `--auto` - Auto-mode for CI/CD (uses `GH_APP_ID` and `GH_APP_PRIVATE_KEY_PATH` env vars)
 - `--clean` - Remove all gh-app-auth git configurations
@@ -92,6 +94,7 @@ gh app-auth test --repo github.com/myorg/private-repo
 ```
 
 For Bitbucket, pass the full HTTPS URL to `test`:
+
 ```bash
 gh app-auth test --repo https://bitbucket.example.com/scm/team/repo.git
 ```
@@ -146,6 +149,7 @@ gh app-auth remove --pat-name "Bitbucket PAT"  # remove PAT entry
 | Bitbucket complains about username | Confirm the PAT entry uses `--username <bitbucket_user>` and `gitconfig --sync` was re-run. |
 
 Need more detail? See:
+
 - [Configuration Reference](configuration.md)
 - [CI/CD Guide](ci-cd-guide.md)
 - [Troubleshooting](troubleshooting.md)

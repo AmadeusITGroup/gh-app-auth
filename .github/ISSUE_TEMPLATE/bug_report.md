@@ -27,13 +27,14 @@ A clear and concise description of what you expected to happen and what actually
 ### Configuration
 
 Please provide your configuration (redact sensitive information):
-- GitHub App ID: 
+
+- GitHub App ID:
 - Patterns configured:
 - Repository URL (if applicable):
 
 ### Environment
 
-- OS: 
+- OS:
 - GitHub CLI version: `gh version`
 - Go version (if building from source): `go version`
 
@@ -49,6 +50,7 @@ gh-app-auth --debug [command]
 ### Additional context
 
 Add any other context about the problem here, such as:
+
 - Does this happen with all repositories or specific ones?
 - Are you using GitHub.com or GitHub Enterprise?
 - Any recent changes to your GitHub App configuration?

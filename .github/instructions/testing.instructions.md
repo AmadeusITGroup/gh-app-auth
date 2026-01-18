@@ -27,6 +27,7 @@ applyTo: "**/*_test.go"
 ## Testing Patterns
 
 ### Table-Driven Tests
+
 Always prefer table-driven tests for functions with multiple scenarios:
 
 ```go
@@ -53,6 +54,7 @@ func TestFunction(t *testing.T) {
 ```
 
 ### Testing Commands (Cobra)
+
 Test command construction and flag parsing:
 
 ```go
@@ -87,6 +89,7 @@ func TestConfigLoad(t *testing.T) {
 ```
 
 ### Testing Git Credential Protocol
+
 Simulate git's stdin input:
 
 ```go

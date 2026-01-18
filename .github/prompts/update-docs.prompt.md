@@ -30,18 +30,21 @@ gh-app-auth/
 ## Writing Guidelines
 
 ### Style
+
 - Use clear, concise language
 - Include working code examples
 - Use generic placeholders (not internal references)
 - Link to related documentation
 
 ### Code Examples
+
 - All examples must be copy-pasteable and work
 - Use realistic but generic values
 - Show both simple and advanced usage
 - Include expected output where helpful
 
 ### Format
+
 - Use Markdown with clear headings
 - Include table of contents for long documents
 - Use tables for structured data
@@ -50,18 +53,21 @@ gh-app-auth/
 ## Common Updates
 
 ### Adding a New Feature
+
 1. Update README.md with brief mention
 2. Add detailed guide to relevant doc
 3. Update command reference if new CLI command
 4. Add troubleshooting section if needed
 
 ### Fixing Inaccuracy
+
 1. Identify all locations with incorrect info
 2. Update with correct information
 3. Verify code examples still work
 4. Check for broken links
 
 ### Improving Clarity
+
 1. Add more examples
 2. Break long sections into subsections
 3. Add visual aids (diagrams, tables)
@@ -70,6 +76,7 @@ gh-app-auth/
 ## Example Templates
 
 ### Command Documentation
+
 ```markdown
 ## `command-name`
 
@@ -99,6 +106,7 @@ gh app-auth command-name --flag value
 ```
 
 ### Troubleshooting Section
+
 ```markdown
 ### Issue: Brief description
 

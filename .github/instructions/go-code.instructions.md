@@ -15,6 +15,7 @@ applyTo: "**/*.go"
 ## Imports
 
 Always organize imports in three groups:
+
 1. Standard library
 2. External packages
 3. Internal packages (github.com/AmadeusITGroup/gh-app-auth/...)
@@ -52,6 +53,7 @@ if err != nil {
 ## Security-Critical Code
 
 When working with authentication code:
+
 - Never log tokens, keys, or passwords in plain text
 - Use `secrets.HashToken(token)` for debug logging
 - Validate file permissions before reading private keys

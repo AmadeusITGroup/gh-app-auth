@@ -20,6 +20,7 @@ Some workflows require PATs (either for user-scoped GitHub access or because the
 ```
 
 PAT entries share the same priority rules as Apps. For example, set a higher priority PAT to override Automation for specific repos, or keep PAT priority lower so CI prefers GitHub App tokens.
+
 # CI/CD Integration Guide
 
 This guide provides comprehensive examples and best practices for using gh-app-auth in CI/CD environments.
@@ -40,26 +41,31 @@ This guide provides comprehensive examples and best practices for using gh-app-a
 The gh-app-auth extension solves several critical CI/CD challenges:
 
 ### Problem 1: Robot Accounts vs. GitHub Apps
+
 **Challenge**: Organizations debate between robotic user accounts (which behave like humans) and GitHub Apps (preferred for governance).
 
 **Solution**: gh-app-auth enables GitHub Apps to work seamlessly in CI/CD, eliminating the need for robot accounts while maintaining ease of use. When automation must impersonate a human (e.g., release manager approvals) or access external Git hosting, PAT support bridges the gap without sacrificing secure storage.
 
 ### Problem 2: Cross-Organization Repository Access
+
 **Challenge**: GitHub App tokens are scoped to specific installations. Multi-org repositories and submodules require multiple installations and tokens.
 
 **Solution**: Configure multiple GitHub Apps **and/or PATs** with pattern matching. The extension automatically selects the correct credential based on repository URL and priority (e.g., App for CI, PAT for personal repos, Bitbucket PAT for legacy code).
 
 ### Problem 3: Git Submodules Across Organizations
+
 **Challenge**: Cloning repositories with submodules across multiple organizations requires complex credential management.
 
 **Solution**: Configure git credential helper once. All git operations (including submodules) automatically use the correct GitHub App credentials.
 
 ### Problem 4: Long-Running Jobs and Token Expiry
+
 **Challenge**: GitHub App installation tokens expire after 1 hour, causing long-running jobs to fail mid-execution.
 
 **Solution**: The extension automatically refreshes tokens on-demand. Jobs can run indefinitely without manual token management. PATs are retrieved on each request directly from the keyring (ideal when a PAT is required for third-party Git or Bitbucket pipelines).
 
 ### Problem 5: Mixed Git Providers (GitHub + Bitbucket)
+
 **Challenge**: Enterprise portfolios often include GitHub and Bitbucket Server/Data Center. Credential helpers must send a real username to Bitbucket but `x-access-token` to GitHub.
 
 **Solution**: Configure PAT entries with `--username <bitbucket_user>` for Bitbucket hosts while leaving GitHub entries untouched. gh-app-auth automatically outputs the correct username/password pair per host.
@@ -134,6 +140,7 @@ jobs:
 ```
 
 **When to use auto mode:**
+
 - Single GitHub App with broad access (e.g., organization-wide installation)
 - Dynamic environments where repository patterns aren't known in advance
 - Simplified setup without per-organization pattern configuration
@@ -549,11 +556,13 @@ stage('Discover Dependencies') {
 ### Issue: "Permission denied" when cloning
 
 **Symptoms**:
+
 ```
 fatal: could not read Username for 'https://github.com': No such device or address
 ```
 
 **Solution**:
+
 ```bash
 # Verify GitHub App is configured
 gh app-auth list
@@ -570,11 +579,13 @@ git config --get-all credential.helper
 ### Issue: Submodules fail to clone
 
 **Symptoms**:
+
 ```
 fatal: clone of 'https://github.com/org2/submodule' into submodule path failed
 ```
 
 **Solution**:
+
 ```bash
 # Ensure GitHub App is configured for all organizations
 gh app-auth list
@@ -593,6 +604,7 @@ git config --global credential."https://github.com/org2".helper \
 ### Issue: Tokens expired during long-running job
 
 **Symptoms**:
+
 ```
 remote: Invalid username or password.
 fatal: Authentication failed
@@ -615,11 +627,13 @@ git pull
 ### Issue: Multiple GitHub Apps causing conflicts
 
 **Symptoms**:
+
 ```
 Error: Multiple GitHub Apps match repository pattern
 ```
 
 **Solution**:
+
 ```bash
 # List configured apps and their patterns
 gh app-auth list
@@ -685,6 +699,7 @@ git clone --recurse-submodules https://github.com/org1/repo.git
 ## Support
 
 For issues specific to CI/CD integration:
+
 - Check [Troubleshooting Guide](troubleshooting.md)
 - Review [Security Considerations](security.md)
 - Report issues at [GitHub Issues](https://github.com/AmadeusITGroup/gh-app-auth/issues)

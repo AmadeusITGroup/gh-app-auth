@@ -5,6 +5,7 @@ Thank you for your interest in contributing to the GitHub App Authentication ext
 ## Development Setup
 
 ### Prerequisites
+
 - Go 1.19 or later
 - GitHub CLI (`gh`) installed and configured
 - Git
@@ -12,6 +13,7 @@ Thank you for your interest in contributing to the GitHub App Authentication ext
 ### Getting Started
 
 1. **Clone and setup**:
+
    ```bash
    git clone https://github.com/AmadeusITGroup/gh-app-auth.git
    cd gh-app-auth
@@ -19,16 +21,19 @@ Thank you for your interest in contributing to the GitHub App Authentication ext
    ```
 
 2. **Build the extension**:
+
    ```bash
    go build -o gh-app-auth .
    ```
 
 3. **Install locally for testing**:
+
    ```bash
    gh extension install .
    ```
 
 4. **Run tests**:
+
    ```bash
    go test ./...
    ```
@@ -57,18 +62,21 @@ gh-app-auth/
 ## Development Guidelines
 
 ### Code Style
+
 - Follow standard Go conventions
 - Use `gofmt` for formatting
 - Add comprehensive tests for new functionality
 - Include documentation for public APIs
 
 ### Testing
+
 - Write unit tests for all packages
 - Include integration tests for CLI commands
 - Test security-critical code paths thoroughly
 - Use table-driven tests where appropriate
 
 ### Security Considerations
+
 - Never log or expose private keys or tokens
 - Validate file permissions for private key files
 - Use secure temporary directories for testing
@@ -77,6 +85,7 @@ gh-app-auth/
 ## Making Changes
 
 ### Adding New Commands
+
 1. Create command file in `cmd/` directory
 2. Implement cobra.Command with appropriate flags
 3. Add command to root.go
@@ -84,6 +93,7 @@ gh-app-auth/
 5. Update documentation
 
 ### Adding New Features
+
 1. Design the feature with security in mind
 2. Implement in appropriate package
 3. Add configuration options if needed
@@ -91,6 +101,7 @@ gh-app-auth/
 5. Update documentation and examples
 
 ### Bug Fixes
+
 1. Write a test that reproduces the bug
 2. Implement the fix
 3. Verify the test passes
@@ -108,6 +119,7 @@ gh-app-auth/
    - Test evidence (screenshots, test output)
 
 ### PR Checklist
+
 - [ ] Code follows project style guidelines
 - [ ] Tests added for new functionality
 - [ ] All tests pass
@@ -162,6 +174,7 @@ Scopes provide additional context about the area of change:
 ### Commit Message Examples
 
 #### ✅ Good Examples
+
 ```bash
 # New feature with scope
 feat(auth): implement GitHub App authentication with JWT
@@ -191,6 +204,7 @@ update their scripts accordingly.
 ```
 
 #### ❌ Examples to Avoid
+
 ```bash
 # Too vague
 fix: stuff
@@ -232,6 +246,7 @@ permissions. Users must regenerate their GitHub App tokens.
 ### Tools and Tips
 
 #### Git Commit Templates
+
 Create a commit template to remind yourself of the format:
 
 ```bash
@@ -253,11 +268,13 @@ git config --global commit.template ~/.gitmessage
 ```
 
 #### Conventional Commits Tools
+
 - **commitizen**: Interactive commit message tool
 - **conventional-changelog**: Generates changelogs from commits
 - **semantic-release**: Automates releases based on commit messages
 
 #### Installation
+
 ```bash
 # Install commitizen globally
 npm install -g commitizen cz-conventional-changelog
@@ -288,6 +305,7 @@ Our CI pipeline validates commit messages. If your commit doesn't follow the con
 ## Code Review
 
 All submissions require code review. Please:
+
 - Be responsive to feedback
 - Keep changes focused and atomic
 - Write clear commit messages
@@ -296,6 +314,7 @@ All submissions require code review. Please:
 ## Release Process
 
 Releases are automated through GitHub Actions:
+
 1. Tag a release with semantic versioning (e.g., v1.2.3)
 2. GitHub Actions builds cross-platform binaries
 3. Release is published to GitHub marketplace
