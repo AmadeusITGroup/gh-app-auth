@@ -1,25 +1,61 @@
-# Global ownership
-* @AmadeusITGroup
+# CODEOWNERS - GitHub App Authentication Extension
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# These owners will be requested for review when someone opens a pull request
+# that modifies code that they own. Code owners are automatically requested for
+# review when someone opens a pull request that modifies code that they own.
+#
+# Order matters: later patterns take precedence over earlier ones.
 
-# Security-critical components
-/pkg/auth/ @AmadeusITGroup
-/pkg/jwt/ @AmadeusITGroup
-/pkg/cache/ @AmadeusITGroup
-/.github/workflows/security.yml @AmadeusITGroup
-/.github/SECURITY.md @AmadeusITGroup
+# =============================================================================
+# DEFAULT OWNERS
+# =============================================================================
+# Global ownership - all files not matched by later patterns
+* @wherka-ama @ph--
 
-# Configuration and CLI
-/pkg/config/ @AmadeusITGroup
-/cmd/ @AmadeusITGroup
+# =============================================================================
+# SECURITY-CRITICAL COMPONENTS
+# =============================================================================
+# These components handle authentication, secrets, and tokens
+# Require review from maintainers for any changes
+/pkg/auth/                        @wherka-ama @ph--
+/pkg/jwt/                         @wherka-ama @ph--
+/pkg/secrets/                     @wherka-ama @ph--
+/pkg/cache/                       @wherka-ama @ph--
+/.github/workflows/security.yml   @wherka-ama @ph--
+/.github/SECURITY.md              @wherka-ama @ph--
 
-# Documentation
-/docs/ @AmadeusITGroup
-README.md @AmadeusITGroup
-CONTRIBUTING.md @AmadeusITGroup
+# =============================================================================
+# CORE FUNCTIONALITY
+# =============================================================================
+# Configuration and CLI commands
+/pkg/config/                      @wherka-ama @ph--
+/pkg/matcher/                     @wherka-ama @ph--
+/pkg/logger/                      @wherka-ama @ph--
+/cmd/                             @wherka-ama @ph--
 
-# CI/CD and project structure
-/.github/ @AmadeusITGroup
-/.golangci.yml @AmadeusITGroup
-/.devcontainer/ @AmadeusITGroup
-/go.mod @AmadeusITGroup
-/go.sum @AmadeusITGroup
+# =============================================================================
+# DOCUMENTATION
+# =============================================================================
+/docs/                            @wherka-ama @ph--
+README.md                         @wherka-ama @ph--
+CONTRIBUTING.md                   @wherka-ama @ph--
+CONTRIBUTORS.md                   @wherka-ama @ph--
+MAINTAINERS.md                    @wherka-ama @ph--
+CHANGELOG.md                      @wherka-ama @ph--
+
+# =============================================================================
+# CI/CD AND PROJECT INFRASTRUCTURE
+# =============================================================================
+/.github/                         @wherka-ama @ph--
+/.github/workflows/               @wherka-ama @ph--
+/.github/actions/                 @wherka-ama @ph--
+/.golangci.yml                    @wherka-ama @ph--
+/.devcontainer/                   @wherka-ama @ph--
+/Makefile                         @wherka-ama @ph--
+
+# =============================================================================
+# DEPENDENCY MANAGEMENT
+# =============================================================================
+/go.mod                           @wherka-ama @ph--
+/go.sum                           @wherka-ama @ph--
