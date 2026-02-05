@@ -14,21 +14,25 @@ This document lists the maintainers of the GitHub App Authentication Extension p
 Maintainers are responsible for:
 
 ### Code Review
+
 - Reviewing and approving pull requests
 - Ensuring code quality and consistency
 - Verifying security implications of changes
 
 ### Release Management
+
 - Creating and publishing releases
 - Writing release notes
 - Managing version numbers (semantic versioning)
 
 ### Community
+
 - Responding to issues and discussions
 - Triaging bug reports
 - Guiding new contributors
 
 ### Security
+
 - Reviewing security-sensitive changes
 - Responding to security reports
 - Managing security advisories
@@ -43,12 +47,14 @@ Maintainers are responsible for:
 ## Becoming a Maintainer
 
 New maintainers are added based on:
+
 - Sustained, high-quality contributions
 - Demonstrated understanding of the codebase
 - Positive community interactions
 - Nomination by existing maintainers
 
 ### Process
+
 1. Nomination by an existing maintainer
 2. Discussion among current maintainers
 3. Consensus agreement

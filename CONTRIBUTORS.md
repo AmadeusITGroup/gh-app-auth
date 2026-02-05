@@ -28,12 +28,14 @@ GitHub's contributor graph may not always reflect all contributions accurately d
 ## Contribution Statistics
 
 For detailed contribution statistics, see:
+
 - [GitHub Contributors Graph](https://github.com/AmadeusITGroup/gh-app-auth/graphs/contributors)
 - [GitHub Insights](https://github.com/AmadeusITGroup/gh-app-auth/pulse)
 
 ## Becoming a Contributor
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for:
+
 - Development setup instructions
 - Code style guidelines
 - Pull request process
@@ -42,6 +44,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ## Recognition
 
 Contributors are recognized in the following ways:
+
 - Listed in this CONTRIBUTORS.md file
 - Mentioned in release notes for significant contributions
 - Added as code owners for areas of expertise
