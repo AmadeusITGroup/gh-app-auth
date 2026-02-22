@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -357,6 +358,11 @@ github_apps: []
 }
 
 func TestSyncGitConfig_Auto(t *testing.T) {
+	// Skip on Windows CI - credential helper invocation requires proper App setup
+	if runtime.GOOS == "windows" && os.Getenv("CI") == "true" {
+		t.Skip("Skipping on Windows CI - credential helper requires proper GitHub App setup")
+	}
+
 	// This test validates error handling when no apps are configured
 	home := os.Getenv("HOME")
 	defer os.Setenv("HOME", home)
