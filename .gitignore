@@ -49,6 +49,7 @@ vscode/
 
 # Environment files
 .env
+.env.*
 .envrc
 
 # Local configuration files (not GitHub templates)
