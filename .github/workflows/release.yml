@@ -9,43 +9,102 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  # ─────────────────────────────────────────────────────────
+  # Build and upload artifacts as PRERELEASE.
+  # The release is NOT marked latest until E2E tests pass.
+  # ─────────────────────────────────────────────────────────
+  release-prerelease:
+    name: Build & Prerelease
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Verify release exists as prerelease
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "Verifying release $TAG exists as prerelease..."
+
+          # Check if release exists and get prerelease status
+          RELEASE_INFO=$(gh release view "$TAG" --json isPrerelease 2>/dev/null) || {
+            echo "Error: Release $TAG does not exist. Create it as prerelease first."
+            exit 1
+          }
+
+          IS_PRERELEASE=$(echo "$RELEASE_INFO" | jq -r '.isPrerelease')
+
+          if [ "$IS_PRERELEASE" != "true" ]; then
+            echo "Error: Release $TAG exists but is NOT a prerelease. Cannot upload to immutable release."
+            exit 1
+          fi
+
+          echo "✓ Release $TAG is a prerelease - proceeding with upload"
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
-          cache: false  # Avoid cache conflict with gh-extension-precompile
+          cache: true
 
-      - name: Run tests
+      - name: Run unit tests
         run: go test ./...
 
-      - name: Prepare Release
+      - name: Build release binaries and packages
+        run: |
+          # Extract version from tag (strip 'v' prefix for package version)
+          VERSION="${GITHUB_REF_NAME#v}"
+          export VERSION
+          export RPM_RELEASE=1
+
+          echo "Building version: $VERSION"
+          make release packages
+
+      - name: List all built artifacts
+        run: |
+          echo "=== Built artifacts ==="
+          ls -lh dist/
+
+          echo ""
+          echo "=== DEB Package Info ==="
+          for deb in dist/*.deb; do
+            echo "--- $deb ---"
+            dpkg-deb -I "$deb" 2>/dev/null | grep -E "(Package|Version|Architecture|Maintainer)" || echo "dpkg-deb not available"
+          done
+
+          echo ""
+          echo "=== RPM Package Info ==="
+          for rpm in dist/*.rpm; do
+            echo "--- $rpm ---"
+            rpm -qip "$rpm" 2>/dev/null | grep -E "(Name|Version|Release|Architecture|Group)" || \
+              echo "rpm command not available for detailed info"
+          done
+
+      - name: Upload artifacts to prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Delete existing release if it exists (allows re-running)
-          gh release delete ${{ github.ref_name }} --yes 2>/dev/null || true
+          VERSION="${{ github.ref_name }}"
 
-          # Create draft release with generated notes (precompile will add assets)
-          gh release create ${{ github.ref_name }} \
-            --title "🚀 ${{ github.ref_name }}" \
-            --generate-notes \
-            --draft=true
+          echo "Uploading artifacts to prerelease $VERSION..."
+          gh release upload "$VERSION" dist/*
 
-      - name: Create cross-platform builds
-        uses: cli/gh-extension-precompile@v2
-        with:
-          go_version: "1.21"
-
-      - name: Publish Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Publish the draft release
-          gh release edit ${{ github.ref_name }} --draft=false
+  # ─────────────────────────────────────────────────────────
+  # E2E gate: runs against the prerelease artifacts.
+  # Promotes to latest only if all platform tests pass.
+  # ─────────────────────────────────────────────────────────
+  e2e-gate:
+    name: E2E Gate
+    needs: release-prerelease
+    uses: ./.github/workflows/e2e.yml
+    with:
+      release_tag: ${{ needs.release-prerelease.outputs.release_tag }}
+      test_org_1: "gh-app-auth-test-1"
+      test_org_2: "gh-app-auth-test-2"
+    secrets:
+      E2E_APP_ID: ${{ secrets.E2E_APP_ID }}
+      E2E_PRIVATE_KEY_B64: ${{ secrets.E2E_PRIVATE_KEY_B64 }}

@@ -1,0 +1,44 @@
+# nFPM configuration for gh-app-auth
+# Template variables are replaced via envsubst or similar
+name: gh-app-auth
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+release: ${RPM_RELEASE}
+section: utils
+priority: optional
+maintainer: AmadeusITGroup <opensource@amadeus.com>
+description: GitHub CLI extension for GitHub App authentication
+  gh-app-auth simplifies GitHub App authentication workflows
+  by providing secure token generation and git credential
+  helper integration for the GitHub CLI. It can be used
+  as a standalone tool or as a gh extension.
+license: Apache-2.0
+homepage: https://github.com/AmadeusITGroup/gh-app-auth
+depends:
+  - git
+recommends:
+  - gh
+contents:
+  - src: ./dist/linux-${GOARCH}
+    dst: /usr/bin/gh-app-auth
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - src: ./LICENSE
+    dst: /usr/share/doc/gh-app-auth/LICENSE
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+  - src: ./README.md
+    dst: /usr/share/doc/gh-app-auth/README.md
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+# RPM-specific configuration
+rpm:
+  group: System Environment/Base
+  packager: AmadeusITGroup <opensource@amadeus.com>
