@@ -1,6 +1,6 @@
 # gh-app-auth Makefile
 
-.PHONY: help build test lint clean install dev-setup security-scan release deps vet gocyclo staticcheck ineffassign misspell test-coverage-check markdownlint yamllint actionlint cli-smoke-test package-deb package-rpm packages test-e2e test-e2e-local
+.PHONY: help build test lint clean install dev-setup security-scan security-gosec security-vulncheck release deps vet gocyclo staticcheck ineffassign misspell test-coverage-check markdownlint yamllint actionlint cli-smoke-test package-deb package-rpm packages test-e2e test-e2e-local
 
 # Default target
 help:
@@ -30,6 +30,8 @@ help:
 	@echo "  validate-tools     Validate core tools are installed"
 	@echo "  validate-lint-tools Validate linting tools are installed"
 	@echo "  security-scan      Run security scans (gosec, govulncheck)"
+	@echo "  security-gosec     Run gosec checks via golangci-lint policy"
+	@echo "  security-vulncheck Run govulncheck vulnerability scan"
 	@echo "  deps               Download and verify dependencies"
 	@echo "  dev                Quick development cycle (fmt + lint + test + build)"
 	@echo "  ci                 CI pipeline simulation (mirrors GitHub CI)"
@@ -64,18 +66,24 @@ RPM_RELEASE ?= 1
 COMMIT := $(shell git rev-parse --short HEAD)
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.Commit=$(COMMIT) -X main.BuildTime=$(BUILD_TIME)"
+GOLANGCI_LINT_VERSION := v2.1.6
+MARKDOWNLINT_CLI2_VERSION := 0.20.0
+YAMLLINT_VERSION := 1.38.0
+ACTIONLINT_VERSION := 1.7.11
+TOOLCHAIN_VERSION := $(shell awk '/^toolchain / {print $$2}' go.mod)
+export GOTOOLCHAIN ?= $(if $(TOOLCHAIN_VERSION),$(TOOLCHAIN_VERSION),auto)
 
-# Tool paths
-GOPATH := $(shell go env GOPATH)
-GOLANGCI_LINT := $(GOPATH)/bin/golangci-lint
-GOIMPORTS := $(GOPATH)/bin/goimports
-STATICCHECK := $(GOPATH)/bin/staticcheck
-GOCYCLO := $(GOPATH)/bin/gocyclo
-INEFFASSIGN := $(GOPATH)/bin/ineffassign
-MISSPELL := $(GOPATH)/bin/misspell
-GOSEC := $(GOPATH)/bin/gosec
-GOVULNCHECK := $(GOPATH)/bin/govulncheck
-NFPM_CMD := $(GOPATH)/bin/nfpm
+# Go tool commands
+GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+GOIMPORTS := go run golang.org/x/tools/cmd/goimports@latest
+STATICCHECK := go run honnef.co/go/tools/cmd/staticcheck@latest
+GOCYCLO := go run github.com/fzipp/gocyclo/cmd/gocyclo@latest
+INEFFASSIGN := go run github.com/gordonklaus/ineffassign@latest
+MISSPELL := go run github.com/client9/misspell/cmd/misspell@latest
+GOSEC := go run github.com/securego/gosec/v2/cmd/gosec@latest
+GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@latest
+NFPM_CMD := go run github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+ACTIONLINT := go run github.com/rhysd/actionlint/cmd/actionlint@v$(ACTIONLINT_VERSION)
 
 # Build the extension
 build:
@@ -103,10 +111,10 @@ test-cover:
 COVERAGE_THRESHOLD ?= 50.0
 test-coverage-check:
 	@echo "Checking coverage threshold (minimum: $(COVERAGE_THRESHOLD)%)..."
-	@go test -race -coverprofile=coverage.out -covermode=atomic ./... > /dev/null 2>&1 || true
+	@go test -race -coverprofile=coverage.out -covermode=atomic ./... > /dev/null
 	@COVERAGE=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
 	echo "Current coverage: $$COVERAGE%"; \
-	if [ "$$(echo "$$COVERAGE < $(COVERAGE_THRESHOLD)" | bc -l)" -eq 1 ]; then \
+	if awk "BEGIN {exit !($$COVERAGE < $(COVERAGE_THRESHOLD))}"; then \
 		echo "❌ Coverage $$COVERAGE% is below threshold $(COVERAGE_THRESHOLD)%"; \
 		echo ""; \
 		echo "Package breakdown:"; \
@@ -119,7 +127,8 @@ test-coverage-check:
 # Lint code with golangci-lint (comprehensive)
 lint:
 	@echo "Running golangci-lint..."
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) config verify
+	$(GOLANGCI_LINT) run --timeout=5m
 
 # Run go vet
 vet:
@@ -149,20 +158,23 @@ misspell:
 # Run markdownlint (requires npx/node)
 markdownlint:
 	@echo "Running markdownlint..."
-	@command -v npx >/dev/null 2>&1 || { echo "⚠️  npx not found, skipping markdownlint"; exit 0; }
-	npx markdownlint-cli2 "**/*.md" "!node_modules/**" || echo "⚠️  Markdown lint issues found"
+	@command -v npx >/dev/null 2>&1 || { echo "❌ npx not found. Install Node.js to run markdownlint"; exit 1; }
+	npx --yes markdownlint-cli2@$(MARKDOWNLINT_CLI2_VERSION) "**/*.md" "!node_modules/**" "!.tmp/**"
 
 # Run yamllint (requires pip install yamllint)
 yamllint:
 	@echo "Running yamllint..."
-	@command -v yamllint >/dev/null 2>&1 || { echo "⚠️  yamllint not found, skipping (install: pip install yamllint)"; exit 0; }
-	yamllint -d relaxed . || echo "⚠️  YAML lint issues found"
+	@if command -v yamllint >/dev/null 2>&1; then \
+		yamllint .; \
+	else \
+		echo "❌ yamllint not found. Install yamllint"; \
+		exit 1; \
+	fi
 
 # Run actionlint on GitHub workflow files (requires actionlint binary)
 actionlint:
 	@echo "Running actionlint..."
-	@command -v actionlint >/dev/null 2>&1 || { echo "⚠️  actionlint not found, skipping (install: go install github.com/rhysd/actionlint/cmd/actionlint@latest)"; exit 0; }
-	actionlint || echo "⚠️  Action lint issues found"
+	$(ACTIONLINT) -color
 
 # CLI smoke test - verify binary works
 cli-smoke-test: build
@@ -178,8 +190,8 @@ lint-all: vet staticcheck gocyclo ineffassign misspell markdownlint yamllint act
 # Format code
 fmt:
 	@echo "Formatting code..."
-	gofmt -s -w .
 	$(GOIMPORTS) -w .
+	gofmt -s -w .
 
 # Clean build artifacts
 clean:
@@ -202,16 +214,6 @@ uninstall:
 dev-setup:
 	@echo "Setting up development environment..."
 	go mod download
-	@echo "Installing linting tools..."
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
-	go install golang.org/x/tools/cmd/goimports@latest
-	go install github.com/securego/gosec/v2/cmd/gosec@latest
-	go install honnef.co/go/tools/cmd/staticcheck@latest
-	go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
-	go install github.com/gordonklaus/ineffassign@latest
-	go install github.com/client9/misspell/cmd/misspell@latest
-	go install golang.org/x/vuln/cmd/govulncheck@latest
-	go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 	@echo "Setting up git commit template..."
 	git config commit.template .gitmessage
 	@echo "Development environment ready!"
@@ -229,12 +231,25 @@ presentation-setup:
 	npm install -g mermaid-filter
 	@echo "✅ Presentation tools installed globally"
 
-# Run security scans
-security-scan:
-	@echo "Running security scans..."
-	$(GOSEC) -fmt sarif -out gosec.sarif ./... || true
+# Run gosec using the same policy enforced by golangci-lint
+security-gosec:
+	@echo "Running gosec via golangci-lint policy..."
+	$(GOLANGCI_LINT) run --timeout=5m --enable-only gosec
+
+# Run govulncheck against the current toolchain and dependencies
+security-vulncheck:
 	@echo "Running vulnerability check..."
-	$(GOVULNCHECK) ./... || true
+	$(GOVULNCHECK) ./...
+
+# Run security scans
+security-scan: security-gosec
+	@$(MAKE) --no-print-directory security-vulncheck || { \
+		echo ""; \
+		echo "⚠️  govulncheck reported vulnerabilities."; \
+		echo "⚠️  In local runs, these may come from the active Go toolchain or indirect modules."; \
+		echo "⚠️  Review the output above and upgrade your local Go toolchain or dependencies if needed."; \
+	}
+	@echo "Security scans completed!"
 
 # Download and verify dependencies  
 deps:
@@ -293,22 +308,17 @@ validate-tools:
 # Validate that linting tools are installed
 validate-lint-tools:
 	@echo "Validating linting tools are installed..."
-	@test -f $(GOLANGCI_LINT) || { echo "❌ golangci-lint not installed. Run 'make dev-setup'"; exit 1; }
-	@test -f $(GOIMPORTS) || { echo "❌ goimports not installed. Run 'make dev-setup'"; exit 1; }
-	@test -f $(STATICCHECK) || { echo "❌ staticcheck not installed. Run 'make dev-setup'"; exit 1; }
-	@test -f $(GOCYCLO) || { echo "❌ gocyclo not installed. Run 'make dev-setup'"; exit 1; }
-	@test -f $(INEFFASSIGN) || { echo "❌ ineffassign not installed. Run 'make dev-setup'"; exit 1; }
-	@test -f $(MISSPELL) || { echo "❌ misspell not installed. Run 'make dev-setup'"; exit 1; }
-	@test -f $(GOSEC) || { echo "❌ gosec not installed. Run 'make dev-setup'"; exit 1; }
-	@test -f $(GOVULNCHECK) || { echo "❌ govulncheck not installed. Run 'make dev-setup'"; exit 1; }
-	@echo "✅ All linting tools are installed"
+	@command -v go >/dev/null 2>&1 || { echo "❌ Go is required but not installed"; exit 1; }
+	@command -v npx >/dev/null 2>&1 || { echo "❌ npx not found. Install Node.js to run markdownlint"; exit 1; }
+	@{ command -v yamllint >/dev/null 2>&1; } || { echo "❌ yamllint is required"; exit 1; }
+	@echo "✅ Linting tool prerequisites are available"
 
 # Quick development cycle
 dev: fmt lint test build
 	@echo "Development cycle complete!"
 
 # CI pipeline simulation (mirrors GitHub CI workflows)
-# Runs: deps → vet → lint → test-race → coverage-check → security → build → smoke-test
+# Runs: deps → vet → lint → test-race → coverage-check → security → build → smoke-test → docs/workflow-lint
 ci: deps validate-tools validate-lint-tools
 	@echo ""
 	@echo "=========================================="
@@ -319,7 +329,7 @@ ci: deps validate-tools validate-lint-tools
 	go vet ./...
 	@echo ""
 	@echo "Step 2/8: Running golangci-lint..."
-	$(GOLANGCI_LINT) run --timeout=5m
+	@$(MAKE) lint
 	@echo ""
 	@echo "Step 3/8: Running tests with race detection..."
 	go test -race -coverprofile=coverage.out -covermode=atomic ./...
@@ -334,7 +344,7 @@ ci: deps validate-tools validate-lint-tools
 		echo "✅ Coverage $$COVERAGE% meets threshold 35.0%"; \
 	fi
 	@echo ""
-	@echo "Step 5/8: Running security scans..."
+	@echo "Step 5/8: Running security scans (blocking gosec, advisory govulncheck)..."
 	@$(MAKE) security-scan
 	@echo ""
 	@echo "Step 6/8: Building binary..."
@@ -345,10 +355,10 @@ ci: deps validate-tools validate-lint-tools
 	./$(BINARY_NAME) --version > /dev/null
 	@echo "✅ CLI smoke tests passed"
 	@echo ""
-	@echo "Step 8/8: Running additional linters (non-blocking)..."
-	@$(MAKE) markdownlint || true
-	@$(MAKE) yamllint || true
-	@$(MAKE) actionlint || true
+	@echo "Step 8/8: Running documentation and workflow linters..."
+	@$(MAKE) markdownlint
+	@$(MAKE) yamllint
+	@$(MAKE) actionlint
 	@echo ""
 	@echo "=========================================="
 	@echo "  ✅ CI Pipeline Complete!"

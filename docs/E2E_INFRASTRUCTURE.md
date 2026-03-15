@@ -120,6 +120,7 @@ App configuration:
 | **Where can it be installed** | Any account |
 
 After creation:
+
 1. Note the **App ID** (shown on the app settings page)
 2. Generate and download a **private key** (`.pem` file)
 
@@ -179,6 +180,7 @@ go test -v -tags=e2e -run TestPreflight -timeout=2m ./test/e2e/...
 ```
 
 All four sub-tests must pass:
+
 - `binary_accessible` ✓
 - `app_token_valid` ✓
 - `org1_main_repo_is_private` ✓
@@ -192,15 +194,19 @@ The test repositories are **static fixtures** — they are created once and not 
 by CI runs. There is no ephemeral cleanup required.
 
 **Do NOT:**
+
 - Make the test repositories public (E2E tests will refuse to run and fail with a clear error)
 - Add real code or sensitive data to the test repositories
 - Grant external collaborators access
 
 **If repositories are accidentally made public:**
+
 The `TestPreflight/org1_main_repo_is_private` test will fail with:
+
 ```
 SECURITY GATE FAILED: gh-app-auth-test-1/main-repo is PUBLIC
 ```
+
 Set them back to private immediately.
 
 ## Custom Organization Names
