@@ -193,6 +193,18 @@ func TestGetCurrentRepositoryFromEnvironment(t *testing.T) {
 	}
 }
 
+func TestCurrentGitRemoteURLPreservesGitError(t *testing.T) {
+	withWorkingDirectory(t, t.TempDir())
+
+	_, err := currentGitRemoteURL()
+	if err == nil {
+		t.Fatal("currentGitRemoteURL() error = nil, want an error")
+	}
+	if !strings.Contains(err.Error(), "failed to read git remotes") || !strings.Contains(err.Error(), "fatal:") {
+		t.Errorf("currentGitRemoteURL() error = %q, want git diagnostic", err)
+	}
+}
+
 func TestDetermineRepositoryURL(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/AmadeusITGroup/gh-app-auth/cmd"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/logger"
@@ -14,7 +15,7 @@ func main() {
 	logger.Initialize()
 
 	if err := cmd.Execute(); err != nil {
-		var exitErr interface{ ExitCode() int }
+		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			logger.Close()
 			os.Exit(exitErr.ExitCode())

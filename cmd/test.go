@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -109,13 +110,21 @@ func getCurrentRepository() (string, error) {
 }
 
 func currentGitRemoteURL() (string, error) {
-	if output, err := exec.Command("git", "config", "--get", "remote.origin.url").Output(); err == nil {
+	if output, err := exec.Command("git", "config", "--local", "--get", "remote.origin.url").Output(); err == nil {
 		return strings.TrimSpace(string(output)), nil
 	}
 
-	output, err := exec.Command("git", "config", "--get-regexp", `^remote\..*\.url$`).Output()
+	output, err := exec.Command("git", "config", "--local", "--get-regexp", `^remote\..*\.url$`).CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("no git remotes configured for this repository")
+		message := strings.TrimSpace(string(output))
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 && message == "" {
+			return "", fmt.Errorf("no git remotes configured for this repository")
+		}
+		if message != "" {
+			return "", fmt.Errorf("failed to read git remotes: %w: %s", err, message)
+		}
+		return "", fmt.Errorf("failed to read git remotes: %w", err)
 	}
 	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
 		fields := strings.Fields(line)
