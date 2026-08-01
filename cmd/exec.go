@@ -62,7 +62,7 @@ through the environment and is never printed by gh-app-auth.`,
 			}
 
 			env := execEnvironment(os.Environ(), repo, token)
-			return runCommand(
+			err = runCommand(
 				cmd.Context(),
 				args[0],
 				args[1:],
@@ -71,6 +71,11 @@ through the environment and is never printed by gh-app-auth.`,
 				cmd.OutOrStdout(),
 				cmd.ErrOrStderr(),
 			)
+			if err != nil {
+				cmd.Root().SilenceErrors = true
+				cmd.Root().SilenceUsage = true
+			}
+			return err
 		},
 	}
 
@@ -152,6 +157,7 @@ func runExecCommand(
 	stdout io.Writer,
 	stderr io.Writer,
 ) error {
+	// #nosec G204 -- The user explicitly selects the command, which is executed directly without a shell.
 	child := exec.CommandContext(ctx, name, args...)
 	child.Env = env
 	child.Stdin = stdin

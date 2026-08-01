@@ -87,6 +87,9 @@ func TestExecCommandPropagatesErrors(t *testing.T) {
 		if err := cmd.Execute(); !errors.Is(err, wantErr) {
 			t.Fatalf("Execute() error = %v, want %v", err, wantErr)
 		}
+		if !cmd.SilenceErrors || !cmd.SilenceUsage {
+			t.Fatal("child failures should not print an error or command usage")
+		}
 	})
 }
 

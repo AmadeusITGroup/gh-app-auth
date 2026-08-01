@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -96,9 +97,40 @@ func testRun(repo *string, verbose *bool) func(*cobra.Command, []string) error {
 }
 
 func getCurrentRepository() (string, error) {
-	repo, err := repository.Current()
+	if override := os.Getenv("GH_REPO"); override != "" {
+		return canonicalRepository(override)
+	}
+
+	remoteURL, err := currentGitRemoteURL()
 	if err != nil {
 		return "", fmt.Errorf("failed to determine current repository: %w", err)
+	}
+	return canonicalRepository(remoteURL)
+}
+
+func currentGitRemoteURL() (string, error) {
+	if output, err := exec.Command("git", "config", "--get", "remote.origin.url").Output(); err == nil {
+		return strings.TrimSpace(string(output)), nil
+	}
+
+	output, err := exec.Command("git", "config", "--get-regexp", `^remote\..*\.url$`).Output()
+	if err != nil {
+		return "", fmt.Errorf("no git remotes configured for this repository")
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 {
+			return fields[len(fields)-1], nil
+		}
+	}
+
+	return "", fmt.Errorf("no git remotes configured for this repository")
+}
+
+func canonicalRepository(value string) (string, error) {
+	repo, err := repository.Parse(value)
+	if err != nil {
+		return "", err
 	}
 
 	return fmt.Sprintf("%s/%s/%s", repo.Host, repo.Owner, repo.Name), nil

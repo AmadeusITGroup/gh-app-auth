@@ -170,6 +170,7 @@ func TestGetCurrentRepository(t *testing.T) {
 	runGit(t, tempDir, "init")
 	runGit(t, tempDir, "remote", "add", "origin", "git@github.com:myorg/myrepo.git")
 	withWorkingDirectory(t, tempDir)
+	t.Setenv("HOME", t.TempDir())
 
 	got, err := getCurrentRepository()
 	if err != nil {
@@ -177,6 +178,18 @@ func TestGetCurrentRepository(t *testing.T) {
 	}
 	if got != "github.com/myorg/myrepo" {
 		t.Errorf("getCurrentRepository() = %q, want %q", got, "github.com/myorg/myrepo")
+	}
+}
+
+func TestGetCurrentRepositoryFromEnvironment(t *testing.T) {
+	t.Setenv("GH_REPO", "github.example.com/myorg/myrepo")
+
+	got, err := getCurrentRepository()
+	if err != nil {
+		t.Fatalf("getCurrentRepository() error = %v", err)
+	}
+	if got != "github.example.com/myorg/myrepo" {
+		t.Errorf("getCurrentRepository() = %q, want %q", got, "github.example.com/myorg/myrepo")
 	}
 }
 
