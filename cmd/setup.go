@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -384,12 +385,20 @@ func validateKeyFile(keyPath string) error {
 	}
 
 	// Check permissions (should be 600 or 400)
-	if fileInfo.Mode().Perm()&0044 != 0 {
-		return fmt.Errorf("private key file has overly permissive permissions %o (should be 600 or 400)",
-			fileInfo.Mode().Perm())
+	// Skip this check on Windows where file permissions work differently
+	if !isWindows() {
+		if fileInfo.Mode().Perm()&0044 != 0 {
+			return fmt.Errorf("private key file has overly permissive permissions %o (should be 600 or 400)",
+				fileInfo.Mode().Perm())
+		}
 	}
 
 	return nil
+}
+
+// isWindows returns true if the current OS is Windows.
+func isWindows() bool {
+	return runtime.GOOS == "windows"
 }
 
 // setupIssuer returns the appropriate JWT issuer for the provided app/client ID pair.

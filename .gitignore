@@ -119,3 +119,6 @@ mermaid-filter.err
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Test artifacts
+pkg/logger/1

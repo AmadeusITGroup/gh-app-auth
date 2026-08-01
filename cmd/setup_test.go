@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -202,7 +201,7 @@ func TestGetPrivateKey(t *testing.T) {
 
 	t.Run("from file", func(t *testing.T) {
 		// Skip on Windows - file permissions are not enforced the same way
-		if runtime.GOOS == "windows" {
+		if isWindows() {
 			t.Skip("Skipping on Windows: file permissions not supported")
 		}
 
@@ -250,7 +249,7 @@ func TestGetPrivateKey(t *testing.T) {
 
 func TestValidateKeyFile(t *testing.T) {
 	// Skip on Windows - file permissions are not enforced the same way
-	if runtime.GOOS == "windows" {
+	if isWindows() {
 		t.Skip("Skipping on Windows: file permissions not supported")
 	}
 
