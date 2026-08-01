@@ -248,3 +248,77 @@ func TestRemoveRun_RemoveAllApps(t *testing.T) {
 		}
 	})
 }
+
+func TestRemoveRun_RemoveByClientID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yml")
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+
+	// Generate valid test key
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	cfg := &config.Config{
+		Version: "1.0",
+		GitHubApps: []config.GitHubApp{
+			{
+				Name:             "Client ID App",
+				ClientID:         "Iv1.ClientApp123",
+				InstallationID:   789012,
+				Patterns:         []string{"github.com/client-org/*"},
+				Priority:         10,
+				PrivateKeySource: config.PrivateKeySourceFilesystem,
+				PrivateKeyPath:   keyPath,
+			},
+			{
+				Name:             "Numeric App",
+				AppID:            123456,
+				InstallationID:   890123,
+				Patterns:         []string{"github.com/org/*"},
+				Priority:         5,
+				PrivateKeySource: config.PrivateKeySourceFilesystem,
+				PrivateKeyPath:   keyPath,
+			},
+		},
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("Failed to marshal config: %v", err)
+	}
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+
+	t.Run("remove by client id with force", func(t *testing.T) {
+		cmd := NewRemoveCmd()
+		cmd.Flags().Set("client-id", "Iv1.ClientApp123")
+		cmd.Flags().Set("force", "true")
+
+		err := cmd.Execute()
+		if err != nil {
+			t.Errorf("Remove command failed: %v", err)
+		}
+
+		updatedCfg, err := config.Load()
+		if err != nil {
+			t.Fatalf("Failed to load updated config: %v", err)
+		}
+
+		if len(updatedCfg.GitHubApps) != 1 {
+			t.Errorf("Expected 1 app remaining, got %d", len(updatedCfg.GitHubApps))
+		}
+
+		if len(updatedCfg.GitHubApps) > 0 && updatedCfg.GitHubApps[0].ClientID != "" {
+			t.Error("Client ID app should have been removed")
+		}
+	})
+}

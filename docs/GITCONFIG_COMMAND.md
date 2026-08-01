@@ -132,7 +132,7 @@ gh app-auth gitconfig --sync --auto
 **Requirements:**
 
 - `GH_APP_PRIVATE_KEY_PATH` environment variable must be set (path to private key file)
-- `GH_APP_ID` environment variable must be set
+- `GH_APP_ID` or `GH_APP_CLIENT_ID` environment variable must be set
 
 **How it works:**
 
@@ -150,7 +150,7 @@ gh app-auth gitconfig --sync --auto
 
 ```bash
 export GH_APP_PRIVATE_KEY_PATH="/path/to/app.pem"
-export GH_APP_ID="123456"
+export GH_APP_CLIENT_ID="Iv1.your_client_id"
 gh app-auth gitconfig --sync --auto
 
 # Now any git clone will use the GitHub App

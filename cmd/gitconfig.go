@@ -224,7 +224,7 @@ func syncGitConfig(scope string, auto bool) error {
 	// Second pass: configure all patterns
 	for _, app := range cfg.GitHubApps {
 		for _, pattern := range app.Patterns {
-			source := fmt.Sprintf("GitHub App %s (ID: %d)", app.Name, app.AppID)
+			source := fmt.Sprintf("GitHub App %s (ID: %s)", app.Name, app.GetIdentifier())
 			configurePattern(pattern, source)
 		}
 	}

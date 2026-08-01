@@ -109,21 +109,28 @@ func TestTokenCache_SizeIncreases(t *testing.T) {
 }
 
 func TestCreateCacheKey_Consistency(t *testing.T) {
-	appID := int64(123456)
+	appIdentifier := "123456"
 	installID := int64(789012)
 
 	// Should generate same key for same inputs
-	key1 := CreateCacheKey(appID, installID)
-	key2 := CreateCacheKey(appID, installID)
+	key1 := CreateCacheKey(appIdentifier, installID)
+	key2 := CreateCacheKey(appIdentifier, installID)
 
 	if key1 != key2 {
 		t.Errorf("Keys should be identical: %q vs %q", key1, key2)
 	}
 
 	// Different inputs should generate different keys
-	key3 := CreateCacheKey(appID, 999999)
+	key3 := CreateCacheKey(appIdentifier, 999999)
 	if key1 == key3 {
 		t.Error("Different installation IDs should generate different keys")
+	}
+
+	// Numeric app ID string and Client ID must not collide
+	key4 := CreateCacheKey("123456", installID)
+	key5 := CreateCacheKey("Iv1.123456", installID)
+	if key4 == key5 {
+		t.Error("Numeric app ID and Client ID should generate different keys")
 	}
 }
 

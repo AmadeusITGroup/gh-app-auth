@@ -290,7 +290,7 @@ func findAppByPattern(cfg *config.Config, repoURL string) *config.GitHubApp {
 	for i := range cfg.GitHubApps {
 		app := &cfg.GitHubApps[i]
 		logger.FlowStep("match_by_pattern", map[string]interface{}{
-			"app_id":               app.AppID,
+			"app_identifier":       app.GetIdentifier(),
 			"app_name":             app.Name,
 			"pattern":              gitCredentialPattern,
 			"repo_url":             logger.SanitizeURL(repoURL),
@@ -300,10 +300,10 @@ func findAppByPattern(cfg *config.Config, repoURL string) *config.GitHubApp {
 		for _, pattern := range app.Patterns {
 			if matchesPattern(pattern, gitCredentialPattern) {
 				logger.FlowStep("app_matched_by_pattern", map[string]interface{}{
-					"app_id":   app.AppID,
-					"app_name": app.Name,
-					"pattern":  pattern,
-					"repo_url": logger.SanitizeURL(repoURL),
+					"app_identifier": app.GetIdentifier(),
+					"app_name":       app.Name,
+					"pattern":        pattern,
+					"repo_url":       logger.SanitizeURL(repoURL),
 				})
 				return app
 			}
@@ -351,9 +351,9 @@ func findAppByURL(cfg *config.Config, repoURL string) (*config.GitHubApp, error)
 	}
 
 	logger.FlowStep("app_matched", map[string]interface{}{
-		"app_id":   matchedApp.AppID,
-		"app_name": matchedApp.Name,
-		"patterns": matchedApp.Patterns,
+		"app_identifier": matchedApp.GetIdentifier(),
+		"app_name":       matchedApp.Name,
+		"patterns":       matchedApp.Patterns,
 	})
 
 	return matchedApp, nil
@@ -382,33 +382,52 @@ func matchesPattern(appPattern, gitCredPattern string) bool {
 	return strings.HasPrefix(normalizedPattern, normalizedAppPattern) || normalizedAppPattern == normalizedPattern
 }
 
-// doAutomaticSetup will automatically configure GitHub App if GH_APP_PRIVATE_KEY_PATH and GH_APP_ID are set
+// doAutomaticSetup will automatically configure GitHub App if GH_APP_PRIVATE_KEY_PATH and
+// either GH_APP_ID or GH_APP_CLIENT_ID are set.
 func doAutomaticSetup(repoURL string) (*config.GitHubApp, error) {
-	if os.Getenv("GH_APP_PRIVATE_KEY_PATH") != "" && os.Getenv("GH_APP_ID") != "" {
+	envAppID := os.Getenv("GH_APP_ID")
+	envClientID := os.Getenv("GH_APP_CLIENT_ID")
+	if os.Getenv("GH_APP_PRIVATE_KEY_PATH") != "" && (envAppID != "" || envClientID != "") {
 		cfg, err := config.LoadOrCreate()
 		if err != nil {
 			return nil, err
 		}
-		appId, err := strconv.ParseInt(os.Getenv("GH_APP_ID"), 10, 64)
-		if err != nil {
-			return nil, err
+
+		var appID int64
+		var clientID string
+		if envAppID != "" {
+			appID, err = strconv.ParseInt(envAppID, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			clientID = envClientID
 		}
+
 		keyFile := os.Getenv("GH_APP_PRIVATE_KEY_PATH")
 		useFileSystem := true
 		useKeyring := true
 		silent := true
 		priority := 5
 		patterns := []string{repoURL}
+
+		var identifier string
+		if clientID != "" {
+			identifier = clientID
+		} else {
+			identifier = strconv.FormatInt(appID, 10)
+		}
+
 		logger.FlowStep("automatic_setup", map[string]interface{}{
-			"app_key":       keyFile,
-			"app_id":        appId,
-			"useFileSystem": useFileSystem,
-			"keyFile":       keyFile,
-			"useKeyring":    useKeyring,
-			"patterns":      patterns,
+			"app_key":        keyFile,
+			"app_identifier": identifier,
+			"useFileSystem":  useFileSystem,
+			"keyFile":        keyFile,
+			"useKeyring":     useKeyring,
+			"patterns":       patterns,
 		})
 		return setupGitHubApp(
-			cfg, appId, keyFile, "Auto setup", 0,
+			cfg, appID, clientID, keyFile, "Auto setup", 0,
 			patterns, priority, useKeyring, useFileSystem, silent,
 		)
 	}
@@ -467,23 +486,23 @@ func generateAndOutputPATCredentials(matchedPAT *config.PersonalAccessToken) err
 // generateAndOutputCredentials generates authentication credentials and outputs them
 func generateAndOutputCredentials(matchedApp *config.GitHubApp, repoURL string) error {
 	logger.FlowStep("generate_credentials", map[string]interface{}{
-		"app_id": matchedApp.AppID,
+		"app_identifier": matchedApp.GetIdentifier(),
 	})
 
 	authenticator := auth.NewAuthenticator()
 	token, username, err := authenticator.GetCredentials(matchedApp, repoURL)
 	if err != nil {
 		logger.FlowError("generate_credentials", err, map[string]interface{}{
-			"app_id": matchedApp.AppID,
+			"app_identifier": matchedApp.GetIdentifier(),
 		})
 		return fmt.Errorf("failed to get credentials: %w", err)
 	}
 
 	logger.FlowStep("credentials_generated", map[string]interface{}{
-		"app_id":       matchedApp.AppID,
-		"username":     username,
-		"token_hash":   logger.HashToken(token),
-		"token_length": len(token),
+		"app_identifier": matchedApp.GetIdentifier(),
+		"username":       username,
+		"token_hash":     logger.HashToken(token),
+		"token_length":   len(token),
 	})
 
 	// Output credentials in git credential format

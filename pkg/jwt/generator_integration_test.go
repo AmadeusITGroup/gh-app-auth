@@ -106,6 +106,30 @@ func TestGenerateTokenFromKey(t *testing.T) {
 	}
 }
 
+func TestGenerateTokenFromKey_WithClientID(t *testing.T) {
+	privateKey := generateTestRSAKey(t)
+	gen := NewGenerator()
+	clientID := "Iv1.AbCdEfGhIjKlMn"
+
+	token, err := gen.GenerateTokenFromKey(clientID, privateKey)
+	if err != nil {
+		t.Fatalf("GenerateTokenFromKey() error = %v", err)
+	}
+
+	claims, err := gen.GetTokenClaims(token)
+	if err != nil {
+		t.Fatalf("GetTokenClaims() error = %v", err)
+	}
+
+	iss, ok := claims["iss"].(string)
+	if !ok {
+		t.Fatalf("iss claim type = %T, want string", claims["iss"])
+	}
+	if iss != clientID {
+		t.Errorf("iss claim = %q, want %q", iss, clientID)
+	}
+}
+
 func TestValidateToken_WithRealKey(t *testing.T) {
 	privateKey := generateTestRSAKey(t)
 	gen := NewGenerator()

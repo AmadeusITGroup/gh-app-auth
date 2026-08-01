@@ -63,7 +63,7 @@ BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.Commit=$(COMMIT) -X main.BuildTime=$(BUILD_TIME)"
 
 # Go tool commands
-GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
 GOIMPORTS := go run golang.org/x/tools/cmd/goimports@latest
 STATICCHECK := go run honnef.co/go/tools/cmd/staticcheck@latest
 GOCYCLO := go run github.com/fzipp/gocyclo/cmd/gocyclo@latest

@@ -286,6 +286,35 @@ func TestGenerator_GenerateToken_Errors(t *testing.T) {
 	}
 }
 
+func TestGenerator_GenerateToken_WithClientID(t *testing.T) {
+	generator := NewGenerator()
+	testKey, err := generateTestKey()
+	if err != nil {
+		t.Fatalf("Failed to generate test key: %v", err)
+	}
+
+	clientID := "Iv1.AbCdEfGhIjKlMn"
+	keyPath := writeTestKeyFile(t, testKey, "pkcs1")
+
+	token, err := generator.GenerateToken(clientID, keyPath)
+	if err != nil {
+		t.Fatalf("GenerateToken() error = %v", err)
+	}
+
+	claims, err := generator.GetTokenClaims(token)
+	if err != nil {
+		t.Fatalf("Failed to get token claims: %v", err)
+	}
+
+	iss, ok := claims["iss"].(string)
+	if !ok {
+		t.Errorf("Token iss claim = %v (%T), want string", claims["iss"], claims["iss"])
+	}
+	if iss != clientID {
+		t.Errorf("Token iss claim = %q, want %q", iss, clientID)
+	}
+}
+
 func TestGenerator_ValidateToken(t *testing.T) {
 	generator := NewGenerator()
 

@@ -135,7 +135,7 @@ func outputAppsTable(apps []config.GitHubApp, secretMgr *secrets.Manager, verify
 	// Add data rows
 	for _, app := range apps {
 		tp.AddField(app.Name, tableprinter.WithTruncate(nil))
-		tp.AddField(fmt.Sprintf("%d", app.AppID), tableprinter.WithTruncate(nil))
+		tp.AddField(app.GetIdentifier(), tableprinter.WithTruncate(nil))
 
 		installationDisplay := "auto-detect"
 		if app.InstallationID > 0 {
@@ -297,7 +297,7 @@ func loadListConfiguration() (*config.Config, error) {
 // outputQuietMode outputs app IDs in quiet mode
 func outputQuietMode(apps []config.GitHubApp, pats []config.PersonalAccessToken) error {
 	for _, app := range apps {
-		fmt.Printf("app:%d\n", app.AppID)
+		fmt.Printf("app:%s\n", app.GetIdentifier())
 	}
 	for _, pat := range pats {
 		fmt.Printf("pat:%s\n", pat.Name)

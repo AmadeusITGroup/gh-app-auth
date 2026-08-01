@@ -19,11 +19,12 @@ const (
 
 func NewRemoveCmd() *cobra.Command {
 	var (
-		appID   int64
-		patName string
-		force   bool
-		allApps bool
-		allPATs bool
+		appID    int64
+		clientID string
+		patName  string
+		force    bool
+		allApps  bool
+		allPATs  bool
 	)
 
 	cmd := &cobra.Command{
@@ -33,12 +34,15 @@ func NewRemoveCmd() *cobra.Command {
 
 	This will remove the credential configuration and clear any cached secrets.`,
 		Aliases: []string{"rm", "delete"},
-		Example: `  # Remove specific app
+		Example: `  # Remove specific app by numeric App ID
   gh app-auth remove --app-id 123456
-  
+
+  # Remove specific app by Client ID
+  gh app-auth remove --client-id Iv1.AbCdEfGhIjKlMn
+
   # Remove without confirmation
-  gh app-auth remove --app-id 123456 --force
-  
+  gh app-auth remove --client-id Iv1.AbCdEfGhIjKlMn --force
+
   # Remove all configured apps
   gh app-auth remove --all
 
@@ -47,10 +51,11 @@ func NewRemoveCmd() *cobra.Command {
 
   # Remove all Personal Access Tokens
   gh app-auth remove --all-pats`,
-		RunE: removeRun(&appID, &patName, &force, &allApps, &allPATs),
+		RunE: removeRun(&appID, &clientID, &patName, &force, &allApps, &allPATs),
 	}
 
 	cmd.Flags().Int64Var(&appID, "app-id", 0, "GitHub App ID to remove")
+	cmd.Flags().StringVar(&clientID, "client-id", "", "GitHub App Client ID to remove")
 	cmd.Flags().StringVar(&patName, "pat-name", "", "Personal Access Token name to remove")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVar(&allApps, "all", false, "Remove all configured GitHub Apps")
@@ -59,13 +64,20 @@ func NewRemoveCmd() *cobra.Command {
 	return cmd
 }
 
-func removeRun(appID *int64, patName *string, force, allApps, allPATs *bool) func(*cobra.Command, []string) error {
+func removeRun(
+	appID *int64,
+	clientID, patName *string,
+	force, allApps, allPATs *bool,
+) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		targetCount := 0
 		if *allApps {
 			targetCount++
 		}
 		if *appID > 0 {
+			targetCount++
+		}
+		if *clientID != "" {
 			targetCount++
 		}
 		if *patName != "" {
@@ -76,11 +88,11 @@ func removeRun(appID *int64, patName *string, force, allApps, allPATs *bool) fun
 		}
 
 		if targetCount == 0 {
-			return fmt.Errorf("specify one of --app-id, --pat-name, --all, or --all-pats")
+			return fmt.Errorf("specify one of --app-id, --client-id, --pat-name, --all, or --all-pats")
 		}
 
 		if targetCount > 1 {
-			return fmt.Errorf("use only one of --app-id, --pat-name, --all, or --all-pats at a time")
+			return fmt.Errorf("use only one of --app-id, --client-id, --pat-name, --all, or --all-pats at a time")
 		}
 
 		// Load configuration
@@ -108,12 +120,12 @@ func removeRun(appID *int64, patName *string, force, allApps, allPATs *bool) fun
 			return removeAllApps(cfg, *force)
 		}
 
-		if *appID > 0 {
+		if *appID > 0 || *clientID != "" {
 			if !hasApps {
 				fmt.Printf("No GitHub Apps configured.\n")
 				return nil
 			}
-			return removeSingleApp(cfg, *appID, *force)
+			return removeSingleApp(cfg, *appID, *clientID, *force)
 		}
 
 		if *allPATs {
@@ -133,9 +145,9 @@ func removeRun(appID *int64, patName *string, force, allApps, allPATs *bool) fun
 	}
 }
 
-func removeSingleApp(cfg *config.Config, appID int64, force bool) error {
+func removeSingleApp(cfg *config.Config, appID int64, clientID string, force bool) error {
 	// Find the app
-	appIndex, appToRemove, err := findAppByID(cfg, appID)
+	appIndex, appToRemove, err := findApp(cfg, appID, clientID)
 	if err != nil {
 		return err
 	}
@@ -148,7 +160,7 @@ func removeSingleApp(cfg *config.Config, appID int64, force bool) error {
 	}
 
 	// Perform the removal
-	return performAppRemoval(cfg, appIndex, appToRemove, appID)
+	return performAppRemoval(cfg, appIndex, appToRemove)
 }
 
 func removeAllApps(cfg *config.Config, force bool) error {
@@ -202,7 +214,7 @@ func removeAllPATs(cfg *config.Config, force bool) error {
 	return nil
 }
 
-func clearCachedTokens(appID int64) error {
+func clearCachedTokens(identifier string) error {
 	// Implementation would clear cached tokens for specific app
 	// For now, just a placeholder
 	return nil
@@ -214,12 +226,18 @@ func clearAllCachedTokens() error {
 	return nil
 }
 
-// findAppByID finds an app by ID and returns its index and the app itself
-func findAppByID(cfg *config.Config, appID int64) (int, config.GitHubApp, error) {
+// findApp finds an app by numeric App ID or Client ID and returns its index and the app itself
+func findApp(cfg *config.Config, appID int64, clientID string) (int, config.GitHubApp, error) {
 	for i, app := range cfg.GitHubApps {
-		if app.AppID == appID {
+		if clientID != "" && app.ClientID == clientID {
 			return i, app, nil
 		}
+		if appID > 0 && app.AppID == appID {
+			return i, app, nil
+		}
+	}
+	if clientID != "" {
+		return -1, config.GitHubApp{}, fmt.Errorf("GitHub App with client ID %s not found", clientID)
 	}
 	return -1, config.GitHubApp{}, fmt.Errorf("GitHub App with ID %d not found", appID)
 }
@@ -228,7 +246,7 @@ func findAppByID(cfg *config.Config, appID int64) (int, config.GitHubApp, error)
 func confirmAppRemoval(appToRemove config.GitHubApp) bool {
 	fmt.Printf("This will remove the following GitHub App configuration:\n")
 	fmt.Printf("  Name: %s\n", appToRemove.Name)
-	fmt.Printf("  App ID: %d\n", appToRemove.AppID)
+	fmt.Printf("  App ID: %s\n", appToRemove.GetIdentifier())
 	fmt.Printf("  Patterns: %v\n", appToRemove.Patterns)
 	fmt.Printf("\nAre you sure? (y/N): ")
 
@@ -243,7 +261,7 @@ func confirmAppRemoval(appToRemove config.GitHubApp) bool {
 }
 
 // performAppRemoval performs the actual app removal operations
-func performAppRemoval(cfg *config.Config, appIndex int, appToRemove config.GitHubApp, appID int64) error {
+func performAppRemoval(cfg *config.Config, appIndex int, appToRemove config.GitHubApp) error {
 	// Initialize secrets manager
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -266,11 +284,11 @@ func performAppRemoval(cfg *config.Config, appIndex int, appToRemove config.GitH
 	}
 
 	// Clear cached tokens for this app
-	if err := clearCachedTokens(appID); err != nil {
+	if err := clearCachedTokens(appToRemove.GetIdentifier()); err != nil {
 		fmt.Printf("⚠️  Warning: failed to clear cached tokens: %v\n", err)
 	}
 
-	fmt.Printf("✅ Successfully removed GitHub App '%s' (ID: %d)\n", appToRemove.Name, appID)
+	fmt.Printf("✅ Successfully removed GitHub App '%s' (ID: %s)\n", appToRemove.Name, appToRemove.GetIdentifier())
 	fmt.Printf("   🗑️  Private key deleted from secure storage\n")
 	return nil
 }
@@ -279,7 +297,7 @@ func performAppRemoval(cfg *config.Config, appIndex int, appToRemove config.GitH
 func confirmAllAppsRemoval(apps []config.GitHubApp) bool {
 	fmt.Printf("This will remove ALL %d configured GitHub Apps:\n", len(apps))
 	for _, app := range apps {
-		fmt.Printf("  - %s (ID: %d)\n", app.Name, app.AppID)
+		fmt.Printf("  - %s (ID: %s)\n", app.Name, app.GetIdentifier())
 	}
 	fmt.Printf("\nAre you sure? (y/N): ")
 

@@ -71,7 +71,7 @@ func scopeRun(forceRefresh bool) error {
 		needsRefresh := forceRefresh || scopeMgr.NeedsRefresh(app)
 
 		if needsRefresh {
-			fmt.Printf("Fetching scope for %q (App ID: %d)...\n", app.Name, app.AppID)
+			fmt.Printf("Fetching scope for %q (App ID: %s)...\n", app.Name, app.GetIdentifier())
 
 			// Get private key
 			privateKey, err := app.GetPrivateKey(secretsMgr)
@@ -81,7 +81,7 @@ func scopeRun(forceRefresh bool) error {
 			}
 
 			// Generate JWT
-			jwtToken, err := jwtGen.GenerateTokenFromKey(app.AppID, privateKey)
+			jwtToken, err := jwtGen.GenerateTokenFromKey(app.GetIssuer(), privateKey)
 			if err != nil {
 				fmt.Printf("  ⚠️  Failed to generate JWT: %v\n", err)
 				continue
@@ -112,7 +112,7 @@ func scopeRun(forceRefresh bool) error {
 }
 
 func displayScope(app *config.GitHubApp) {
-	fmt.Printf("\n📦 %s (App ID: %d, Installation ID: %d)\n", app.Name, app.AppID, app.InstallationID)
+	fmt.Printf("\n📦 %s (App ID: %s, Installation ID: %d)\n", app.Name, app.GetIdentifier(), app.InstallationID)
 
 	if app.Scope == nil {
 		fmt.Println("   ⚠️  No scope information cached")

@@ -114,14 +114,14 @@ See [URL Prefix Routing Guide](docs/PATTERN_ROUTING.md) for detailed examples.
 
 - `gh app-auth setup` - Configure GitHub Apps or Personal Access Tokens (`--pat`)
 - `gh app-auth list` - List configured credentials (`--verify-keys` to check accessibility)
-- `gh app-auth remove` - Remove GitHub App (`--app-id`) or PAT (`--pat-name`) configuration
+- `gh app-auth remove` - Remove GitHub App (`--app-id` or `--client-id`) or PAT (`--pat-name`) configuration
 - `gh app-auth test` - Test authentication for a repository
 - `gh app-auth scope` - Fetch and display GitHub App installation scope (which repos the app can access)
 - `gh app-auth config` - Show configuration file location (`--path`) or content (`--show`)
 - `gh app-auth gitconfig` - Manage git credential helper configuration
   - `--sync` - Configure git for all apps/PATs
   - `--clean` - Remove all gh-app-auth git configurations
-  - `--auto` - Auto-mode using `GH_APP_ID` and `GH_APP_PRIVATE_KEY_PATH` env vars
+  - `--auto` - Auto-mode using `GH_APP_ID` (or `GH_APP_CLIENT_ID`) and `GH_APP_PRIVATE_KEY_PATH` env vars
 - `gh app-auth migrate` - Migrate private keys to encrypted storage
 - `gh app-auth git-credential` - Git credential helper (internal)
 
@@ -148,10 +148,13 @@ This extension now supports **encrypted storage** for private keys using OS-nati
 ```bash
 # From environment variable (recommended for CI/CD)
 export GH_APP_PRIVATE_KEY="$(cat ~/my-key.pem)"
-gh app-auth setup --app-id 12345 --patterns "github.com/org/*"
+gh app-auth setup --client-id Iv1.your_client_id --patterns "github.com/org/*"
 
-# From file (stores in keyring, keeps file as fallback)
+# From file using legacy numeric App ID
 gh app-auth setup --app-id 12345 --key-file ~/my-key.pem --patterns "github.com/org/*"
+
+# From file using Client ID (preferred)
+gh app-auth setup --client-id Iv1.your_client_id --key-file ~/my-key.pem --patterns "github.com/org/*"
 
 # Store a Personal Access Token in the keyring
 gh app-auth setup --pat ghp_your_token --patterns "github.com/org/"

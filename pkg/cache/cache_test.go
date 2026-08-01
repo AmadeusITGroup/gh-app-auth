@@ -242,33 +242,39 @@ func TestTokenCache_Cleanup(t *testing.T) {
 func TestCreateCacheKey(t *testing.T) {
 	tests := []struct {
 		name           string
-		appID          int64
+		appIdentifier  string
 		installationID int64
 		expected       string
 	}{
 		{
-			name:           "positive IDs",
-			appID:          12345,
+			name:           "positive app ID",
+			appIdentifier:  "12345",
 			installationID: 67890,
 			expected:       "app_12345_inst_67890",
 		},
 		{
 			name:           "zero IDs",
-			appID:          0,
+			appIdentifier:  "0",
 			installationID: 0,
 			expected:       "app_0_inst_0",
 		},
 		{
-			name:           "large IDs",
-			appID:          999999999999,
+			name:           "large app ID",
+			appIdentifier:  "999999999999",
 			installationID: 888888888888,
 			expected:       "app_999999999999_inst_888888888888",
+		},
+		{
+			name:           "client ID",
+			appIdentifier:  "Iv1.AbCdEfGhIjKlMn",
+			installationID: 67890,
+			expected:       "app_Iv1.AbCdEfGhIjKlMn_inst_67890",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := CreateCacheKey(tt.appID, tt.installationID)
+			result := CreateCacheKey(tt.appIdentifier, tt.installationID)
 			if result != tt.expected {
 				t.Errorf("CreateCacheKey() = %v, want %v", result, tt.expected)
 			}

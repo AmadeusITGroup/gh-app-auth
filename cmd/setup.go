@@ -93,6 +93,7 @@ func validateMultiPatternSetup(patterns []string) error {
 func NewSetupCmd() *cobra.Command {
 	var (
 		appID          int64
+		clientID       string
 		keyFile        string
 		patterns       []string
 		name           string
@@ -110,21 +111,24 @@ func NewSetupCmd() *cobra.Command {
 		Long: `Configure GitHub App authentication for specific repository patterns.
 
 This command sets up a GitHub App for authentication with git operations.
-You'll need the App ID and private key file from your GitHub App settings.`,
-		Example: `  # Basic setup
+You'll need the App ID or Client ID and private key file from your GitHub App settings.`,
+		Example: `  # Basic setup with numeric App ID
   gh app-auth setup --app-id 123456 --key-file ~/.ssh/my-app.pem --patterns "github.com/myorg/*"
-  
+
+  # Basic setup with Client ID (preferred)
+  gh app-auth setup --client-id Iv1.AbCdEfGhIjKlMn --key-file ~/.ssh/my-app.pem --patterns "github.com/myorg/*"
+
   # Setup with custom name and priority
   gh app-auth setup \
-    --app-id 123456 \
+    --client-id Iv1.AbCdEfGhIjKlMn \
     --key-file ~/.ssh/my-app.pem \
     --patterns "github.com/myorg/*" \
     --name "Corporate App" \
     --priority 10
-    
+
   # Multiple patterns
   gh app-auth setup \
-    --app-id 123456 \
+    --client-id Iv1.AbCdEfGhIjKlMn \
     --key-file ~/.ssh/my-app.pem \
     --patterns "github.com/myorg/*,github.example.com/corp/*"
 
@@ -143,13 +147,14 @@ You'll need the App ID and private key file from your GitHub App settings.`,
     --name "Bitbucket PAT" \
     --priority 10`,
 		RunE: setupRun(
-			&appID, &keyFile, &patterns, &name, &installationID,
+			&appID, &clientID, &keyFile, &patterns, &name, &installationID,
 			&priority, &useKeyring, &useFilesystem, &pat, &username,
 		),
 	}
 
 	// GitHub App flags
-	cmd.Flags().Int64Var(&appID, "app-id", 0, "GitHub App ID (required for app setup)")
+	cmd.Flags().Int64Var(&appID, "app-id", 0, "GitHub App ID (legacy; optional if --client-id is provided)")
+	cmd.Flags().StringVar(&clientID, "client-id", "", "GitHub App Client ID (preferred; optional if --app-id is provided)")
 	cmd.Flags().StringVar(&keyFile, "key-file", "", "Path to private key file (or use GH_APP_PRIVATE_KEY env var)")
 	cmd.Flags().Int64Var(&installationID, "installation-id", 0, "Installation ID (auto-detected if not provided)")
 
@@ -177,21 +182,21 @@ You'll need the App ID and private key file from your GitHub App settings.`,
 }
 
 func setupRun(
-	appID *int64, keyFile *string, patterns *[]string,
+	appID *int64, clientID *string, keyFile *string, patterns *[]string,
 	name *string, installationID *int64, priority *int,
 	useKeyring *bool, useFilesystem *bool, pat *string, username *string,
 ) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		// Determine if this is PAT or App setup
 		isPATSetup := *pat != ""
-		isAppSetup := *appID > 0
+		isAppSetup := *appID > 0 || *clientID != ""
 
 		// Validate mutually exclusive options
 		if isPATSetup && isAppSetup {
-			return fmt.Errorf("cannot use both --pat and --app-id; choose one authentication method")
+			return fmt.Errorf("cannot use both --pat and --app-id/--client-id; choose one authentication method")
 		}
 		if !isPATSetup && !isAppSetup {
-			return fmt.Errorf("must specify either --pat for PAT setup or --app-id for GitHub App setup")
+			return fmt.Errorf("must specify either --pat for PAT setup or --app-id/--client-id for GitHub App setup")
 		}
 
 		// Load or create configuration
@@ -206,7 +211,7 @@ func setupRun(
 		}
 
 		_, err = setupGitHubApp(
-			cfg, *appID, *keyFile, *name, *installationID,
+			cfg, *appID, *clientID, *keyFile, *name, *installationID,
 			*patterns, *priority, *useKeyring, *useFilesystem, false,
 		)
 		return err
@@ -214,11 +219,11 @@ func setupRun(
 }
 
 func setupGitHubApp(
-	cfg *config.Config, appID int64, keyFile, name string, installationID int64,
+	cfg *config.Config, appID int64, clientID, keyFile, name string, installationID int64,
 	patterns []string, priority int, useKeyring, useFilesystem bool, silent bool,
 ) (*config.GitHubApp, error) {
 	// Validate inputs
-	if err := validateSetupInputs(appID, patterns, &useKeyring, &useFilesystem, keyFile); err != nil {
+	if err := validateSetupInputs(appID, clientID, patterns, &useKeyring, &useFilesystem, keyFile); err != nil {
 		return nil, err
 	}
 
@@ -228,8 +233,11 @@ func setupGitHubApp(
 		return nil, err
 	}
 
+	// Determine the JWT issuer for this app
+	issuer := setupIssuer(appID, clientID)
+
 	// Test JWT generation to ensure key is valid
-	jwtToken, err := generateJWTForSetup(appID, privateKeyContent)
+	jwtToken, err := generateJWTForSetup(issuer, privateKeyContent)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +267,7 @@ func setupGitHubApp(
 		}
 
 		// Create the GitHub App entry for this org
-		app := createGitHubApp(appID, name, orgInstallationID, orgPatterns, priority)
+		app := createGitHubApp(appID, clientID, name, orgInstallationID, orgPatterns, priority)
 
 		// Store private key and configure storage (only needed once, but we do it for each)
 		backend, err = configureAppStorage(&app, privateKeyContent, expandedKeyFile, useKeyring)
@@ -284,11 +292,12 @@ func setupGitHubApp(
 	}
 
 	// Display success message and next steps
-	if !silent {
+	if !silent && firstApp != nil {
+		identifier := firstApp.GetIdentifier()
 		if len(groupedPatterns) > 1 {
-			displaySetupSuccessMultiOrg(name, appID, groupedPatterns, priority, backend, expandedKeyFile)
+			displaySetupSuccessMultiOrg(firstApp.Name, identifier, groupedPatterns, priority, backend, expandedKeyFile)
 		} else {
-			displaySetupSuccess(name, appID, patterns, priority, backend, expandedKeyFile)
+			displaySetupSuccess(firstApp.Name, identifier, patterns, priority, backend, expandedKeyFile)
 		}
 	}
 
@@ -383,10 +392,29 @@ func validateKeyFile(keyPath string) error {
 	return nil
 }
 
+// setupIssuer returns the appropriate JWT issuer for the provided app/client ID pair.
+func setupIssuer(appID int64, clientID string) any {
+	if clientID != "" {
+		return clientID
+	}
+	return appID
+}
+
 // validateSetupInputs validates the setup command inputs
-func validateSetupInputs(appID int64, patterns []string, useKeyring *bool, useFilesystem *bool, keyFile string) error {
-	if appID <= 0 {
+func validateSetupInputs(
+	appID int64,
+	clientID string,
+	patterns []string,
+	useKeyring *bool,
+	useFilesystem *bool,
+	keyFile string,
+) error {
+	if appID < 0 {
 		return fmt.Errorf("app-id must be a positive integer")
+	}
+
+	if appID == 0 && clientID == "" {
+		return fmt.Errorf("app-id or client-id is required")
 	}
 
 	if len(patterns) == 0 {
@@ -440,9 +468,9 @@ func getPrivateKey(keyFile string) (string, string, error) {
 }
 
 // generateJWTForSetup generates a JWT token and returns it for use in setup
-func generateJWTForSetup(appID int64, privateKeyContent string) (string, error) {
+func generateJWTForSetup(issuer any, privateKeyContent string) (string, error) {
 	generator := jwt.NewGenerator()
-	token, err := generator.GenerateTokenFromKey(appID, privateKeyContent)
+	token, err := generator.GenerateTokenFromKey(issuer, privateKeyContent)
 	if err != nil {
 		return "", fmt.Errorf("JWT generation test failed: %w", err)
 	}
@@ -563,17 +591,22 @@ func findInstallationForOrg(jwtToken, host, org string) (int64, error) {
 // createGitHubApp creates a GitHub App configuration
 // Note: Validation is done later after storage configuration is complete
 func createGitHubApp(
-	appID int64, name string, installationID int64, patterns []string, priority int,
+	appID int64, clientID, name string, installationID int64, patterns []string, priority int,
 ) config.GitHubApp {
 	// Set default name if not provided
 	if name == "" {
-		name = fmt.Sprintf("GitHub App %d", appID)
+		if clientID != "" {
+			name = fmt.Sprintf("GitHub App %s", clientID)
+		} else {
+			name = fmt.Sprintf("GitHub App %d", appID)
+		}
 	}
 
 	// Create GitHub App configuration
 	return config.GitHubApp{
 		Name:           name,
 		AppID:          appID,
+		ClientID:       clientID,
 		InstallationID: installationID,
 		Patterns:       patterns,
 		Priority:       priority,
@@ -628,11 +661,11 @@ func saveAppConfiguration(cfg *config.Config, app *config.GitHubApp) error {
 
 // displaySetupSuccess displays the success message and next steps
 func displaySetupSuccess(
-	name string, appID int64, patterns []string, priority int,
+	name, identifier string, patterns []string, priority int,
 	backend secrets.StorageBackend, expandedKeyFile string,
 ) {
 	fmt.Printf("✅ Successfully configured GitHub App '%s'\n", name)
-	fmt.Printf("   App ID: %d\n", appID)
+	fmt.Printf("   App ID: %s\n", identifier)
 	fmt.Printf("   Patterns: %s\n", strings.Join(patterns, ", "))
 	fmt.Printf("   Priority: %d\n", priority)
 
@@ -656,11 +689,11 @@ func displaySetupSuccess(
 
 // displaySetupSuccessMultiOrg displays success message for multi-org setup
 func displaySetupSuccessMultiOrg(
-	name string, appID int64, groupedPatterns map[string][]string, priority int,
+	name, identifier string, groupedPatterns map[string][]string, priority int,
 	backend secrets.StorageBackend, expandedKeyFile string,
 ) {
 	fmt.Printf("✅ Successfully configured GitHub App '%s'\n", name)
-	fmt.Printf("   App ID: %d\n", appID)
+	fmt.Printf("   App ID: %s\n", identifier)
 	fmt.Printf("   Organizations configured: %d\n", len(groupedPatterns))
 
 	// Display each organization and its patterns
