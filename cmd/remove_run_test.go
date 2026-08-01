@@ -322,3 +322,14 @@ func TestRemoveRun_RemoveByClientID(t *testing.T) {
 		}
 	})
 }
+
+func TestRemoveRun_ConflictingFlagsWithClientID(t *testing.T) {
+	cmd := NewRemoveCmd()
+	cmd.Flags().Set("client-id", "Iv1.Conflict")
+	cmd.Flags().Set("all", "true")
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("Expected error for conflicting flags")
+	}
+}

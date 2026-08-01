@@ -3,12 +3,14 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
 	"gopkg.in/yaml.v3"
@@ -784,4 +786,83 @@ YqJP8ECgYEA6i9AxVPQpV8JqCGXQHMYqGHQVPGqJqLGYPqQJ8xGLqYPHqmQGYqJP
 			t.Error("Expected error for non-matching repo")
 		}
 	})
+}
+
+func TestRunAuthenticationTests_Verbose(t *testing.T) {
+	tempDir := t.TempDir()
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	cfg := &config.Config{
+		Version: "1.0",
+		GitHubApps: []config.GitHubApp{
+			{
+				Name:             "Verbose App",
+				ClientID:         "Iv1.Verbose",
+				InstallationID:   789012,
+				Patterns:         []string{"github.com/org/*"},
+				PrivateKeySource: config.PrivateKeySourceFilesystem,
+				PrivateKeyPath:   keyPath,
+			},
+		},
+	}
+
+	err := runAuthenticationTests(cfg, "https://github.com/org/repo", true)
+	if err == nil {
+		t.Error("Expected network error after verbose matching output")
+	}
+}
+
+func TestRunAuthenticationTests_Success(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			w.WriteHeader(http.StatusCreated)
+			expiresAt := time.Now().Add(time.Hour).Format(time.RFC3339)
+			_, _ = fmt.Fprintf(w, `{"token":"mock-installation-token","expires_at":"%s"}`, expiresAt)
+		case http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			_, _ = fmt.Fprint(w, `{"name":"repo","full_name":"org/repo","private":false}`)
+		default:
+			t.Errorf("Unexpected %s request to %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = server.Client().Transport
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	host := server.Listener.Addr().String()
+
+	tempDir := t.TempDir()
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	cfg := &config.Config{
+		Version: "1.0",
+		GitHubApps: []config.GitHubApp{
+			{
+				Name:             "Success App",
+				ClientID:         "Iv1.Success",
+				InstallationID:   789012,
+				Patterns:         []string{fmt.Sprintf("%s/org/*", host)},
+				PrivateKeySource: config.PrivateKeySourceFilesystem,
+				PrivateKeyPath:   keyPath,
+			},
+		},
+	}
+
+	repoURL := fmt.Sprintf("https://%s/org/repo", host)
+	err := runAuthenticationTests(cfg, repoURL, true)
+	if err != nil {
+		t.Errorf("runAuthenticationTests() error = %v", err)
+	}
 }

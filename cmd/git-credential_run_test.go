@@ -2,10 +2,14 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
 	"gopkg.in/yaml.v3"
@@ -252,4 +256,101 @@ func TestHandleCredentialErase_Direct(t *testing.T) {
 			t.Errorf("handleCredentialErase should handle missing URL gracefully: %v", err)
 		}
 	})
+}
+
+func TestDoAutomaticSetup(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yml")
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	t.Run("returns nil when env vars are not set", func(t *testing.T) {
+		t.Setenv("GH_APP_PRIVATE_KEY_PATH", "")
+		t.Setenv("GH_APP_ID", "")
+		t.Setenv("GH_APP_CLIENT_ID", "")
+
+		app, err := doAutomaticSetup("github.com/org/repo")
+		if err != nil {
+			t.Errorf("doAutomaticSetup() error = %v", err)
+		}
+		if app != nil {
+			t.Errorf("doAutomaticSetup() app = %v, want nil", app)
+		}
+	})
+
+	t.Run("sets up from GH_APP_CLIENT_ID", func(t *testing.T) {
+		t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+		t.Setenv("GH_APP_PRIVATE_KEY_PATH", keyPath)
+		t.Setenv("GH_APP_ID", "")
+		t.Setenv("GH_APP_CLIENT_ID", "Iv1.AutoSetup")
+
+		_, err := doAutomaticSetup("github.com/org/repo")
+		// Auto-detect installation ID requires network access, so an error is expected
+		if err == nil {
+			t.Error("Expected error when auto-detecting installation ID without network")
+		}
+	})
+
+	t.Run("sets up from GH_APP_ID", func(t *testing.T) {
+		t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+		t.Setenv("GH_APP_PRIVATE_KEY_PATH", keyPath)
+		t.Setenv("GH_APP_ID", "123456")
+		t.Setenv("GH_APP_CLIENT_ID", "")
+
+		_, err := doAutomaticSetup("github.com/org/repo")
+		// Auto-detect installation ID requires network access, so an error is expected
+		if err == nil {
+			t.Error("Expected error when auto-detecting installation ID without network")
+		}
+	})
+}
+
+func TestGenerateAndOutputCredentials_Success(t *testing.T) {
+	// Mock GitHub Enterprise installation token endpoint
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+
+		expectedPrefix := "/api/v3/app/installations/"
+		if !strings.HasPrefix(r.URL.Path, expectedPrefix) {
+			t.Errorf("Unexpected path: %s", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		expiresAt := time.Now().Add(time.Hour).Format(time.RFC3339)
+		_, _ = fmt.Fprintf(w, `{"token":"mock-installation-token","expires_at":"%s"}`, expiresAt)
+	}))
+	defer server.Close()
+
+	// Make the default HTTP client trust the test TLS server
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = server.Client().Transport
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	tempDir := t.TempDir()
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	app := &config.GitHubApp{
+		Name:             "Mock Server App",
+		ClientID:         "Iv1.MockServer",
+		InstallationID:   789012,
+		Patterns:         []string{"github.com/org/*"},
+		PrivateKeySource: config.PrivateKeySourceFilesystem,
+		PrivateKeyPath:   keyPath,
+	}
+
+	repoURL := fmt.Sprintf("%s/org/repo", server.URL)
+	err := generateAndOutputCredentials(app, repoURL)
+	if err != nil {
+		t.Errorf("generateAndOutputCredentials() error = %v", err)
+	}
 }

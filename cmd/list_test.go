@@ -111,7 +111,7 @@ func TestOutputQuietMode(t *testing.T) {
 	apps := []config.GitHubApp{
 		{AppID: 123456},
 		{AppID: 789012},
-		{AppID: 345678},
+		{ClientID: "Iv1.Quiet"},
 	}
 	pats := []config.PersonalAccessToken{
 		{Name: "Dev PAT"},
@@ -133,6 +133,14 @@ func TestHandleOutputFormat(t *testing.T) {
 			InstallationID:   789,
 			Patterns:         []string{"github.com/org/*"},
 			Priority:         5,
+			PrivateKeySource: config.PrivateKeySourceKeyring,
+		},
+		{
+			Name:             "Client ID App",
+			ClientID:         "Iv1.ListFormat",
+			InstallationID:   456,
+			Patterns:         []string{"github.com/client-org/*"},
+			Priority:         10,
 			PrivateKeySource: config.PrivateKeySourceKeyring,
 		},
 	}

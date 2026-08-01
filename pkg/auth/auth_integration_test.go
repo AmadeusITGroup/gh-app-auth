@@ -510,3 +510,30 @@ func TestGetInstallationToken_WithMock(t *testing.T) {
 		})
 	}
 }
+
+func TestGetCredentials_WithClientID(t *testing.T) {
+	tempDir := t.TempDir()
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+
+	keyContent := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(keyContent), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	app := &config.GitHubApp{
+		Name:             "Client ID App",
+		ClientID:         "Iv1.Credentials",
+		InstallationID:   789012,
+		Patterns:         []string{"github.com/org/*"},
+		PrivateKeySource: config.PrivateKeySourceFilesystem,
+		PrivateKeyPath:   keyPath,
+	}
+
+	auth := NewAuthenticator()
+	_, _, err := auth.GetCredentials(app, "https://github.com/org/repo")
+	// The request will fail because there is no real GitHub App for the client ID,
+	// but this exercises the GetIdentifier/GetIssuer paths introduced for client IDs.
+	if err == nil {
+		t.Error("Expected network error when using test client ID")
+	}
+}

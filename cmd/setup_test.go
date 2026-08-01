@@ -1094,3 +1094,113 @@ func TestDisplaySetupSuccess(t *testing.T) {
 		})
 	}
 }
+
+func TestSetupIssuer(t *testing.T) {
+	tests := []struct {
+		name     string
+		appID    int64
+		clientID string
+		want     any
+	}{
+		{
+			name:     "client id preferred",
+			clientID: "Iv1.AbCdEfGhIjKlMn",
+			want:     "Iv1.AbCdEfGhIjKlMn",
+		},
+		{
+			name:  "app id fallback",
+			appID: 123456,
+			want:  int64(123456),
+		},
+		{
+			name:     "both prefers client id",
+			appID:    123456,
+			clientID: "Iv1.Preferred",
+			want:     "Iv1.Preferred",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := setupIssuer(tt.appID, tt.clientID)
+			if got != tt.want {
+				t.Errorf("setupIssuer() = %v (%T), want %v (%T)", got, got, tt.want, tt.want)
+			}
+		})
+	}
+}
+
+func TestSetupRun_WithClientID(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yml")
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+
+	cmd := NewSetupCmd()
+	cmd.Flags().Set("client-id", "Iv1.RunSetup")
+	cmd.Flags().Set("key-file", keyPath)
+	cmd.Flags().Set("patterns", "github.com/org/*")
+	cmd.Flags().Set("installation-id", "789012")
+	cmd.Flags().Set("use-filesystem", "true")
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Errorf("setupRun() with client ID error = %v", err)
+	}
+}
+
+func TestSetupGitHubApp(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yml")
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+
+	t.Run("client id with provided installation id", func(t *testing.T) {
+		cfg := &config.Config{Version: "1.0"}
+		app, err := setupGitHubApp(
+			cfg, 0, "Iv1.AbCdEfGhIjKlMn", keyPath, "Client ID App", 789012,
+			[]string{"github.com/org/*"}, 5, false, true, false,
+		)
+		if err != nil {
+			t.Fatalf("setupGitHubApp() error = %v", err)
+		}
+		if app == nil {
+			t.Fatal("setupGitHubApp() returned nil app")
+		}
+		if app.ClientID != "Iv1.AbCdEfGhIjKlMn" {
+			t.Errorf("ClientID = %q, want %q", app.ClientID, "Iv1.AbCdEfGhIjKlMn")
+		}
+		if app.InstallationID != 789012 {
+			t.Errorf("InstallationID = %d, want %d", app.InstallationID, 789012)
+		}
+	})
+
+	t.Run("client id with multiple orgs", func(t *testing.T) {
+		cfg := &config.Config{Version: "1.0"}
+		app, err := setupGitHubApp(
+			cfg, 0, "Iv1.MultiOrg", keyPath, "Multi Org App", 789012,
+			[]string{"github.com/org1/*", "github.com/org2/*"}, 5, false, true, false,
+		)
+		if err != nil {
+			t.Fatalf("setupGitHubApp() error = %v", err)
+		}
+		if app == nil {
+			t.Fatal("setupGitHubApp() returned nil app")
+		}
+		if app.ClientID != "Iv1.MultiOrg" {
+			t.Errorf("ClientID = %q, want %q", app.ClientID, "Iv1.MultiOrg")
+		}
+	})
+}

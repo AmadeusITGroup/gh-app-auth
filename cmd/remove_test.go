@@ -136,3 +136,18 @@ func TestConfirmAllAppsRemoval(t *testing.T) {
 	// Skip interactive test - would need stdin mocking
 	t.Skip("Interactive function - requires stdin mocking")
 }
+
+func TestRemoveSingleApp_ClientIDNotFound(t *testing.T) {
+	cfg := &config.Config{
+		Version: "1.0",
+		GitHubApps: []config.GitHubApp{
+			{Name: "App1", AppID: 111111},
+			{Name: "App2", AppID: 222222, ClientID: "Iv1.ClientTwo"},
+		},
+	}
+
+	err := removeSingleApp(cfg, 0, "Iv1.NotFound", true)
+	if err == nil {
+		t.Error("Expected error when removing app by non-existent client ID")
+	}
+}
