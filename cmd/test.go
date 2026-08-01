@@ -155,7 +155,7 @@ func testAPIAccess(token, repoURL string, verbose bool) error {
 
 	// Use raw HTTP instead of go-gh to avoid GitHub CLI auth requirement
 	apiURL := fmt.Sprintf("https://%s/api/v3/repos/%s/%s", host, owner, repo)
-	if host == "github.com" {
+	if host == gitHubAPIHost {
 		apiURL = fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
 	}
 
@@ -227,7 +227,7 @@ func extractHost(repoURL string) string {
 	}
 
 	// Default to github.com
-	return "github.com"
+	return gitHubAPIHost
 }
 
 func extractOwnerRepo(repoURL string) (owner, repo string, err error) {

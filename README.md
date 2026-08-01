@@ -100,12 +100,21 @@ gh app-auth exec -- gh pr list
 # Run gh outside a repository by specifying the authentication target
 gh app-auth exec --repo github.com/myorg/private-repo -- \
   gh api repos/{owner}/{repo}
+
+# Run an API command that is not scoped to one repository
+gh app-auth exec \
+  --app-id 123456 \
+  --installation-id 789012 \
+  -- gh api /installation/repositories
 ```
 
 `exec` mints a token on demand and exposes it only to the child process through
-`GH_TOKEN` (or `GH_ENTERPRISE_TOKEN` for GitHub Enterprise Server). It also sets
-`GH_HOST` and `GH_REPO`, so repository-aware `gh` commands work outside a Git
-checkout. No token is printed or persisted by this command.
+`GH_TOKEN` (or `GH_ENTERPRISE_TOKEN` for GitHub Enterprise Server). Repository
+routing sets both `GH_HOST` and `GH_REPO`; selecting a configured App with
+`--app-id` or `--installation-id` sets `GH_HOST` without inventing a repository
+scope. Use both IDs to disambiguate Apps configured for multiple installations.
+PAT selection remains repository-based. No token is printed or persisted by
+this command.
 
 ## URL Prefix Routing
 
@@ -129,7 +138,7 @@ See [URL Prefix Routing Guide](docs/PATTERN_ROUTING.md) for detailed examples.
 - `gh app-auth list` - List configured credentials (`--verify-keys` to check accessibility)
 - `gh app-auth remove` - Remove GitHub App (`--app-id`) or PAT (`--pat-name`) configuration
 - `gh app-auth test` - Test authentication for a repository
-- `gh app-auth exec` - Run a command with short-lived credentials for a repository
+- `gh app-auth exec` - Run a command with short-lived credentials selected by repository, App ID, or installation ID
 - `gh app-auth scope` - Fetch and display GitHub App installation scope (which repos the app can access)
 - `gh app-auth config` - Show configuration file location (`--path`) or content (`--show`)
 - `gh app-auth gitconfig` - Manage git credential helper configuration
