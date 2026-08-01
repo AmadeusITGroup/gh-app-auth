@@ -5,11 +5,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
 	"github.com/spf13/cobra"
 )
+
+const windowsOS = "windows"
 
 func NewGitConfigCmd() *cobra.Command {
 	var (
@@ -162,7 +165,16 @@ func syncGitConfig(scope string, auto bool) error {
 		if strings.ContainsAny(pattern, "*?[] ") {
 			patternArg = fmt.Sprintf("\"%s\"", pattern)
 		}
-		helperValue := fmt.Sprintf("!%s git-credential --pattern %s", execPath, patternArg)
+
+		// Build helper value - Windows needs a wrapper script for reliable execution
+		var helperValue string
+		if runtime.GOOS == windowsOS {
+			// On Windows, create a batch file wrapper that git can execute directly
+			helperValue = createWindowsCredentialWrapper(execPath, patternArg)
+		} else {
+			// Unix systems - Quote execPath to handle paths with spaces
+			helperValue = fmt.Sprintf("!\"%s\" git-credential --pattern %s", execPath, patternArg)
+		}
 		setCmd := exec.Command("git", "config", scope, "--add", credKey, helperValue)
 		if err := setCmd.Run(); err != nil {
 			fmt.Printf("❌ Failed to configure: %s\n", context)
@@ -409,4 +421,35 @@ func getExecutablePath() (string, error) {
 	}
 
 	return execPath, nil
+}
+
+// createWindowsCredentialWrapper creates a batch file wrapper for Windows.
+// Returns the path to the wrapper batch file which git can execute directly.
+func createWindowsCredentialWrapper(execPath, patternArg string) string {
+	// Create a unique wrapper name in user's temp directory
+	hash := 0
+	for _, c := range patternArg {
+		hash = hash*31 + int(c)
+	}
+	if hash < 0 {
+		hash = -hash
+	}
+
+	tempDir := os.TempDir()
+	wrapperName := fmt.Sprintf("gh-app-auth-cred-%d.bat", hash)
+	wrapperPath := filepath.Join(tempDir, wrapperName)
+
+	// Build batch file content
+	// Use proper escaping for Windows batch files
+	batchContent := fmt.Sprintf("@echo off\r\n\"%s\" git-credential --pattern %s %%*\r\n", execPath, patternArg)
+
+	// Write the wrapper script (overwrite if exists)
+	if err := os.WriteFile(wrapperPath, []byte(batchContent), 0600); err != nil {
+		// Fallback: return direct command if we can't create wrapper
+		return fmt.Sprintf("\"%s\" git-credential --pattern %s", execPath, patternArg)
+	}
+
+	// Convert to forward slashes for git config - Windows accepts both,
+	// but backslashes get stripped by shell interpretation
+	return strings.ReplaceAll(wrapperPath, "\\", "/")
 }
