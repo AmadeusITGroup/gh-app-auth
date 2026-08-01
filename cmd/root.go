@@ -40,6 +40,7 @@ func init() {
 	rootCmd.AddCommand(NewListCmd())
 	rootCmd.AddCommand(NewRemoveCmd())
 	rootCmd.AddCommand(NewTestCmd())
+	rootCmd.AddCommand(NewExecCmd())
 	rootCmd.AddCommand(NewGitCredentialCmd())
 	rootCmd.AddCommand(NewGitConfigCmd())
 	rootCmd.AddCommand(NewMigrateCmd())

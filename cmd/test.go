@@ -14,6 +14,7 @@ import (
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/auth"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/secrets"
+	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/spf13/cobra"
 )
 
@@ -95,8 +96,12 @@ func testRun(repo *string, verbose *bool) func(*cobra.Command, []string) error {
 }
 
 func getCurrentRepository() (string, error) {
-	// This is a placeholder - in reality we'd use go-gh's repository detection
-	return "", fmt.Errorf("current repository detection not implemented yet")
+	repo, err := repository.Current()
+	if err != nil {
+		return "", fmt.Errorf("failed to determine current repository: %w", err)
+	}
+
+	return fmt.Sprintf("%s/%s/%s", repo.Host, repo.Owner, repo.Name), nil
 }
 
 func testAPIAccess(token, repoURL string, verbose bool) error {
