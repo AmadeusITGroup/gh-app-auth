@@ -72,6 +72,7 @@ MISSPELL := go run github.com/client9/misspell/cmd/misspell@latest
 GOSEC := go run github.com/securego/gosec/v2/cmd/gosec@latest
 GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@latest
 ACTIONLINT := go run github.com/rhysd/actionlint/cmd/actionlint@latest
+NFPM_CMD := go run github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 
 # Build the extension
 build:
