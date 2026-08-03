@@ -191,8 +191,8 @@ func syncGitConfig(scope string, auto bool) error {
 	}
 
 	if auto {
-		configurePattern("github.com", "Automatic mode")
-		setUseHttpPath(scope, "github.com")
+		configurePattern(gitHubAPIHost, "Automatic mode")
+		setUseHttpPath(scope, gitHubAPIHost)
 		return nil
 	}
 

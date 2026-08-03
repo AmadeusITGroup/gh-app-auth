@@ -3,10 +3,12 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/auth"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/secrets"
+	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/spf13/cobra"
 )
 
@@ -95,8 +98,51 @@ func testRun(repo *string, verbose *bool) func(*cobra.Command, []string) error {
 }
 
 func getCurrentRepository() (string, error) {
-	// This is a placeholder - in reality we'd use go-gh's repository detection
-	return "", fmt.Errorf("current repository detection not implemented yet")
+	if override := os.Getenv("GH_REPO"); override != "" {
+		return canonicalRepository(override)
+	}
+
+	remoteURL, err := currentGitRemoteURL()
+	if err != nil {
+		return "", fmt.Errorf("failed to determine current repository: %w", err)
+	}
+	return canonicalRepository(remoteURL)
+}
+
+func currentGitRemoteURL() (string, error) {
+	if output, err := exec.Command("git", "config", "--local", "--get", "remote.origin.url").Output(); err == nil {
+		return strings.TrimSpace(string(output)), nil
+	}
+
+	output, err := exec.Command("git", "config", "--local", "--get-regexp", `^remote\..*\.url$`).CombinedOutput()
+	if err != nil {
+		message := strings.TrimSpace(string(output))
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 && message == "" {
+			return "", fmt.Errorf("no git remotes configured for this repository")
+		}
+		if message != "" {
+			return "", fmt.Errorf("failed to read git remotes: %w: %s", err, message)
+		}
+		return "", fmt.Errorf("failed to read git remotes: %w", err)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 {
+			return fields[len(fields)-1], nil
+		}
+	}
+
+	return "", fmt.Errorf("no git remotes configured for this repository")
+}
+
+func canonicalRepository(value string) (string, error) {
+	repo, err := repository.Parse(value)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s/%s/%s", repo.Host, repo.Owner, repo.Name), nil
 }
 
 func testAPIAccess(token, repoURL string, verbose bool) error {
@@ -109,7 +155,7 @@ func testAPIAccess(token, repoURL string, verbose bool) error {
 
 	// Use raw HTTP instead of go-gh to avoid GitHub CLI auth requirement
 	apiURL := fmt.Sprintf("https://%s/api/v3/repos/%s/%s", host, owner, repo)
-	if host == "github.com" {
+	if host == gitHubAPIHost {
 		apiURL = fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
 	}
 
@@ -181,7 +227,7 @@ func extractHost(repoURL string) string {
 	}
 
 	// Default to github.com
-	return "github.com"
+	return gitHubAPIHost
 }
 
 func extractOwnerRepo(repoURL string) (owner, repo string, err error) {

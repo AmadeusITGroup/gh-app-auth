@@ -8,6 +8,7 @@ A GitHub CLI extension that enables GitHub App authentication for Git operations
 - **Encrypted Storage**: Private keys stored in OS-native keyring (Keychain, Credential Manager, Secret Service)
 - **Pattern Routing**: Configure different apps for different repository URL prefixes
 - **Git Integration**: Git credential helper protocol support
+- **GitHub CLI Integration**: Run `gh` and other commands with short-lived credentials
 - **Token Caching**: In-memory caching of installation tokens (55-min TTL)
 - **Multi-Host**: GitHub.com, GitHub Enterprise, and Bitbucket Server support
 - **CI/CD Ready**: Environment variable support (`GH_APP_PRIVATE_KEY`)
@@ -92,7 +93,28 @@ gh app-auth test --repo github.com/myorg/private-repo
 
 # Use git normally - now uses GitHub App authentication
 git clone https://github.com/myorg/private-repo.git
+
+# Run gh with a short-lived token for the current repository
+gh app-auth exec -- gh pr list
+
+# Run gh outside a repository by specifying the authentication target
+gh app-auth exec --repo github.com/myorg/private-repo -- \
+  gh api repos/{owner}/{repo}
+
+# Run an API command that is not scoped to one repository
+gh app-auth exec \
+  --app-id 123456 \
+  --installation-id 789012 \
+  -- gh api /installation/repositories
 ```
+
+`exec` mints a token on demand and exposes it only to the child process through
+`GH_TOKEN` (or `GH_ENTERPRISE_TOKEN` for GitHub Enterprise Server). Repository
+routing sets both `GH_HOST` and `GH_REPO`; selecting a configured App with
+`--app-id` or `--installation-id` sets `GH_HOST` without inventing a repository
+scope. Use both IDs to disambiguate Apps configured for multiple installations.
+PAT selection remains repository-based. No token is printed or persisted by
+this command.
 
 ## URL Prefix Routing
 
@@ -116,6 +138,7 @@ See [URL Prefix Routing Guide](docs/PATTERN_ROUTING.md) for detailed examples.
 - `gh app-auth list` - List configured credentials (`--verify-keys` to check accessibility)
 - `gh app-auth remove` - Remove GitHub App (`--app-id` or `--client-id`) or PAT (`--pat-name`) configuration
 - `gh app-auth test` - Test authentication for a repository
+- `gh app-auth exec` - Run a command with short-lived credentials selected by repository, App ID, or installation ID
 - `gh app-auth scope` - Fetch and display GitHub App installation scope (which repos the app can access)
 - `gh app-auth config` - Show configuration file location (`--path`) or content (`--show`)
 - `gh app-auth gitconfig` - Manage git credential helper configuration

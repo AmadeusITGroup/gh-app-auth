@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -167,12 +168,43 @@ func TestExtractOwnerRepo(t *testing.T) {
 }
 
 func TestGetCurrentRepository(t *testing.T) {
-	t.Run("not implemented", func(t *testing.T) {
-		_, err := getCurrentRepository()
-		if err == nil {
-			t.Error("Expected error for not implemented function")
-		}
-	})
+	tempDir := t.TempDir()
+	runGit(t, tempDir, "init")
+	runGit(t, tempDir, "remote", "add", "origin", "git@github.com:myorg/myrepo.git")
+	withWorkingDirectory(t, tempDir)
+	t.Setenv("HOME", t.TempDir())
+
+	got, err := getCurrentRepository()
+	if err != nil {
+		t.Fatalf("getCurrentRepository() error = %v", err)
+	}
+	if got != "github.com/myorg/myrepo" {
+		t.Errorf("getCurrentRepository() = %q, want %q", got, "github.com/myorg/myrepo")
+	}
+}
+
+func TestGetCurrentRepositoryFromEnvironment(t *testing.T) {
+	t.Setenv("GH_REPO", "github.example.com/myorg/myrepo")
+
+	got, err := getCurrentRepository()
+	if err != nil {
+		t.Fatalf("getCurrentRepository() error = %v", err)
+	}
+	if got != "github.example.com/myorg/myrepo" {
+		t.Errorf("getCurrentRepository() = %q, want %q", got, "github.example.com/myorg/myrepo")
+	}
+}
+
+func TestCurrentGitRemoteURLPreservesGitError(t *testing.T) {
+	withWorkingDirectory(t, t.TempDir())
+
+	_, err := currentGitRemoteURL()
+	if err == nil {
+		t.Fatal("currentGitRemoteURL() error = nil, want an error")
+	}
+	if !strings.Contains(err.Error(), "failed to read git remotes") || !strings.Contains(err.Error(), "fatal:") {
+		t.Errorf("currentGitRemoteURL() error = %q, want git diagnostic", err)
+	}
 }
 
 func TestDetermineRepositoryURL(t *testing.T) {
@@ -185,11 +217,6 @@ func TestDetermineRepositoryURL(t *testing.T) {
 			name:    "with repo specified",
 			repo:    "https://github.com/myorg/myrepo",
 			wantErr: false,
-		},
-		{
-			name:    "without repo - should fail",
-			repo:    "",
-			wantErr: true,
 		},
 	}
 
@@ -214,6 +241,39 @@ func TestDetermineRepositoryURL(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("without repo outside git repository", func(t *testing.T) {
+		withWorkingDirectory(t, t.TempDir())
+		_, err := determineRepositoryURL("")
+		if err == nil {
+			t.Fatal("determineRepositoryURL() error = nil, want an error")
+		}
+	})
+}
+
+func runGit(t *testing.T, directory string, args ...string) {
+	t.Helper()
+	command := exec.Command("git", args...)
+	command.Dir = directory
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, output)
+	}
+}
+
+func withWorkingDirectory(t *testing.T, directory string) {
+	t.Helper()
+	original, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("os.Getwd() error = %v", err)
+	}
+	if err := os.Chdir(directory); err != nil {
+		t.Fatalf("os.Chdir(%q) error = %v", directory, err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(original); err != nil {
+			t.Errorf("restore working directory: %v", err)
+		}
+	})
 }
 
 func TestDisplayTestResults(t *testing.T) {
