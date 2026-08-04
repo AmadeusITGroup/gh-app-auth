@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -62,13 +63,32 @@ type RepositoryInfo struct {
 // GitHubApp represents a single GitHub App configuration
 type GitHubApp struct {
 	Name             string             `yaml:"name" json:"name"`
-	AppID            int64              `yaml:"app_id" json:"app_id"`
+	AppID            int64              `yaml:"app_id,omitempty" json:"app_id,omitempty"`
+	ClientID         string             `yaml:"client_id,omitempty" json:"client_id,omitempty"`
 	InstallationID   int64              `yaml:"installation_id" json:"installation_id"`
 	PrivateKeyPath   string             `yaml:"private_key_path,omitempty" json:"private_key_path,omitempty"`
 	PrivateKeySource PrivateKeySource   `yaml:"private_key_source,omitempty" json:"private_key_source,omitempty"`
 	Patterns         []string           `yaml:"patterns" json:"patterns"`
 	Priority         int                `yaml:"priority" json:"priority"` // Deprecated: Ignored in favor of longest prefix
 	Scope            *InstallationScope `yaml:"scope,omitempty" json:"scope,omitempty"`
+}
+
+// GetIdentifier returns the public identifier for the GitHub App.
+// Client ID is preferred when present; otherwise the numeric App ID is returned as a string.
+func (g *GitHubApp) GetIdentifier() string {
+	if g.ClientID != "" {
+		return g.ClientID
+	}
+	return strconv.FormatInt(g.AppID, 10)
+}
+
+// GetIssuer returns the value to use as the JWT iss claim.
+// It returns the Client ID string when available, otherwise the numeric App ID.
+func (g *GitHubApp) GetIssuer() any {
+	if g.ClientID != "" {
+		return g.ClientID
+	}
+	return g.AppID
 }
 
 type PersonalAccessToken struct {
@@ -178,8 +198,12 @@ func (g *GitHubApp) validateBasicFields() error {
 		return fmt.Errorf("name is required")
 	}
 
-	if g.AppID <= 0 {
+	if g.AppID < 0 {
 		return fmt.Errorf("app_id must be positive")
+	}
+
+	if g.AppID == 0 && g.ClientID == "" {
+		return fmt.Errorf("app_id or client_id is required")
 	}
 
 	// InstallationID can be 0 (auto-detected at runtime via GitHub API)

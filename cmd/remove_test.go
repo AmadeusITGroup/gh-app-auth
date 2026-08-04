@@ -6,12 +6,12 @@ import (
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
 )
 
-func TestFindAppByID(t *testing.T) {
+func TestFindApp(t *testing.T) {
 	cfg := &config.Config{
 		Version: "1.0",
 		GitHubApps: []config.GitHubApp{
 			{Name: "App1", AppID: 111111},
-			{Name: "App2", AppID: 222222},
+			{Name: "App2", AppID: 222222, ClientID: "Iv1.ClientTwo"},
 			{Name: "App3", AppID: 333333},
 		},
 	}
@@ -19,20 +19,28 @@ func TestFindAppByID(t *testing.T) {
 	tests := []struct {
 		name      string
 		appID     int64
+		clientID  string
 		wantIndex int
 		wantName  string
 		wantErr   bool
 	}{
 		{
-			name:      "find first app",
+			name:      "find first app by id",
 			appID:     111111,
 			wantIndex: 0,
 			wantName:  "App1",
 			wantErr:   false,
 		},
 		{
-			name:      "find middle app",
+			name:      "find middle app by id",
 			appID:     222222,
+			wantIndex: 1,
+			wantName:  "App2",
+			wantErr:   false,
+		},
+		{
+			name:      "find middle app by client id",
+			clientID:  "Iv1.ClientTwo",
 			wantIndex: 1,
 			wantName:  "App2",
 			wantErr:   false,
@@ -45,8 +53,14 @@ func TestFindAppByID(t *testing.T) {
 			wantErr:   false,
 		},
 		{
-			name:      "app not found",
+			name:      "app not found by id",
 			appID:     999999,
+			wantIndex: -1,
+			wantErr:   true,
+		},
+		{
+			name:      "app not found by client id",
+			clientID:  "Iv1.NotFound",
 			wantIndex: -1,
 			wantErr:   true,
 		},
@@ -54,7 +68,7 @@ func TestFindAppByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			index, app, err := findAppByID(cfg, tt.appID)
+			index, app, err := findApp(cfg, tt.appID, tt.clientID)
 
 			if tt.wantErr {
 				if err == nil {
@@ -79,7 +93,11 @@ func TestFindAppByID(t *testing.T) {
 				t.Errorf("Name = %q, want %q", app.Name, tt.wantName)
 			}
 
-			if app.AppID != tt.appID {
+			if tt.clientID != "" {
+				if app.ClientID != tt.clientID {
+					t.Errorf("ClientID = %q, want %q", app.ClientID, tt.clientID)
+				}
+			} else if app.AppID != tt.appID {
 				t.Errorf("AppID = %d, want %d", app.AppID, tt.appID)
 			}
 		})
@@ -88,7 +106,7 @@ func TestFindAppByID(t *testing.T) {
 
 func TestClearCachedTokens(t *testing.T) {
 	// Test placeholder implementation
-	err := clearCachedTokens(123456)
+	err := clearCachedTokens("123456")
 	if err != nil {
 		t.Errorf("clearCachedTokens() error = %v", err)
 	}
@@ -117,4 +135,19 @@ func TestConfirmAppRemoval(t *testing.T) {
 func TestConfirmAllAppsRemoval(t *testing.T) {
 	// Skip interactive test - would need stdin mocking
 	t.Skip("Interactive function - requires stdin mocking")
+}
+
+func TestRemoveSingleApp_ClientIDNotFound(t *testing.T) {
+	cfg := &config.Config{
+		Version: "1.0",
+		GitHubApps: []config.GitHubApp{
+			{Name: "App1", AppID: 111111},
+			{Name: "App2", AppID: 222222, ClientID: "Iv1.ClientTwo"},
+		},
+	}
+
+	err := removeSingleApp(cfg, 0, "Iv1.NotFound", true)
+	if err == nil {
+		t.Error("Expected error when removing app by non-existent client ID")
+	}
 }

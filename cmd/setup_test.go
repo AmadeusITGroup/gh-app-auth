@@ -6,13 +6,14 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
+	"github.com/AmadeusITGroup/gh-app-auth/pkg/jwt"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/secrets"
 )
 
@@ -62,6 +63,7 @@ func TestValidateSetupInputs(t *testing.T) {
 	tests := []struct {
 		name           string
 		appID          int64
+		clientID       string
 		patterns       []string
 		useKeyring     bool
 		useFilesystem  bool
@@ -74,6 +76,15 @@ func TestValidateSetupInputs(t *testing.T) {
 		{
 			name:        "valid inputs with keyring",
 			appID:       123456,
+			patterns:    []string{"github.com/org/*"},
+			useKeyring:  true,
+			keyFile:     "",
+			wantErr:     false,
+			wantKeyring: true,
+		},
+		{
+			name:        "valid inputs with client id",
+			clientID:    "Iv1.AbCdEfGhIjKlMn",
 			patterns:    []string{"github.com/org/*"},
 			useKeyring:  true,
 			keyFile:     "",
@@ -103,7 +114,7 @@ func TestValidateSetupInputs(t *testing.T) {
 			expectedErr:    ErrConflictingKeyOptions,
 		},
 		{
-			name:     "invalid app ID - zero",
+			name:     "invalid app ID - zero without client id",
 			appID:    0,
 			patterns: []string{"github.com/org/*"},
 			wantErr:  true,
@@ -145,7 +156,7 @@ func TestValidateSetupInputs(t *testing.T) {
 				t.Setenv("GH_APP_PRIVATE_KEY", "")
 			}
 
-			err := validateSetupInputs(tt.appID, tt.patterns, &useKeyring, &useFilesystem, keyFile)
+			err := validateSetupInputs(tt.appID, tt.clientID, tt.patterns, &useKeyring, &useFilesystem, keyFile)
 
 			if tt.wantErr {
 				if err == nil {
@@ -190,7 +201,7 @@ func TestGetPrivateKey(t *testing.T) {
 
 	t.Run("from file", func(t *testing.T) {
 		// Skip on Windows - file permissions are not enforced the same way
-		if runtime.GOOS == "windows" {
+		if isWindows() {
 			t.Skip("Skipping on Windows: file permissions not supported")
 		}
 
@@ -238,7 +249,7 @@ func TestGetPrivateKey(t *testing.T) {
 
 func TestValidateKeyFile(t *testing.T) {
 	// Skip on Windows - file permissions are not enforced the same way
-	if runtime.GOOS == "windows" {
+	if isWindows() {
 		t.Skip("Skipping on Windows: file permissions not supported")
 	}
 
@@ -292,11 +303,13 @@ func TestCreateGitHubApp(t *testing.T) {
 	tests := []struct {
 		name           string
 		appID          int64
+		clientID       string
 		appName        string
 		installationID int64
 		patterns       []string
 		priority       int
 		wantName       string
+		wantClientID   string
 		wantErr        bool
 	}{
 		{
@@ -320,6 +333,17 @@ func TestCreateGitHubApp(t *testing.T) {
 			wantErr:        false, // No validation in createGitHubApp anymore
 		},
 		{
+			name:           "with client id default name",
+			clientID:       "Iv1.AbCdEfGhIjKlMn",
+			appName:        "",
+			installationID: 789,
+			patterns:       []string{"github.com/org/*"},
+			priority:       5,
+			wantName:       "GitHub App Iv1.AbCdEfGhIjKlMn",
+			wantClientID:   "Iv1.AbCdEfGhIjKlMn",
+			wantErr:        false,
+		},
+		{
 			name:           "with multiple patterns",
 			appID:          123456,
 			appName:        "Test",
@@ -333,7 +357,7 @@ func TestCreateGitHubApp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := createGitHubApp(tt.appID, tt.appName, tt.installationID, tt.patterns, tt.priority)
+			app := createGitHubApp(tt.appID, tt.clientID, tt.appName, tt.installationID, tt.patterns, tt.priority)
 
 			if app.Name != tt.wantName {
 				t.Errorf("Name = %q, want %q", app.Name, tt.wantName)
@@ -341,6 +365,10 @@ func TestCreateGitHubApp(t *testing.T) {
 
 			if app.AppID != tt.appID {
 				t.Errorf("AppID = %d, want %d", app.AppID, tt.appID)
+			}
+
+			if app.ClientID != tt.wantClientID {
+				t.Errorf("ClientID = %q, want %q", app.ClientID, tt.wantClientID)
 			}
 
 			if app.InstallationID != tt.installationID {
@@ -418,13 +446,34 @@ func TestExpandPath(t *testing.T) {
 func TestGenerateJWTForSetup(t *testing.T) {
 	validKey := generateTestRSAKey(t)
 
-	t.Run("valid JWT generation", func(t *testing.T) {
+	t.Run("valid JWT generation with app ID", func(t *testing.T) {
 		token, err := generateJWTForSetup(123456, validKey)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
 		if token == "" {
 			t.Error("Expected non-empty token")
+		}
+	})
+
+	t.Run("valid JWT generation with client ID", func(t *testing.T) {
+		token, err := generateJWTForSetup("Iv1.AbCdEfGhIjKlMn", validKey)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if token == "" {
+			t.Error("Expected non-empty token")
+		}
+
+		// Verify the token contains the client ID as the issuer
+		gen := jwt.NewGenerator()
+		claims, err := gen.GetTokenClaims(token)
+		if err != nil {
+			t.Fatalf("Failed to get token claims: %v", err)
+		}
+		iss, ok := claims["iss"].(string)
+		if !ok || iss != "Iv1.AbCdEfGhIjKlMn" {
+			t.Errorf("Token iss = %v (%T), want string Iv1.AbCdEfGhIjKlMn", claims["iss"], claims["iss"])
 		}
 	})
 
@@ -659,6 +708,21 @@ func TestSetupRun_Integration(t *testing.T) {
 		}
 	})
 
+	t.Run("setup with client id recognized as app setup", func(t *testing.T) {
+		// Clear config
+		os.Remove(configPath)
+
+		cmd := NewSetupCmd()
+		cmd.Flags().Set("client-id", "Iv1.AbCdEfGhIjKlMn")
+		cmd.Flags().Set("key-file", keyPath)
+
+		// Missing pattern should still be caught, proving client-id is accepted as app setup
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error for missing pattern")
+		}
+	})
+
 	t.Run("setup with invalid key file", func(t *testing.T) {
 		// Clear config
 		os.Remove(configPath)
@@ -712,7 +776,7 @@ func TestSetupRun_Integration(t *testing.T) {
 		priority := 5
 
 		// Create the app without validation
-		app := createGitHubApp(appID, name, installationID, patterns, priority)
+		app := createGitHubApp(appID, "", name, installationID, patterns, priority)
 
 		// At this point, app should have no PrivateKeySource or PrivateKeyPath set
 		if app.PrivateKeySource != "" {
@@ -1024,7 +1088,118 @@ func TestDisplaySetupSuccess(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Just verify it doesn't panic
-			displaySetupSuccess(tt.appName, tt.appID, tt.patterns, tt.priority, tt.backend, tt.expandedKeyFile)
+			identifier := fmt.Sprintf("%d", tt.appID)
+			displaySetupSuccess(tt.appName, identifier, tt.patterns, tt.priority, tt.backend, tt.expandedKeyFile)
 		})
 	}
+}
+
+func TestSetupIssuer(t *testing.T) {
+	tests := []struct {
+		name     string
+		appID    int64
+		clientID string
+		want     any
+	}{
+		{
+			name:     "client id preferred",
+			clientID: "Iv1.AbCdEfGhIjKlMn",
+			want:     "Iv1.AbCdEfGhIjKlMn",
+		},
+		{
+			name:  "app id fallback",
+			appID: 123456,
+			want:  int64(123456),
+		},
+		{
+			name:     "both prefers client id",
+			appID:    123456,
+			clientID: "Iv1.Preferred",
+			want:     "Iv1.Preferred",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := setupIssuer(tt.appID, tt.clientID)
+			if got != tt.want {
+				t.Errorf("setupIssuer() = %v (%T), want %v (%T)", got, got, tt.want, tt.want)
+			}
+		})
+	}
+}
+
+func TestSetupRun_WithClientID(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yml")
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+
+	cmd := NewSetupCmd()
+	cmd.Flags().Set("client-id", "Iv1.RunSetup")
+	cmd.Flags().Set("key-file", keyPath)
+	cmd.Flags().Set("patterns", "github.com/org/*")
+	cmd.Flags().Set("installation-id", "789012")
+	cmd.Flags().Set("use-filesystem", "true")
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Errorf("setupRun() with client ID error = %v", err)
+	}
+}
+
+func TestSetupGitHubApp(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yml")
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+
+	t.Run("client id with provided installation id", func(t *testing.T) {
+		cfg := &config.Config{Version: "1.0"}
+		app, err := setupGitHubApp(
+			cfg, 0, "Iv1.AbCdEfGhIjKlMn", keyPath, "Client ID App", 789012,
+			[]string{"github.com/org/*"}, 5, false, true, false,
+		)
+		if err != nil {
+			t.Fatalf("setupGitHubApp() error = %v", err)
+		}
+		if app == nil {
+			t.Fatal("setupGitHubApp() returned nil app")
+		}
+		if app.ClientID != "Iv1.AbCdEfGhIjKlMn" {
+			t.Errorf("ClientID = %q, want %q", app.ClientID, "Iv1.AbCdEfGhIjKlMn")
+		}
+		if app.InstallationID != 789012 {
+			t.Errorf("InstallationID = %d, want %d", app.InstallationID, 789012)
+		}
+	})
+
+	t.Run("client id with multiple orgs", func(t *testing.T) {
+		cfg := &config.Config{Version: "1.0"}
+		app, err := setupGitHubApp(
+			cfg, 0, "Iv1.MultiOrg", keyPath, "Multi Org App", 789012,
+			[]string{"github.com/org1/*", "github.com/org2/*"}, 5, false, true, false,
+		)
+		if err != nil {
+			t.Fatalf("setupGitHubApp() error = %v", err)
+		}
+		if app == nil {
+			t.Fatal("setupGitHubApp() returned nil app")
+		}
+		if app.ClientID != "Iv1.MultiOrg" {
+			t.Errorf("ClientID = %q, want %q", app.ClientID, "Iv1.MultiOrg")
+		}
+	})
 }

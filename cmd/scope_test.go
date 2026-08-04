@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
+	"gopkg.in/yaml.v3"
 )
 
 func TestDisplayScope(t *testing.T) {
@@ -96,6 +99,24 @@ func TestDisplayScope(t *testing.T) {
 		// Should not panic
 		displayScope(app)
 	})
+
+	t.Run("client id app", func(t *testing.T) {
+		app := &config.GitHubApp{
+			Name:           "Client ID App",
+			ClientID:       "Iv1.ScopeDisplay",
+			InstallationID: 456,
+			Scope: &config.InstallationScope{
+				RepositorySelection: "all",
+				AccountLogin:        "testorg",
+				AccountType:         "Organization",
+				LastFetched:         time.Now(),
+				CacheExpiry:         time.Now().Add(24 * time.Hour),
+			},
+		}
+
+		// Should not panic
+		displayScope(app)
+	})
 }
 
 func TestNewScopeCmd(t *testing.T) {
@@ -168,5 +189,39 @@ func TestScopeCmd_FlagValidation(t *testing.T) {
 				t.Errorf("ParseFlags() error = %v, want success = %v", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestScopeRun_RefreshWithClientID(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yml")
+
+	cfg := &config.Config{
+		Version: "1.0",
+		GitHubApps: []config.GitHubApp{
+			{
+				Name:             "Scoped App",
+				ClientID:         "Iv1.ScopeApp",
+				InstallationID:   789012,
+				Patterns:         []string{"github.com/org/*"},
+				PrivateKeySource: config.PrivateKeySourceFilesystem,
+				PrivateKeyPath:   "/nonexistent/key.pem",
+			},
+		},
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("Failed to marshal config: %v", err)
+	}
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+
+	err = scopeRun(true)
+	if err != nil {
+		t.Errorf("scopeRun() error = %v", err)
 	}
 }

@@ -132,7 +132,44 @@ func TestGitHubApp_Validate(t *testing.T) {
 				Priority:       100,
 			},
 			wantErr: true,
-			errMsg:  "app_id must be positive",
+			errMsg:  "app_id or client_id is required",
+		},
+		{
+			name: "valid app with client_id only",
+			app: GitHubApp{
+				Name:           "test-app",
+				ClientID:       "Iv1.AbCdEfGhIjKlMn",
+				InstallationID: 67890,
+				PrivateKeyPath: "/tmp/key.pem",
+				Patterns:       []string{"github.com/org/*"},
+				Priority:       100,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid app with both app_id and client_id",
+			app: GitHubApp{
+				Name:           "test-app",
+				AppID:          12345,
+				ClientID:       "Iv1.AbCdEfGhIjKlMn",
+				InstallationID: 67890,
+				PrivateKeyPath: "/tmp/key.pem",
+				Patterns:       []string{"github.com/org/*"},
+				Priority:       100,
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing app_id and client_id",
+			app: GitHubApp{
+				Name:           "test-app",
+				InstallationID: 67890,
+				PrivateKeyPath: "/tmp/key.pem",
+				Patterns:       []string{"github.com/org/*"},
+				Priority:       100,
+			},
+			wantErr: true,
+			errMsg:  "app_id or client_id is required",
 		},
 		{
 			name: "valid app with auto-detect installation_id",
@@ -322,5 +359,44 @@ func TestConfig_GetByPriority(t *testing.T) {
 	// Verify original config is not modified
 	if config.GitHubApps[0].Name != "low-priority" {
 		t.Error("GetByPriority() modified the original config")
+	}
+}
+
+func TestGitHubApp_GetIdentifier(t *testing.T) {
+	tests := []struct {
+		name       string
+		app        GitHubApp
+		want       string
+		wantIssuer any
+	}{
+		{
+			name:       "client_id preferred",
+			app:        GitHubApp{Name: "app", ClientID: "Iv1.XyZ", AppID: 12345},
+			want:       "Iv1.XyZ",
+			wantIssuer: "Iv1.XyZ",
+		},
+		{
+			name:       "app_id fallback",
+			app:        GitHubApp{Name: "app", AppID: 12345},
+			want:       "12345",
+			wantIssuer: int64(12345),
+		},
+		{
+			name:       "client_id only",
+			app:        GitHubApp{Name: "app", ClientID: "Iv1.AbCd"},
+			want:       "Iv1.AbCd",
+			wantIssuer: "Iv1.AbCd",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.app.GetIdentifier(); got != tt.want {
+				t.Errorf("GetIdentifier() = %q, want %q", got, tt.want)
+			}
+			if got := tt.app.GetIssuer(); got != tt.wantIssuer {
+				t.Errorf("GetIssuer() = %v (%T), want %v (%T)", got, got, tt.wantIssuer, tt.wantIssuer)
+			}
+		})
 	}
 }

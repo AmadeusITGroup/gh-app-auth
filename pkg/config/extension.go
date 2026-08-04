@@ -78,7 +78,7 @@ func (c *Config) AddOrUpdateApp(app *GitHubApp) {
 	// Check if app already exists
 	for i, existingApp := range c.GitHubApps {
 		// Update existing app
-		if existingApp.AppID == app.AppID && existingApp.InstallationID == app.InstallationID {
+		if existingApp.GetIdentifier() == app.GetIdentifier() && existingApp.InstallationID == app.InstallationID {
 			// Merge patterns from new app into existing app
 			mergedPatterns := mergePatterns(existingApp.Patterns, app.Patterns)
 			app.Patterns = mergedPatterns

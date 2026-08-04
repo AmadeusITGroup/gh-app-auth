@@ -193,7 +193,8 @@ func (c *TokenCache) zeroToken(token string) {
 	runtime.GC()
 }
 
-// CreateCacheKey creates a cache key for a specific app configuration
-func CreateCacheKey(appID, installationID int64) string {
-	return fmt.Sprintf("app_%d_inst_%d", appID, installationID)
+// CreateCacheKey creates a cache key for a specific app configuration.
+// The appIdentifier may be a numeric App ID string or a Client ID.
+func CreateCacheKey(appIdentifier string, installationID int64) string {
+	return fmt.Sprintf("app_%s_inst_%d", appIdentifier, installationID)
 }

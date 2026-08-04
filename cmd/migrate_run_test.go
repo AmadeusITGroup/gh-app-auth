@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
+	"github.com/AmadeusITGroup/gh-app-auth/pkg/secrets"
 	"gopkg.in/yaml.v3"
 )
 
@@ -261,4 +262,69 @@ func TestDisplayMigrationSummary_Direct(t *testing.T) {
 			t.Error("Expected to exit when no migrations needed")
 		}
 	})
+
+	t.Run("display summary with apps needing attention", func(t *testing.T) {
+		attention := []config.GitHubApp{
+			{Name: "Inline App", AppID: 345678, ClientID: "Iv1.Attention"},
+		}
+
+		shouldExit := displayMigrationSummary(
+			apps, []config.GitHubApp{}, appsUpToDate, attention,
+			"keyring", false,
+		)
+
+		// The function only exits early when there is nothing to do;
+		// attention-only flows continue to displayMigrationResults.
+		if shouldExit {
+			t.Error("Expected not to exit when only attention is needed")
+		}
+	})
+
+	t.Run("display summary with migrations to perform", func(t *testing.T) {
+		toMigrate := []config.GitHubApp{apps[0]}
+
+		shouldExit := displayMigrationSummary(
+			apps, toMigrate, []config.GitHubApp{}, []config.GitHubApp{},
+			"keyring", false,
+		)
+
+		if shouldExit {
+			t.Error("Expected to continue when migrations are scheduled")
+		}
+	})
+}
+
+func TestPerformMigration(t *testing.T) {
+	tempDir := t.TempDir()
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	cfg := &config.Config{
+		Version: "1.0",
+		GitHubApps: []config.GitHubApp{
+			{
+				Name:             "Migrate App",
+				AppID:            123456,
+				ClientID:         "Iv1.Migrate",
+				InstallationID:   789012,
+				Patterns:         []string{"github.com/org/*"},
+				PrivateKeySource: config.PrivateKeySourceFilesystem,
+				PrivateKeyPath:   keyPath,
+			},
+		},
+	}
+
+	appsToMigrate := []config.GitHubApp{cfg.GitHubApps[0]}
+	secretMgr := secrets.NewManager(tempDir)
+
+	migrated, failed := performMigration(cfg, appsToMigrate, secretMgr, "filesystem", false)
+	if failed != 0 {
+		t.Errorf("performMigration() failed = %d, want 0", failed)
+	}
+	if migrated != 1 {
+		t.Errorf("performMigration() migrated = %d, want 1", migrated)
+	}
 }

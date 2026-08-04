@@ -31,8 +31,9 @@ func NewGenerator() *Generator {
 	}
 }
 
-// GenerateToken generates a GitHub App JWT token from a private key file path
-func (g *Generator) GenerateToken(appID int64, privateKeyPath string) (string, error) {
+// GenerateToken generates a GitHub App JWT token from a private key file path.
+// The issuer may be the numeric App ID (int64) or the Client ID (string).
+func (g *Generator) GenerateToken(issuer any, privateKeyPath string) (string, error) {
 	// Load private key
 	privateKey, err := g.loadPrivateKey(privateKeyPath)
 	if err != nil {
@@ -40,23 +41,24 @@ func (g *Generator) GenerateToken(appID int64, privateKeyPath string) (string, e
 	}
 
 	// Create JWT token
-	token, err := g.createJWT(appID, privateKey)
+	token, err := g.createJWT(issuer, privateKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to create JWT: %w", err)
 	}
 	return token, nil
 }
 
-// GenerateTokenFromKey generates a GitHub App JWT token from private key content
-func (g *Generator) GenerateTokenFromKey(appID int64, privateKeyContent string) (string, error) {
+// GenerateTokenFromKey generates a GitHub App JWT token from private key content.
+// The issuer may be the numeric App ID (int64) or the Client ID (string).
+func (g *Generator) GenerateTokenFromKey(issuer any, privateKeyContent string) (string, error) {
 	// Check cache first (read lock)
-	cacheKey := fmt.Sprintf("%d", appID)
+	cacheKey := g.issuerCacheKey(issuer)
 	g.mu.RLock()
 	cachedKey, exists := g.keyCache[cacheKey]
 	g.mu.RUnlock()
 
 	if exists {
-		return g.createJWT(appID, cachedKey)
+		return g.createJWT(issuer, cachedKey)
 	}
 
 	// Parse private key from content
@@ -71,11 +73,17 @@ func (g *Generator) GenerateTokenFromKey(appID int64, privateKeyContent string) 
 	g.mu.Unlock()
 
 	// Create JWT token
-	token, err := g.createJWT(appID, privateKey)
+	token, err := g.createJWT(issuer, privateKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to create JWT: %w", err)
 	}
 	return token, nil
+}
+
+// issuerCacheKey returns a unique string key for the issuer value.
+// The type is encoded to avoid collisions between a numeric string and an int64.
+func (g *Generator) issuerCacheKey(issuer any) string {
+	return fmt.Sprintf("%T:%v", issuer, issuer)
 }
 
 // loadPrivateKey loads and parses an RSA private key from a PEM file
@@ -144,8 +152,9 @@ func (g *Generator) parsePrivateKey(keyData []byte) (*rsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
-// createJWT creates a GitHub App JWT token
-func (g *Generator) createJWT(appID int64, privateKey *rsa.PrivateKey) (string, error) {
+// createJWT creates a GitHub App JWT token.
+// The issuer may be the numeric App ID (int64) or the Client ID (string).
+func (g *Generator) createJWT(issuer any, privateKey *rsa.PrivateKey) (string, error) {
 	// JWT Header
 	header := map[string]interface{}{
 		"alg": "RS256",
@@ -155,7 +164,7 @@ func (g *Generator) createJWT(appID int64, privateKey *rsa.PrivateKey) (string, 
 	// JWT Payload
 	now := time.Now()
 	payload := map[string]interface{}{
-		"iss": appID,
+		"iss": issuer,
 		"iat": now.Unix(),
 		"exp": now.Add(10 * time.Minute).Unix(), // GitHub Apps tokens expire in 10 minutes max
 	}

@@ -9,6 +9,9 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
+	"gopkg.in/yaml.v3"
 )
 
 func TestNewGitConfigCmd(t *testing.T) {
@@ -534,5 +537,45 @@ func BenchmarkExtractCredentialContext_WithProtocol(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = extractCredentialContext(pattern)
+	}
+}
+
+func TestSyncGitConfig_WithClientIDApp(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	configPath := filepath.Join(tempDir, "config.yml")
+	cfg := &config.Config{
+		Version: "1.0",
+		GitHubApps: []config.GitHubApp{
+			{
+				Name:             "GitConfig Client App",
+				ClientID:         "Iv1.GitConfig",
+				InstallationID:   789012,
+				Patterns:         []string{"github.com/org/*"},
+				PrivateKeySource: config.PrivateKeySourceFilesystem,
+				PrivateKeyPath:   "/dummy/key.pem",
+			},
+		},
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("Failed to marshal config: %v", err)
+	}
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+
+	err = syncGitConfig("--global", false)
+	if err != nil {
+		t.Errorf("syncGitConfig() error = %v", err)
+	}
+
+	gitConfigPath := filepath.Join(tempDir, ".gitconfig")
+	if _, err := os.Stat(gitConfigPath); os.IsNotExist(err) {
+		t.Fatal("Expected .gitconfig to be created")
 	}
 }

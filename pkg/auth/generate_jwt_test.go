@@ -192,3 +192,43 @@ func TestGenerateJWT_Consistency(t *testing.T) {
 	// Note: Tokens may be identical if generated in the same second
 	// This is expected behavior for JWT tokens with 1-second granularity
 }
+
+func TestGenerateJWT_WithClientID(t *testing.T) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate RSA key: %v", err)
+	}
+
+	tempFile, err := os.CreateTemp("", "test-key-*.pem")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
+
+	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	privateKeyPEM := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privateKeyBytes,
+	}
+
+	if err := pem.Encode(tempFile, privateKeyPEM); err != nil {
+		t.Fatalf("Failed to encode PEM: %v", err)
+	}
+	tempFile.Close()
+
+	auth := NewAuthenticator()
+
+	token, err := auth.GenerateJWT("Iv1.ClientID", tempFile.Name())
+	if err != nil {
+		t.Fatalf("GenerateJWT() error = %v", err)
+	}
+
+	if token == "" {
+		t.Error("Expected non-empty token")
+	}
+
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		t.Errorf("Expected 3 JWT parts, got %d", len(parts))
+	}
+}

@@ -189,7 +189,7 @@ func displayMigrationSummary(
 	if len(appsNeedAttention) > 0 {
 		fmt.Printf("⚠️  Apps needing attention (inline keys):\n")
 		for _, app := range appsNeedAttention {
-			fmt.Printf("  • %s (ID: %d) - inline key detected\n", app.Name, app.AppID)
+			fmt.Printf("  • %s (ID: %s) - inline key detected\n", app.Name, app.GetIdentifier())
 		}
 		fmt.Printf("\n")
 	}
@@ -202,7 +202,7 @@ func displayMigrationSummary(
 			if currentSource == "" {
 				currentSource = "legacy"
 			}
-			fmt.Printf("  • %s (ID: %d)\n", app.Name, app.AppID)
+			fmt.Printf("  • %s (ID: %s)\n", app.Name, app.GetIdentifier())
 			fmt.Printf("    From: %s → To: %s\n", currentSource, storage)
 		}
 		fmt.Printf("\n")
@@ -244,7 +244,7 @@ func performMigration(
 			continue
 		}
 
-		fmt.Printf("  Migrating '%s' (ID: %d)...\n", app.Name, app.AppID)
+		fmt.Printf("  Migrating '%s' (ID: %s)...\n", app.Name, app.GetIdentifier())
 
 		// Get current private key
 		privateKey, err := app.GetPrivateKey(secretMgr)

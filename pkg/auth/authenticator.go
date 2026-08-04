@@ -49,7 +49,7 @@ func NewAuthenticator() *Authenticator {
 // GetCredentials returns username and token for git credential helper.
 func (a *Authenticator) GetCredentials(app *config.GitHubApp, repoURL string) (token, username string, err error) {
 	// Generate cache key
-	cacheKey := cache.CreateCacheKey(app.AppID, app.InstallationID)
+	cacheKey := cache.CreateCacheKey(app.GetIdentifier(), app.InstallationID)
 
 	// Check cache first
 	if cachedToken, found := a.tokenCache.Get(cacheKey); found {
@@ -64,7 +64,7 @@ func (a *Authenticator) GetCredentials(app *config.GitHubApp, repoURL string) (t
 	}
 
 	// Generate JWT token
-	jwtToken, err := a.jwtGenerator.GenerateTokenFromKey(app.AppID, privateKey)
+	jwtToken, err := a.jwtGenerator.GenerateTokenFromKey(app.GetIssuer(), privateKey)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to generate JWT: %w", err)
 	}
@@ -85,8 +85,9 @@ func (a *Authenticator) GetCredentials(app *config.GitHubApp, repoURL string) (t
 }
 
 // GenerateJWT generates a JWT token for the GitHub App (legacy file-based method).
-func (a *Authenticator) GenerateJWT(appID int64, privateKeyPath string) (string, error) {
-	return a.jwtGenerator.GenerateToken(appID, privateKeyPath)
+// The issuer may be the numeric App ID (int64) or the Client ID (string).
+func (a *Authenticator) GenerateJWT(issuer any, privateKeyPath string) (string, error) {
+	return a.jwtGenerator.GenerateToken(issuer, privateKeyPath)
 }
 
 // GenerateJWTForApp generates a JWT token using the app's configured private key source.
@@ -98,7 +99,7 @@ func (a *Authenticator) GenerateJWTForApp(app *config.GitHubApp) (string, error)
 	}
 
 	// Generate JWT token
-	return a.jwtGenerator.GenerateTokenFromKey(app.AppID, privateKey)
+	return a.jwtGenerator.GenerateTokenFromKey(app.GetIssuer(), privateKey)
 }
 
 // GetInstallationToken exchanges JWT for an installation access token.

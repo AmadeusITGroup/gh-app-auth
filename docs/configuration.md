@@ -65,7 +65,7 @@ At least one GitHub App or PAT must be present.
 
 ```yaml
 - name: Org Automation App
-  app_id: 123456
+  client_id: Iv1.AbCdEfGhIjKlMn  # preferred identifier (alternative: app_id)
   installation_id: 987654        # optional (auto-detect)
   private_key_source: keyring    # keyring | filesystem | inline (legacy)
   private_key_path: ~/.keys/app.pem  # only used when source=filesystem
@@ -83,7 +83,8 @@ At least one GitHub App or PAT must be present.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | ✅ | Friendly label shown in `gh app-auth list`. |
-| `app_id` | int | ✅ | GitHub App ID. |
+| `app_id` | int | ➖ | GitHub App ID (legacy; `client_id` is preferred). |
+| `client_id` | string | ➖ | GitHub App Client ID (e.g. `Iv1...`). At least one of `app_id` or `client_id` is required. |
 | `installation_id` | int | ➖ | Optional override. If omitted, auto-detection is attempted during `setup`. |
 | `private_key_source` | enum | ✅ | `keyring`, `filesystem`, or `inline` (legacy). Indicates where the key material lives after setup. |
 | `private_key_path` | string | ➖ | Populated when `private_key_source=filesystem`. |

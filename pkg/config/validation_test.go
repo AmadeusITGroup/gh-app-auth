@@ -106,6 +106,38 @@ func TestGitHubApp_Validate_EdgeCases(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "client_id only",
+			app: GitHubApp{
+				Name:           "Test",
+				ClientID:       "Iv1.AbCdEfGhIjKlMn",
+				InstallationID: 456,
+				PrivateKeyPath: "/tmp/key.pem",
+				Patterns:       []string{"github.com/org/*"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "client_id and app_id",
+			app: GitHubApp{
+				Name:           "Test",
+				AppID:          123,
+				ClientID:       "Iv1.AbCdEfGhIjKlMn",
+				InstallationID: 456,
+				PrivateKeyPath: "/tmp/key.pem",
+				Patterns:       []string{"github.com/org/*"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing app_id and client_id",
+			app: GitHubApp{
+				Name:           "Test",
+				InstallationID: 456,
+				Patterns:       []string{"github.com/org/*"},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

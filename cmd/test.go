@@ -320,7 +320,7 @@ func runAuthenticationTests(cfg *config.Config, repoURL string, verbose bool) er
 	}
 
 	if verbose {
-		fmt.Printf("✅ Found matching app: %s (ID: %d)\n", matchedApp.Name, matchedApp.AppID)
+		fmt.Printf("✅ Found matching app: %s (ID: %s)\n", matchedApp.Name, matchedApp.GetIdentifier())
 		fmt.Printf("   Patterns: %v\n", matchedApp.Patterns)
 		fmt.Printf("   Priority: %d\n\n", matchedApp.Priority)
 	} else {
