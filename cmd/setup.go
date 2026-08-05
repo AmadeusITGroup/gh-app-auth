@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AmadeusITGroup/gh-app-auth/pkg/auth"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/jwt"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/secrets"
@@ -563,7 +564,7 @@ func findInstallationForOrg(jwtToken, host, org string) (int64, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return 0, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+		return 0, auth.FormatAPIStatusError(resp.StatusCode, body)
 	}
 
 	var installations []struct {

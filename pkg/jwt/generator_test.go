@@ -137,14 +137,26 @@ func TestGenerator_GenerateToken(t *testing.T) {
 					t.Errorf("Token iss claim = %v, want %v", claims["iss"], tt.appID)
 				}
 
-				// Verify timestamps
+				// Verify timestamps.
+				// 'iat' must be backdated to tolerate clock skew, and 'exp' must stay
+				// strictly under GitHub's 10-minute ceiling.
 				now := time.Now().Unix()
-				if iat, ok := claims["iat"].(float64); !ok || int64(iat) > now || int64(iat) < now-60 {
-					t.Errorf("Token iat claim = %v, should be around %v", claims["iat"], now)
+				iat, ok := claims["iat"].(float64)
+				if !ok || int64(iat) > now-1 || int64(iat) < now-int64(clockSkewTolerance.Seconds())-5 {
+					t.Errorf("Token iat claim = %v, should be backdated ~%vs before %v",
+						claims["iat"], clockSkewTolerance.Seconds(), now)
 				}
 
-				if exp, ok := claims["exp"].(float64); !ok || int64(exp) <= now || int64(exp) > now+600 {
+				exp, ok := claims["exp"].(float64)
+				if !ok || int64(exp) <= now || int64(exp) > now+600 {
 					t.Errorf("Token exp claim = %v, should be between %v and %v", claims["exp"], now, now+600)
+				}
+
+				// The window GitHub sees must remain under its 10-minute maximum even
+				// if our clock is ahead, which is what caused the "'exp' is too far in
+				// the future" 401.
+				if int64(exp)-now >= 600 {
+					t.Errorf("Token exp is %ds in the future, must be < 600s", int64(exp)-now)
 				}
 			}
 		})
@@ -512,9 +524,81 @@ func TestTokenExpiration(t *testing.T) {
 	iat := int64(claims["iat"].(float64))
 	exp := int64(claims["exp"].(float64))
 
-	// Verify expiration is exactly 10 minutes (600 seconds) after issued time
-	expectedExp := iat + 600
+	// 'iat' is backdated by clockSkewTolerance and 'exp' is jwtValidity ahead of
+	// generation time, so the window GitHub sees is the sum of the two.
+	expectedExp := iat + int64((jwtValidity + clockSkewTolerance).Seconds())
 	if exp != expectedExp {
-		t.Errorf("Token expiration = %v, want %v (10 minutes after iat)", exp, expectedExp)
+		t.Errorf("Token expiration = %v, want %v (%v after iat)", exp, expectedExp, jwtValidity+clockSkewTolerance)
 	}
+
+	// GitHub rejects a JWT whose 'exp' is more than 10 minutes ahead of its own
+	// clock, so the window must stay at or under 600 seconds to leave room for skew.
+	if window := exp - iat; window > 600 {
+		t.Errorf("exp-iat window is %ds, GitHub rejects anything over 600s", window)
+	}
+
+	// 'exp' must be in the future for the token to be usable at all.
+	if exp <= time.Now().Unix() {
+		t.Errorf("Token exp %v is not in the future", exp)
+	}
+}
+
+// TestJWTToleratesClockSkew is a regression test for the 401 GitHub returns when
+// the local clock runs ahead of its own:
+//
+//	'Expiration time' claim ('exp') is too far in the future
+//
+// GitHub validates 'exp' against its own clock and rejects anything more than
+// 600 seconds ahead. Setting exp to exactly now+600 left zero tolerance, so a
+// machine even one second fast (common in containers and CI runners) failed
+// every API call. Both claims must therefore carry margin.
+func TestJWTToleratesClockSkew(t *testing.T) {
+	generator := NewGenerator()
+	testKey, err := generateTestKey()
+	if err != nil {
+		t.Fatalf("Failed to generate test key: %v", err)
+	}
+
+	token, err := generator.GenerateTokenFromKey(int64(12345), encodePKCS1(t, testKey))
+	if err != nil {
+		t.Fatalf("Failed to generate token: %v", err)
+	}
+
+	claims, err := generator.GetTokenClaims(token)
+	if err != nil {
+		t.Fatalf("Failed to get claims: %v", err)
+	}
+
+	iat := int64(claims["iat"].(float64))
+	exp := int64(claims["exp"].(float64))
+
+	// Simulate GitHub's validation from a clock that lags behind ours. Each offset
+	// is how many seconds our clock is ahead of GitHub's.
+	for _, skewAhead := range []int64{0, 1, 5, 30, 60} {
+		githubNow := time.Now().Unix() - skewAhead
+
+		if exp-githubNow > 600 {
+			t.Errorf("clock %ds ahead: exp is %ds beyond GitHub's clock, exceeds the 600s maximum",
+				skewAhead, exp-githubNow)
+		}
+
+		if iat > githubNow {
+			t.Errorf("clock %ds ahead: iat %d is in the future relative to GitHub's clock %d",
+				skewAhead, iat, githubNow)
+		}
+
+		if exp <= githubNow {
+			t.Errorf("clock %ds ahead: exp %d is already expired against GitHub's clock %d",
+				skewAhead, exp, githubNow)
+		}
+	}
+}
+
+// encodePKCS1 returns the PEM-encoded PKCS1 representation of a private key.
+func encodePKCS1(t *testing.T, key *rsa.PrivateKey) string {
+	t.Helper()
+	return string(pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	}))
 }

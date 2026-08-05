@@ -17,6 +17,19 @@ import (
 	"time"
 )
 
+const (
+	// clockSkewTolerance backdates the 'iat' claim to tolerate a local clock that
+	// runs ahead of GitHub's. GitHub rejects JWTs whose 'iat' is in the future.
+	clockSkewTolerance = 60 * time.Second
+
+	// jwtValidity is the lifetime of the generated JWT. GitHub caps 'exp' at 10
+	// minutes ahead of *its own* clock and rejects anything beyond, so we stop at
+	// 9 minutes to leave a 60-second allowance for a local clock running fast.
+	// The JWT is only used to immediately mint an installation token, so the
+	// shorter lifetime costs nothing.
+	jwtValidity = 9 * time.Minute
+)
+
 type Generator struct {
 	// keyCache stores loaded keys in memory for the session
 	keyCache map[string]*rsa.PrivateKey
@@ -162,11 +175,19 @@ func (g *Generator) createJWT(issuer any, privateKey *rsa.PrivateKey) (string, e
 	}
 
 	// JWT Payload
+	//
+	// GitHub validates both claims against *its own* clock and rejects the JWT with
+	// HTTP 401 if 'iat' is in the future or 'exp' is more than 10 minutes ahead.
+	// Local clocks routinely drift by a few seconds (especially in containers and
+	// CI runners), so we deliberately leave margin on both ends instead of using
+	// the exact boundaries:
+	//   - 'iat' is backdated by clockSkewTolerance so a clock running ahead is fine.
+	//   - 'exp' uses jwtValidity (< 10 min) so a clock running ahead stays in range.
 	now := time.Now()
 	payload := map[string]interface{}{
 		"iss": issuer,
-		"iat": now.Unix(),
-		"exp": now.Add(10 * time.Minute).Unix(), // GitHub Apps tokens expire in 10 minutes max
+		"iat": now.Add(-clockSkewTolerance).Unix(),
+		"exp": now.Add(jwtValidity).Unix(),
 	}
 
 	// Encode header and payload
