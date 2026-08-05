@@ -288,13 +288,17 @@ func TestJWTExpiration(t *testing.T) {
 		t.Errorf("Expiration (%f) should be after issued time (%f)", exp, iat)
 	}
 
-	// Standard expiration is 10 minutes (600 seconds)
-	expectedDuration := float64(600)
+	// The exp-iat window is jwtValidity plus the clock-skew backdate applied to iat.
+	// It must stay at or under GitHub's 600-second maximum.
+	expectedDuration := (jwtValidity + clockSkewTolerance).Seconds()
 	actualDuration := exp - iat
 
-	// Allow some tolerance (595-605 seconds)
 	if actualDuration < expectedDuration-5 || actualDuration > expectedDuration+5 {
 		t.Errorf("Expected duration ~%f seconds, got %f", expectedDuration, actualDuration)
+	}
+
+	if actualDuration > 600 {
+		t.Errorf("exp-iat window is %f seconds, GitHub rejects anything over 600", actualDuration)
 	}
 }
 

@@ -147,7 +147,7 @@ func (a *Authenticator) GetInstallationToken(jwtToken string, installationID int
 
 	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+		return "", FormatAPIStatusError(resp.StatusCode, body)
 	}
 
 	var tokenResponse struct {
@@ -200,7 +200,7 @@ func (a *Authenticator) findInstallationIDHTTP(jwtToken, host, repoURL string) (
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return 0, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+		return 0, FormatAPIStatusError(resp.StatusCode, body)
 	}
 
 	var installation struct {

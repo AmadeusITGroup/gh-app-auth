@@ -184,7 +184,7 @@ func testAPIAccess(token, repoURL string, verbose bool) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+		return auth.FormatAPIStatusError(resp.StatusCode, body)
 	}
 
 	// Parse response

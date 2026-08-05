@@ -320,7 +320,7 @@ func listInstallations(jwtToken string) ([]installation, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, auth.FormatAPIStatusError(resp.StatusCode, body)
 	}
 
 	var installations []installation
@@ -370,7 +370,7 @@ func listInstallationRepositories(token, host string) ([]installationRepository,
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, auth.FormatAPIStatusError(resp.StatusCode, body)
 	}
 
 	var payload struct {
