@@ -87,6 +87,7 @@ gh-app-auth/
 │   ├── e2e/               # End-to-end tests
 │   └── testutil/          # Test utilities
 ├── docs/                   # Documentation - YOU WRITE HERE
+│   └── adr/               # Architecture Decision Records - SEE ADR SECTION
 └── .github/
     ├── workflows/         # CI/CD pipelines
     ├── actions/           # Reusable GitHub Actions
@@ -257,6 +258,70 @@ logger.Debug("token retrieved", "token", token)
 - Private keys: OS keyring (encrypted) or filesystem with 600/400 permissions
 - Never persist tokens to disk
 
+## Architecture Decision Records (ADR)
+
+Significant decisions are recorded in `docs/adr/` as numbered, immutable documents. See
+[docs/adr/README.md](docs/adr/README.md) for the full template, naming rules, and status lifecycle.
+
+### 🛑 Agent rule: ASK before implementing, PROPOSE after
+
+**When a task introduces a breaking change or a new feature, you MUST ask the user whether an ADR is
+needed before you finish the change.** Do not silently create one, and do not silently skip one.
+
+Ask when the change involves any of these:
+
+| Trigger | Examples in this project |
+|---------|--------------------------|
+| **Breaking change** | Removing/renaming a CLI flag or command, changing `config.yml` format, changing the git credential helper protocol (`cmd/git-credential.go`), changing default behaviour users depend on |
+| **New feature** | A new credential type (like PAT support was), a new command that adds a concept, a new authentication flow |
+| **Security decision** | Token lifetimes, key/token storage location, permission checks, what gets logged and how it is redacted (`pkg/secrets/`, `pkg/auth/`, `pkg/jwt/`) |
+| **Technology choice** | Adding/replacing a dependency in `go.mod`, changing the keyring or packaging tooling |
+| **Significant refactoring** | Moving responsibility between packages, changing a package's public interface |
+| **Rejected alternative** | You evaluated an obvious approach and chose against it — the reasoning is worth recording |
+
+Do **not** ask for: bug fixes that restore documented behaviour, test additions, doc-only changes,
+formatting, lint fixes, or dependency version bumps with no behavioural change.
+
+### How to ask
+
+State the decision, propose the ADR, and let the user decide. Keep it to a few lines:
+
+```text
+This adds a new credential type, which changes the config file format — a breaking change
+for existing configs.
+
+Suggested ADR: docs/adr/0002-support-oauth-device-flow-credentials.md
+  Context:      Users on shared machines cannot use App private keys.
+  Decision:     Add a `device_flow` credential source stored in the keyring.
+  Consequences: New config key; configs written by this version are not readable by <= v0.0.7.
+
+Want me to write it? (yes / no / adjust the framing)
+```
+
+If the user says yes:
+
+1. Take the next unused `NNNN` (check `docs/adr/` — do not reuse numbers)
+2. Create `docs/adr/NNNN-short-title.md` using the template in `docs/adr/README.md`
+3. Add a row to the index table in `docs/adr/README.md`
+4. Commit it with the change it documents, using `docs(adr): ...` or the change's own scope
+5. Run `make markdownlint`
+
+If the user says no, proceed without one and do not ask again for the same change.
+
+### Writing quality ADRs
+
+- Title states the **decision**, not the problem: "Leave Margin on JWT Timestamp Claims", not
+  "JWT Clock Skew Problem"
+- Anchor to the code: name the packages, files, and constants involved
+- Record rejected alternatives and **why** — this is usually the most valuable section
+- List real costs in Consequences, including what still does not work by design
+- Name the test that prevents regression
+- Never rewrite an `Accepted` ADR to reflect a new decision. Set it to
+  `Superseded by NNNN` and write a new one.
+
+[`docs/adr/0001-jwt-clock-skew-margin.md`](docs/adr/0001-jwt-clock-skew-margin.md) is the reference
+example of the expected depth.
+
 ## Git Workflow
 
 ### Commit Messages (Conventional Commits)
@@ -288,6 +353,7 @@ test(auth): add integration tests for token refresh
 - [ ] Linting passes (`make quality`)
 - [ ] New code has tests
 - [ ] Documentation updated if needed
+- [ ] ADR added, or explicitly declined by the user, for breaking changes and new features
 - [ ] Commit messages follow Conventional Commits
 - [ ] No sensitive data in code or logs
 
@@ -305,6 +371,7 @@ test(auth): add integration tests for token refresh
 
 ### ⚠️ Ask First
 
+- Whether an ADR is needed for any breaking change or new feature (see [ADR section](#architecture-decision-records-adr))
 - Adding new dependencies to `go.mod`
 - Modifying CI/CD workflows (`.github/workflows/`)
 - Changing security-critical code (`pkg/secrets/`, `pkg/auth/`, `pkg/jwt/`)
@@ -332,7 +399,24 @@ test(auth): add integration tests for token refresh
 2. Create `cmd/newcommand_test.go` with tests
 3. Register in `cmd/root.go`: `rootCmd.AddCommand(NewNewCommandCmd())`
 4. Update README.md command reference
-5. Run `make test` and `make quality`
+5. Ask the user whether the command warrants an ADR (it does if it introduces a new concept)
+6. Run `make test` and `make quality`
+
+### Adding a Feature or Making a Breaking Change
+
+1. Implement the change following the patterns in the files you touch
+2. Add or update tests covering the new behaviour and its edge cases
+3. Update `README.md`, `docs/`, and `CHANGELOG.md` (`[Unreleased]` section)
+4. **Ask the user whether an ADR is needed** — see [ADR section](#architecture-decision-records-adr)
+5. If yes, write `docs/adr/NNNN-short-title.md` and add it to the index in `docs/adr/README.md`
+6. Run `make test` and `make quality`
+7. Commit with `feat(<scope>): ...`; add a `BREAKING CHANGE:` footer for breaking changes
+
+### Releasing a Version
+
+Releases are triggered by creating a GitHub **pre-release** on a `vX.Y.Z` tag; the workflow builds
+and uploads all assets, then promotes the release to latest. Never create a final release directly —
+it would ship with no assets. See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
 
 ### Fixing a Bug
 
