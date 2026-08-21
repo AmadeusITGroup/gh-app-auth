@@ -13,14 +13,14 @@ import (
 func TestExecCommand(t *testing.T) {
 	t.Run("repository routing", func(t *testing.T) {
 		var (
-			resolvedRequest execCredentialRequest
+			resolvedRequest credentialRequest
 			runName         string
 			runArgs         []string
 			runEnv          []string
 		)
 
 		cmd := newExecCmd(
-			func(request execCredentialRequest) (execCredential, error) {
+			func(request credentialRequest) (execCredential, error) {
 				resolvedRequest = request
 				return execCredential{
 					Token:      "secret-token",
@@ -63,11 +63,11 @@ func TestExecCommand(t *testing.T) {
 	})
 
 	t.Run("repository-independent App routing", func(t *testing.T) {
-		var resolvedRequest execCredentialRequest
+		var resolvedRequest credentialRequest
 		var runEnv []string
 
 		cmd := newExecCmd(
-			func(request execCredentialRequest) (execCredential, error) {
+			func(request credentialRequest) (execCredential, error) {
 				resolvedRequest = request
 				return execCredential{Token: "app-token", Host: gitHubAPIHost}, nil
 			},
@@ -119,7 +119,7 @@ func TestExecCommandRejectsNonPositiveSelectors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := newExecCmd(
-				func(execCredentialRequest) (execCredential, error) {
+				func(credentialRequest) (execCredential, error) {
 					t.Fatal("resolver should not be called")
 					return execCredential{}, nil
 				},
@@ -141,7 +141,7 @@ func TestExecCommandPropagatesErrors(t *testing.T) {
 	t.Run("credential resolution", func(t *testing.T) {
 		wantErr := errors.New("token unavailable")
 		cmd := newExecCmd(
-			func(execCredentialRequest) (execCredential, error) { return execCredential{}, wantErr },
+			func(credentialRequest) (execCredential, error) { return execCredential{}, wantErr },
 			func(context.Context, string, []string, []string, io.Reader, io.Writer, io.Writer) error {
 				t.Fatal("runner should not be called")
 				return nil
@@ -157,7 +157,7 @@ func TestExecCommandPropagatesErrors(t *testing.T) {
 	t.Run("child process", func(t *testing.T) {
 		wantErr := errors.New("child failed")
 		cmd := newExecCmd(
-			func(request execCredentialRequest) (execCredential, error) {
+			func(request credentialRequest) (execCredential, error) {
 				return execCredential{Token: "secret-token", Host: gitHubAPIHost, Repository: request.Repository}, nil
 			},
 			func(context.Context, string, []string, []string, io.Reader, io.Writer, io.Writer) error {
@@ -175,57 +175,83 @@ func TestExecCommandPropagatesErrors(t *testing.T) {
 	})
 }
 
-func TestSelectExecApp(t *testing.T) {
+func TestSelectApp(t *testing.T) {
 	cfg := &config.Config{GitHubApps: []config.GitHubApp{
 		{Name: "org-a", AppID: 100, InstallationID: 200, Patterns: []string{"github.com/org-a/*"}},
 		{Name: "org-b", AppID: 100, InstallationID: 300, Patterns: []string{"github.com/org-b/*"}},
 		{Name: "enterprise", AppID: 400, InstallationID: 500, Patterns: []string{"github.example.com/org/*"}},
+		{Name: "by-client", ClientID: "Iv1.abc123", InstallationID: 600, Patterns: []string{"github.com/org-c/*"}},
 	}}
 
 	tests := []struct {
 		name        string
-		request     execCredentialRequest
+		request     credentialRequest
 		wantName    string
 		wantErrText string
 	}{
 		{
 			name:     "installation ID",
-			request:  execCredentialRequest{InstallationID: 300},
+			request:  credentialRequest{InstallationID: 300},
 			wantName: "org-b",
 		},
 		{
 			name:     "App and installation ID",
-			request:  execCredentialRequest{AppID: 100, InstallationID: 200},
+			request:  credentialRequest{AppID: 100, InstallationID: 200},
 			wantName: "org-a",
 		},
 		{
 			name:     "repository disambiguates App ID",
-			request:  execCredentialRequest{Repository: "github.com/org-b/repo", AppID: 100},
+			request:  credentialRequest{Repository: "github.com/org-b/repo", AppID: 100},
 			wantName: "org-b",
 		},
 		{
 			name:        "ambiguous App ID",
-			request:     execCredentialRequest{AppID: 100},
+			request:     credentialRequest{AppID: 100},
 			wantErrText: "multiple GitHub App configurations match",
 		},
 		{
-			name:        "unknown installation",
-			request:     execCredentialRequest{InstallationID: 999},
+			name:        "unknown installation for App ID",
+			request:     credentialRequest{AppID: 100, InstallationID: 999},
 			wantErrText: "no configured GitHub App matches",
+		},
+		{
+			name:        "repository outside App routes",
+			request:     credentialRequest{AppID: 100, Repository: "github.com/other/repo"},
+			wantErrText: "matches repository",
+		},
+		{
+			name:        "unknown installation",
+			request:     credentialRequest{InstallationID: 999},
+			wantErrText: "no configured GitHub App matches",
+		},
+		{
+			name:     "client ID",
+			request:  credentialRequest{ClientID: "Iv1.abc123"},
+			wantName: "by-client",
+		},
+		{
+			name:        "unknown client ID",
+			request:     credentialRequest{ClientID: "Iv1.nope"},
+			wantErrText: "client ID Iv1.nope",
+		},
+		{
+			name:        "installation-only repository mismatch names installation",
+			request:     credentialRequest{Repository: "github.com/other/repo", InstallationID: 600},
+			wantErrText: "installation ID 600",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app, err := selectExecApp(cfg, tt.request)
+			app, err := selectApp(cfg, tt.request)
 			if tt.wantErrText != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErrText) {
-					t.Fatalf("selectExecApp() error = %v, want containing %q", err, tt.wantErrText)
+					t.Fatalf("selectApp() error = %v, want containing %q", err, tt.wantErrText)
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("selectExecApp() error = %v", err)
+				t.Fatalf("selectApp() error = %v", err)
 			}
 			if app.Name != tt.wantName {
 				t.Errorf("selected app = %q, want %q", app.Name, tt.wantName)

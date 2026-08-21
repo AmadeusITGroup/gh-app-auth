@@ -43,7 +43,7 @@ docs/adr/NNNN-short-title.md
   number, even for an abandoned ADR.
 - `short-title` is lowercase and hyphen-separated, matching the title.
 
-Example: `docs/adr/0002-store-pats-in-os-keyring.md`
+Example: `docs/adr/0003-store-pats-in-os-keyring.md`
 
 ## Required sections
 
@@ -119,6 +119,7 @@ interface, the file layout:
 | ADR | Title | Date | Status |
 |-----|-------|------|--------|
 | [0001](0001-jwt-clock-skew-margin.md) | Leave Margin on GitHub App JWT Timestamp Claims | 2026-08-05 | Accepted |
+| [0002](0002-explicit-github-app-token-output.md) | Explicit GitHub App Token Output | 2026-08-20 | Proposed |
 
 Add a row here whenever you add an ADR.
 

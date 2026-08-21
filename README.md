@@ -106,15 +106,27 @@ gh app-auth exec \
   --app-id 123456 \
   --installation-id 789012 \
   -- gh api /installation/repositories
+
+# Print a fresh token for a configured App and repository
+GH_APP_TOKEN="$(gh app-auth token \
+  --app-id 123456 \
+  --repo github.com/myorg/private-repo)"
 ```
 
 `exec` mints a token on demand and exposes it only to the child process through
 `GH_TOKEN` (or `GH_ENTERPRISE_TOKEN` for GitHub Enterprise Server). Repository
 routing sets both `GH_HOST` and `GH_REPO`; selecting a configured App with
-`--app-id` or `--installation-id` sets `GH_HOST` without inventing a repository
-scope. Use both IDs to disambiguate Apps configured for multiple installations.
+`--app-id`, `--client-id`, or `--installation-id` sets `GH_HOST` without
+inventing a repository scope. Use App and installation IDs together to
+disambiguate Apps configured for multiple installations.
 PAT selection remains repository-based. No token is printed or persisted by
 this command.
+
+`token` requires an explicit `--app-id` or `--client-id` and a `--repo` that
+matches the selected App's configured route. An explicit `--installation-id` must
+also exist in the configuration. Successful output contains only a fresh
+installation token followed by a newline; protect it from shell tracing, logs,
+pipelines, and unprotected files.
 
 ## URL Prefix Routing
 
@@ -139,6 +151,7 @@ See [URL Prefix Routing Guide](docs/PATTERN_ROUTING.md) for detailed examples.
 - `gh app-auth remove` - Remove GitHub App (`--app-id` or `--client-id`) or PAT (`--pat-name`) configuration
 - `gh app-auth test` - Test authentication for a repository
 - `gh app-auth exec` - Run a command with short-lived credentials selected by repository, App ID, or installation ID
+- `gh app-auth token` - Print a fresh token for a configured App and matching repository
 - `gh app-auth scope` - Fetch and display GitHub App installation scope (which repos the app can access)
 - `gh app-auth config` - Show configuration file location (`--path`) or content (`--show`)
 - `gh app-auth gitconfig` - Manage git credential helper configuration

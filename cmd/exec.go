@@ -15,9 +15,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type execCredentialRequest struct {
+type credentialRequest struct {
 	Repository     string
 	AppID          int64
+	ClientID       string
 	InstallationID int64
 }
 
@@ -27,7 +28,7 @@ type execCredential struct {
 	Repository string
 }
 
-type execCredentialResolver func(execCredentialRequest) (execCredential, error)
+type execCredentialResolver func(credentialRequest) (execCredential, error)
 
 type execCommandRunner func(
 	context.Context,
@@ -47,6 +48,7 @@ func newExecCmd(resolveCredential execCredentialResolver, runCommand execCommand
 	var (
 		repoFlag           string
 		appIDFlag          int64
+		clientIDFlag       string
 		installationIDFlag int64
 	)
 
@@ -54,9 +56,10 @@ func newExecCmd(resolveCredential execCredentialResolver, runCommand execCommand
 		Use:   "exec [flags] -- <command> [args...]",
 		Short: "Run a command with managed GitHub authentication",
 		Long: `Run a command with a short-lived token from a configured GitHub App
-or PAT. Select credentials by repository, App ID, or installation ID. The token
-is exposed only to the child process through the environment and is never
-printed by gh-app-auth.`,
+or PAT. Select credentials by repository, App ID, Client ID, or installation ID. Explicit
+App selectors must match configured entries, and --repo must match the selected
+App route. The token is exposed only to the child process through the environment
+and is never printed by gh-app-auth.`,
 		Example: `  # Call the GitHub API for the current repository
   gh app-auth exec -- gh api repos/{owner}/{repo}
 
@@ -74,7 +77,7 @@ printed by gh-app-auth.`,
 				return fmt.Errorf("installation ID must be positive")
 			}
 
-			request, err := newExecCredentialRequest(repoFlag, appIDFlag, installationIDFlag)
+			request, err := newExecCredentialRequest(repoFlag, clientIDFlag, appIDFlag, installationIDFlag)
 			if err != nil {
 				return err
 			}
@@ -110,63 +113,67 @@ printed by gh-app-auth.`,
 		"Repository to authenticate for (default: current repository unless an ID selector is used)",
 	)
 	cmd.Flags().Int64Var(&appIDFlag, "app-id", 0, "Configured GitHub App ID to authenticate with")
+	cmd.Flags().StringVar(&clientIDFlag, "client-id", "", "Configured GitHub App Client ID to authenticate with")
 	cmd.Flags().Int64Var(&installationIDFlag, "installation-id", 0, "GitHub App installation ID to authenticate with")
 
 	return cmd
 }
 
-func newExecCredentialRequest(repoURL string, appID, installationID int64) (execCredentialRequest, error) {
+func newExecCredentialRequest(
+	repoURL, clientID string,
+	appID, installationID int64,
+) (credentialRequest, error) {
 	if appID < 0 {
-		return execCredentialRequest{}, fmt.Errorf("app ID must be positive")
+		return credentialRequest{}, fmt.Errorf("app ID must be positive")
 	}
 	if installationID < 0 {
-		return execCredentialRequest{}, fmt.Errorf("installation ID must be positive")
+		return credentialRequest{}, fmt.Errorf("installation ID must be positive")
 	}
 
-	if repoURL == "" && appID == 0 && installationID == 0 {
+	clientID = strings.TrimSpace(clientID)
+
+	if repoURL == "" && appID == 0 && clientID == "" && installationID == 0 {
 		var err error
 		repoURL, err = determineRepositoryURL("")
 		if err != nil {
-			return execCredentialRequest{}, err
+			return credentialRequest{}, err
 		}
 	}
 
 	if repoURL != "" {
-		repo, err := repository.Parse(repoURL)
+		canonical, err := canonicalRepository(repoURL)
 		if err != nil {
-			return execCredentialRequest{}, fmt.Errorf("failed to parse repository %q: %w", repoURL, err)
+			return credentialRequest{}, fmt.Errorf("failed to parse repository %q: %w", repoURL, err)
 		}
-		repoURL = fmt.Sprintf("%s/%s/%s", repo.Host, repo.Owner, repo.Name)
+		repoURL = canonical
 	}
 
-	return execCredentialRequest{
+	return credentialRequest{
 		Repository:     repoURL,
 		AppID:          appID,
+		ClientID:       clientID,
 		InstallationID: installationID,
 	}, nil
 }
 
-func resolveExecCredential(request execCredentialRequest) (execCredential, error) {
+func resolveExecCredential(request credentialRequest) (execCredential, error) {
 	cfg, err := loadCredentialConfig()
 	if err != nil {
 		return execCredential{}, err
 	}
 
-	if request.AppID == 0 && request.InstallationID == 0 {
+	if request.AppID == 0 && request.ClientID == "" && request.InstallationID == 0 {
 		return resolveRepositoryCredential(cfg, request.Repository)
 	}
 
-	selectedApp, err := selectExecApp(cfg, request)
+	selectedApp, err := selectApp(cfg, request)
 	if err != nil {
 		return execCredential{}, err
 	}
 
 	app := *selectedApp
-	if request.InstallationID != 0 {
-		app.InstallationID = request.InstallationID
-	}
 
-	host, tokenTarget, err := execCredentialTarget(app, request.Repository)
+	host, tokenTarget, err := credentialTarget(app, request.Repository)
 	if err != nil {
 		return execCredential{}, err
 	}
@@ -179,7 +186,7 @@ func resolveExecCredential(request execCredentialRequest) (execCredential, error
 	return execCredential{Token: token, Host: host, Repository: request.Repository}, nil
 }
 
-func execCredentialTarget(app config.GitHubApp, repoURL string) (string, string, error) {
+func credentialTarget(app config.GitHubApp, repoURL string) (string, string, error) {
 	if repoURL != "" {
 		repo, err := repository.Parse(repoURL)
 		if err != nil {
@@ -231,13 +238,10 @@ func resolveRepositoryCredential(cfg *config.Config, repoURL string) (execCreden
 	return execCredential{Token: token, Host: repo.Host, Repository: repoURL}, nil
 }
 
-func selectExecApp(cfg *config.Config, request execCredentialRequest) (*config.GitHubApp, error) {
-	candidates := execAppCandidates(cfg.GitHubApps, request)
+func selectApp(cfg *config.Config, request credentialRequest) (*config.GitHubApp, error) {
+	candidates := matchingApps(cfg.GitHubApps, request)
 	if len(candidates) == 0 {
-		return nil, execAppNotFoundError(request)
-	}
-	if len(candidates) == 1 {
-		return &candidates[0], nil
+		return nil, appNotFoundError(request)
 	}
 
 	if request.Repository != "" {
@@ -245,34 +249,29 @@ func selectExecApp(cfg *config.Config, request execCredentialRequest) (*config.G
 		if err != nil {
 			return nil, fmt.Errorf("failed to match selected GitHub App to repository: %w", err)
 		}
-		if matchedApp != nil {
-			return matchedApp, nil
+		if matchedApp == nil {
+			return nil, appRepositoryNotFoundError(request)
 		}
+		return matchedApp, nil
 	}
 
-	return nil, ambiguousExecAppError(request)
+	if len(candidates) == 1 {
+		return &candidates[0], nil
+	}
+
+	return nil, ambiguousAppError(request)
 }
 
-func execAppCandidates(apps []config.GitHubApp, request execCredentialRequest) []config.GitHubApp {
-	candidates := matchingExecApps(apps, request)
-	if request.AppID == 0 || request.InstallationID == 0 {
-		return candidates
-	}
-
-	exact := matchingExecInstallations(candidates, request.InstallationID)
-	if len(exact) > 0 {
-		return exact
-	}
-	return candidates
-}
-
-func matchingExecApps(apps []config.GitHubApp, request execCredentialRequest) []config.GitHubApp {
+func matchingApps(apps []config.GitHubApp, request credentialRequest) []config.GitHubApp {
 	candidates := make([]config.GitHubApp, 0, len(apps))
 	for _, app := range apps {
 		if request.AppID != 0 && app.AppID != request.AppID {
 			continue
 		}
-		if request.AppID == 0 && request.InstallationID != 0 && app.InstallationID != request.InstallationID {
+		if request.ClientID != "" && app.ClientID != request.ClientID {
+			continue
+		}
+		if request.InstallationID != 0 && app.InstallationID != request.InstallationID {
 			continue
 		}
 		candidates = append(candidates, app)
@@ -280,24 +279,22 @@ func matchingExecApps(apps []config.GitHubApp, request execCredentialRequest) []
 	return candidates
 }
 
-func matchingExecInstallations(apps []config.GitHubApp, installationID int64) []config.GitHubApp {
-	matches := make([]config.GitHubApp, 0, len(apps))
-	for _, app := range apps {
-		if app.InstallationID == installationID {
-			matches = append(matches, app)
-		}
-	}
-	return matches
-}
-
-func execAppNotFoundError(request execCredentialRequest) error {
+func appNotFoundError(request credentialRequest) error {
 	switch {
+	case request.ClientID != "" && request.InstallationID != 0:
+		return fmt.Errorf(
+			"no configured GitHub App matches client ID %s and installation ID %d",
+			request.ClientID,
+			request.InstallationID,
+		)
 	case request.AppID != 0 && request.InstallationID != 0:
 		return fmt.Errorf(
 			"no configured GitHub App matches app ID %d and installation ID %d",
 			request.AppID,
 			request.InstallationID,
 		)
+	case request.ClientID != "":
+		return fmt.Errorf("no configured GitHub App matches client ID %s", request.ClientID)
 	case request.AppID != 0:
 		return fmt.Errorf("no configured GitHub App matches app ID %d", request.AppID)
 	default:
@@ -305,11 +302,24 @@ func execAppNotFoundError(request execCredentialRequest) error {
 	}
 }
 
-func ambiguousExecAppError(request execCredentialRequest) error {
+func appRepositoryNotFoundError(request credentialRequest) error {
+	var selector string
 	switch {
-	case request.AppID != 0 && request.InstallationID != 0:
-		return fmt.Errorf("multiple GitHub App configurations match; use --repo to disambiguate the host")
+	case request.ClientID != "":
+		selector = fmt.Sprintf("client ID %s", request.ClientID)
 	case request.AppID != 0:
+		selector = fmt.Sprintf("app ID %d", request.AppID)
+	default:
+		selector = fmt.Sprintf("installation ID %d", request.InstallationID)
+	}
+	return fmt.Errorf("no configured GitHub App with %s matches repository %s", selector, request.Repository)
+}
+
+func ambiguousAppError(request credentialRequest) error {
+	switch {
+	case request.InstallationID != 0 && (request.ClientID != "" || request.AppID != 0):
+		return fmt.Errorf("multiple GitHub App configurations match; use --repo to disambiguate the host")
+	case request.ClientID != "" || request.AppID != 0:
 		return fmt.Errorf("multiple GitHub App configurations match; use --installation-id or --repo")
 	default:
 		return fmt.Errorf("multiple GitHub App configurations match; use --app-id or --repo")
