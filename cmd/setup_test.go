@@ -1166,6 +1166,32 @@ func TestSetupGitHubApp(t *testing.T) {
 
 	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
 
+	t.Run("invalid pattern returns error without saving", func(t *testing.T) {
+		invalidConfigPath := filepath.Join(t.TempDir(), "config.yml")
+		t.Setenv("GH_APP_AUTH_CONFIG", invalidConfigPath)
+
+		cfg := &config.Config{Version: "1.0"}
+		app, err := setupGitHubApp(
+			cfg, 4483281, "", keyPath, "Invalid Pattern App", 123456789,
+			[]string{"github.com"}, 5, false, true, true,
+		)
+		if err == nil {
+			t.Fatal("setupGitHubApp() returned nil error for invalid pattern")
+		}
+		if !strings.Contains(err.Error(), "invalid pattern") {
+			t.Errorf("setupGitHubApp() error = %v, want invalid pattern error", err)
+		}
+		if app != nil {
+			t.Fatal("setupGitHubApp() returned an app for invalid pattern")
+		}
+		if len(cfg.GitHubApps) != 0 {
+			t.Fatalf("setupGitHubApp() modified config for invalid pattern: %+v", cfg.GitHubApps)
+		}
+		if _, statErr := os.Stat(invalidConfigPath); !os.IsNotExist(statErr) {
+			t.Errorf("setupGitHubApp() created config for invalid pattern; stat error = %v", statErr)
+		}
+	})
+
 	t.Run("client id with provided installation id", func(t *testing.T) {
 		cfg := &config.Config{Version: "1.0"}
 		app, err := setupGitHubApp(

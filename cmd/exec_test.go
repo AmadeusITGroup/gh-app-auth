@@ -209,6 +209,16 @@ func TestSelectExecApp(t *testing.T) {
 			wantErrText: "multiple GitHub App configurations match",
 		},
 		{
+			name:        "unknown installation for App ID",
+			request:     execCredentialRequest{AppID: 100, InstallationID: 999},
+			wantErrText: "no configured GitHub App matches",
+		},
+		{
+			name:        "repository outside App routes",
+			request:     execCredentialRequest{AppID: 100, Repository: "github.com/other/repo"},
+			wantErrText: "matches repository",
+		},
+		{
 			name:        "unknown installation",
 			request:     execCredentialRequest{InstallationID: 999},
 			wantErrText: "no configured GitHub App matches",

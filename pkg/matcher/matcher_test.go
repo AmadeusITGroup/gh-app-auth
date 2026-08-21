@@ -289,6 +289,24 @@ func TestMatcher_EmptyApps(t *testing.T) {
 // Old TestPatternMatching removed - no longer needed with simplified matcher
 // The Match() function is thoroughly tested with various prefix scenarios above
 
+func TestMatcher_DoesNotMatchPartialPathSegment(t *testing.T) {
+	matcher := NewMatcher([]config.GitHubApp{
+		{
+			Name:     "myorg-app",
+			AppID:    123,
+			Patterns: []string{"github.com/myorg"},
+		},
+	})
+
+	app, err := matcher.Match("https://github.com/myorg-other/repo")
+	if err != nil {
+		t.Fatalf("Match() error = %v", err)
+	}
+	if app != nil {
+		t.Fatalf("Match() = %q, want no match", app.Name)
+	}
+}
+
 func TestGetRepositoryInfo(t *testing.T) {
 	// Test the public function
 	repoInfo, err := GetRepositoryInfo("https://github.com/owner/repo")

@@ -228,6 +228,9 @@ func setupGitHubApp(
 	if err := validateSetupInputs(appID, clientID, patterns, &useKeyring, &useFilesystem, keyFile); err != nil {
 		return nil, err
 	}
+	if err := validateMultiPatternSetup(patterns); err != nil {
+		return nil, err
+	}
 
 	// Get and validate private key
 	privateKeyContent, expandedKeyFile, err := getPrivateKey(keyFile)

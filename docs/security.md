@@ -62,6 +62,25 @@ Installation tokens are:
 - **Zeroed from memory** on cleanup (best-effort)
 - **Lost on process restart** (re-authentication required)
 
+### Raw Token Output
+
+`gh app-auth token` deliberately prints a fresh installation token to stdout for
+machine-readable use. The command does not use the active GitHub CLI account and
+requires an explicitly configured App and matching repository.
+
+Treat stdout as a secret boundary:
+
+- Do not run it with shell tracing enabled.
+- Do not paste the output into terminals, chat, issues, or logs.
+- Do not redirect it to an unprotected file.
+- Do not send it through an untrusted pipeline stage.
+- Prefer a narrowly scoped environment variable or pipe for the immediate trusted
+  operation, then clear the value.
+
+The command rejects repositories outside the selected App's configured route and
+rejects installation IDs that are not present in configuration. It never persists
+the returned installation token.
+
 ### Why Not Persistent Caching?
 
 Installation tokens provide powerful repository access. We prioritize security:
