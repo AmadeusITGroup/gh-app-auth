@@ -641,6 +641,8 @@ git config --global credential."https://github.example.com/corp".helper \
 - [Security Considerations](docs/security.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Architecture Overview](docs/architecture.md)
+- [Architecture Decision Records](docs/adr/README.md) - Recorded design decisions and the ADR template
+- [Release Process](docs/RELEASE_PROCESS.md) - How a version is tagged, built, and published
 - [Project Origin](docs/origin_of_the_project.md) - Understanding the problems we solve
 
 ### Testing

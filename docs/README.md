@@ -17,6 +17,8 @@ This directory contains the documentation for `gh-app-auth`, a GitHub CLI extens
 | Document | Description | Audience |
 |----------|-------------|----------|
 | [Architecture Overview](architecture.md) | System design, components, data flow | Contributors |
+| [Architecture Decision Records](adr/README.md) | Why things are built this way, and the ADR template | Contributors |
+| [Release Process](RELEASE_PROCESS.md) | Tagging, pre-release trigger, and the assets that get built | Maintainers |
 | [Testing Guide](TESTING.md) | Test suite, coverage, adding tests | Contributors |
 | [E2E Testing Tutorial](E2E_TESTING_TUTORIAL.md) | End-to-end testing setup | Contributors |
 | [Origin of the Project](origin_of_the_project.md) | Why this project was created | Contributors |

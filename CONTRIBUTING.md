@@ -313,11 +313,24 @@ All submissions require code review. Please:
 
 ## Release Process
 
-Releases are automated through GitHub Actions:
+Releases are automated through GitHub Actions, and the trigger is a **GitHub pre-release** created on
+a `vX.Y.Z` tag:
 
-1. Tag a release with semantic versioning (e.g., v1.2.3)
-2. GitHub Actions builds cross-platform binaries
-3. Release is published to GitHub marketplace
+1. Tag the release with semantic versioning (e.g. `v1.2.3`) and push the tag
+2. Create the GitHub release **as a pre-release** — this fires the `Release` workflow
+3. The workflow runs the tests, builds cross-platform binaries and DEB/RPM packages, and uploads them
+4. Once all assets are attached, the workflow promotes the release to latest
+
+Creating a final (non-pre-) release directly publishes a release with **no assets** and no build.
+
+See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) for the full checklist, the list of assets,
+and troubleshooting.
+
+## Architecture Decision Records
+
+Breaking changes, new features, security decisions, and technology choices are recorded as ADRs in
+[`docs/adr/`](docs/adr/README.md). That README holds the template, naming convention, and guidance on
+when an ADR is warranted. Include the ADR in the same PR as the change it documents.
 
 ## Getting Help
 
