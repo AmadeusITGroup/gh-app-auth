@@ -71,8 +71,8 @@ func (m *Matcher) Match(repositoryURL string) (*config.GitHubApp, error) {
 				continue
 			}
 
-			// Check if this prefix matches
-			if strings.HasPrefix(repoPath, prefix) {
+			// Check if this prefix matches a complete path segment
+			if prefixMatchesPath(repoPath, prefix) {
 				// If scope info is available, validate repo is in scope
 				if app.Scope != nil && !isInScope(repoPath, app.Scope) {
 					continue // Skip - repo not in installation scope
@@ -88,6 +88,13 @@ func (m *Matcher) Match(repositoryURL string) (*config.GitHubApp, error) {
 	}
 
 	return bestMatch, nil
+}
+
+func prefixMatchesPath(path, prefix string) bool {
+	if !strings.HasPrefix(path, prefix) {
+		return false
+	}
+	return len(path) == len(prefix) || path[len(prefix)] == '/'
 }
 
 // matchByHost matches apps when only a host is provided (e.g., "github.com")

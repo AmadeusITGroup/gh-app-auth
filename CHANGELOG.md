@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No changes yet._
+### Added
+
+- Add `gh app-auth token` for fresh, explicitly selected GitHub App installation tokens.
+
+### Security
+
+- Enforce configured repository routes and exact installation IDs for explicit App selectors.
 
 [Unreleased]: https://github.com/AmadeusITGroup/gh-app-auth/compare/v1.0.0...HEAD
