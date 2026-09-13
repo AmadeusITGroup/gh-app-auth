@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.25'
 
 jobs:
   test:
@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: ['1.21', '1.22', '1.23']
+        go-version: ['1.25', '1.26', '1.27']
 
     steps:
       - name: Checkout code
@@ -86,12 +86,12 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: 'go.mod'
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.1.6
+          version: v2.4.0
 
   security:
     runs-on: ubuntu-latest
@@ -102,10 +102,10 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: 'go.mod'
 
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@v2.28.0
+        uses: securego/gosec@v2.29.0
         with:
           args: '-no-fail -fmt sarif -out gosec-results.sarif ./...'
 
