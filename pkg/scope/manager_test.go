@@ -11,6 +11,7 @@ func TestNewManager(t *testing.T) {
 	mgr := NewManager()
 	if mgr == nil {
 		t.Fatal("NewManager() returned nil")
+		return
 	}
 	if mgr.clientFactory == nil {
 		t.Error("clientFactory should not be nil")

@@ -74,6 +74,7 @@ github_apps:
 
 			if cfg == nil {
 				t.Fatal("Expected config to be created")
+				return
 			}
 
 			if len(cfg.GitHubApps) != tt.wantAppsCount {
