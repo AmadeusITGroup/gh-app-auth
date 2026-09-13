@@ -28,6 +28,7 @@ type Authenticator struct {
 	jwtGenerator   *jwt.Generator
 	tokenCache     *cache.TokenCache
 	secretsManager *secrets.Manager
+	httpClient     *http.Client
 	// clientFactory creates API clients (can be overridden for testing)
 	clientFactory func(api.ClientOptions) (*api.RESTClient, error)
 }
@@ -42,8 +43,33 @@ func NewAuthenticator() *Authenticator {
 		jwtGenerator:   jwt.NewGenerator(),
 		tokenCache:     cache.NewTokenCache(),
 		secretsManager: secrets.NewManager(configDir),
+		httpClient:     newHTTPClient(),
 		clientFactory:  api.NewRESTClient,
 	}
+}
+
+func newHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after %d redirects", len(via))
+			}
+			if req.URL.Host != via[0].URL.Host {
+				return fmt.Errorf("refusing cross-host redirect from %s to %s", via[0].URL.Host, req.URL.Host)
+			}
+			return nil
+		},
+	}
+}
+
+// client returns the configured HTTP client, or a default one for zero-value
+// Authenticator structs (e.g. built directly in tests).
+func (a *Authenticator) client() *http.Client {
+	if a.httpClient != nil {
+		return a.httpClient
+	}
+	return newHTTPClient()
 }
 
 // GetCredentials returns username and token for git credential helper.
@@ -57,22 +83,9 @@ func (a *Authenticator) GetCredentials(app *config.GitHubApp, repoURL string) (t
 		return cachedToken, username, nil
 	}
 
-	// Get private key from secure storage
-	privateKey, err := app.GetPrivateKey(a.secretsManager)
+	installationToken, err := a.MintInstallationToken(app, repoURL)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to get private key: %w", err)
-	}
-
-	// Generate JWT token
-	jwtToken, err := a.jwtGenerator.GenerateTokenFromKey(app.GetIssuer(), privateKey)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to generate JWT: %w", err)
-	}
-
-	// Get installation token from GitHub API
-	installationToken, err := a.GetInstallationToken(jwtToken, app.InstallationID, repoURL)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get installation token: %w", err)
+		return "", "", err
 	}
 
 	// Cache the token for 55 minutes (GitHub tokens valid for 60 minutes, 5-min buffer)
@@ -82,6 +95,36 @@ func (a *Authenticator) GetCredentials(app *config.GitHubApp, repoURL string) (t
 	// Return credentials
 	username = fmt.Sprintf("%s[bot]", app.Name)
 	return installationToken, username, nil
+}
+
+// MintInstallationToken generates and returns a fresh installation token without using the cache.
+func (a *Authenticator) MintInstallationToken(app *config.GitHubApp, repoURL string) (string, error) {
+	if app == nil {
+		return "", fmt.Errorf("github app configuration is required")
+	}
+
+	privateKey, err := app.GetPrivateKey(a.secretsManager)
+	if err != nil {
+		return "", fmt.Errorf("failed to get private key: %w", err)
+	}
+
+	jwtToken, err := a.jwtGenerator.GenerateTokenFromKey(app.GetIssuer(), privateKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate JWT: %w", err)
+	}
+
+	installationToken, err := a.GetInstallationToken(jwtToken, app.InstallationID, repoURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to get installation token: %w", err)
+	}
+	if strings.TrimSpace(installationToken) == "" {
+		return "", fmt.Errorf("GitHub returned an empty installation token")
+	}
+	if strings.ContainsAny(installationToken, "\r\n") {
+		return "", fmt.Errorf("GitHub returned an invalid installation token")
+	}
+
+	return installationToken, nil
 }
 
 // GenerateJWT generates a JWT token for the GitHub App (legacy file-based method).
@@ -134,15 +177,12 @@ func (a *Authenticator) GetInstallationToken(jwtToken string, installationID int
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := a.client().Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to get installation token: %w", err)
 	}
 	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			fmt.Printf("warning: failed to close response body: %v\n", closeErr)
-		}
+		_ = resp.Body.Close()
 	}()
 
 	if resp.StatusCode != http.StatusCreated {
@@ -187,15 +227,12 @@ func (a *Authenticator) findInstallationIDHTTP(jwtToken, host, repoURL string) (
 	req.Header.Set("Authorization", "Bearer "+jwtToken)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := a.client().Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get installation: %w", err)
 	}
 	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			fmt.Printf("warning: failed to close response body: %v\n", closeErr)
-		}
+		_ = resp.Body.Close()
 	}()
 
 	if resp.StatusCode != http.StatusOK {

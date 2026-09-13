@@ -289,6 +289,60 @@ func TestMatcher_EmptyApps(t *testing.T) {
 // Old TestPatternMatching removed - no longer needed with simplified matcher
 // The Match() function is thoroughly tested with various prefix scenarios above
 
+func TestMatcher_DoesNotMatchPartialPathSegment(t *testing.T) {
+	matcher := NewMatcher([]config.GitHubApp{
+		{
+			Name:     "myorg-app",
+			AppID:    123,
+			Patterns: []string{"github.com/myorg"},
+		},
+	})
+
+	app, err := matcher.Match("https://github.com/myorg-other/repo")
+	if err != nil {
+		t.Fatalf("Match() error = %v", err)
+	}
+	if app != nil {
+		t.Fatalf("Match() = %q, want no match", app.Name)
+	}
+}
+
+func TestMatcher_MatchesTrailingSlashPatterns(t *testing.T) {
+	matcher := NewMatcher([]config.GitHubApp{
+		{
+			Name:     "myorg-app",
+			AppID:    123,
+			Patterns: []string{"github.com/myorg/"},
+		},
+		{
+			Name:     "host-app",
+			AppID:    456,
+			Patterns: []string{"bitbucket.example.com/"},
+		},
+	})
+
+	tests := []struct {
+		name     string
+		repoURL  string
+		wantName string
+	}{
+		{"org trailing slash", "https://github.com/myorg/repo", "myorg-app"},
+		{"host trailing slash", "https://bitbucket.example.com/org/repo", "host-app"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app, err := matcher.Match(tt.repoURL)
+			if err != nil {
+				t.Fatalf("Match() error = %v", err)
+			}
+			if app == nil || app.Name != tt.wantName {
+				t.Fatalf("Match() = %v, want %q", app, tt.wantName)
+			}
+		})
+	}
+}
+
 func TestGetRepositoryInfo(t *testing.T) {
 	// Test the public function
 	repoInfo, err := GetRepositoryInfo("https://github.com/owner/repo")
