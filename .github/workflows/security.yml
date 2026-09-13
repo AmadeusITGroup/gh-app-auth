@@ -26,7 +26,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: 'go.mod'
+          # govulncheck@latest requires the newest stable Go toolchain
+          go-version: 'stable'
           cache: true
 
       - name: Install govulncheck
