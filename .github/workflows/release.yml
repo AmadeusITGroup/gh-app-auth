@@ -1,67 +1,174 @@
 name: Release
 
+# Draft-first gated release pipeline.
+#
+# Lifecycle: tag + draft release → build & attach assets → E2E gate →
+# SLSA attestation → publish (draft → latest). Nothing is publicly visible
+# until the final publish step, which keeps the pipeline compatible with
+# GitHub immutable releases (assets and tags lock at publish; drafts remain
+# fully mutable — verified on fork, see docs/RELEASE_PROCESS.md).
+#
+# Triggers:
+#   workflow_dispatch  "release now" — resolves the version from an explicit
+#                      input or conventional-commit bump, creates tag + draft.
+#   push: tags         a v* tag pushed by hand — the pipeline stages the draft
+#                      on it and gates as usual.
+#   workflow_call      chained from release-please.yml after a release PR
+#                      merges (release-please creates the draft; we fill it).
+
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Explicit version (e.g. v1.4.0). Overrides 'bump'."
+        required: false
+        type: string
+      bump:
+        description: "Semver bump applied when 'version' is empty"
+        required: false
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+        default: auto
+      ref:
+        description: "Commit-ish to release from"
+        required: false
+        type: string
+        default: main
+      dry_run:
+        description: "Build + E2E + attest but leave the release as draft"
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Tag to release (created by the caller, e.g. release-please)"
+        required: true
+        type: string
+      dry_run:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      E2E_APP_ID:
+        required: false
+      E2E_PRIVATE_KEY_B64:
+        required: false
 
-permissions:
-  contents: write
+concurrency:
+  group: release-pipeline
+  cancel-in-progress: false # never cancel a release mid-flight
+
+permissions: {} # deny-all by default; jobs declare their own
 
 jobs:
   # ─────────────────────────────────────────────────────────
-  # Build and upload artifacts as PRERELEASE.
-  # The release is NOT marked latest until E2E tests pass.
+  # Resolve the version, create the git tag and the draft release.
   # ─────────────────────────────────────────────────────────
-  release-prerelease:
-    name: Build & Prerelease
+  prepare:
+    name: Prepare (version, tag, draft)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
-      release_tag: ${{ github.ref_name }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      ref_sha: ${{ steps.resolve.outputs.ref_sha }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0 # tags + history needed for semver resolution
 
-      - name: Verify release exists as prerelease
+      - name: Resolve / validate release tag
+        id: resolve
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.release_tag }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BUMP: ${{ inputs.bump }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: ./scripts/next-version.sh
+
+      - name: Ensure tag exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.release_tag }}
+          REF: ${{ steps.resolve.outputs.ref_sha }}
         run: |
-          TAG="${{ github.ref_name }}"
-          echo "Verifying release $TAG exists as prerelease..."
-
-          # Check if release exists and get prerelease status
-          RELEASE_INFO=$(gh release view "$TAG" --json isPrerelease 2>/dev/null) || {
-            echo "Error: Release $TAG does not exist. Create it as prerelease first."
-            exit 1
-          }
-
-          IS_PRERELEASE=$(echo "$RELEASE_INFO" | jq -r '.isPrerelease')
-
-          if [ "$IS_PRERELEASE" != "true" ]; then
-            echo "Error: Release $TAG exists but is NOT a prerelease. Cannot upload to immutable release."
-            exit 1
+          # Draft releases do NOT create the git tag (verified on fork) — it only
+          # materializes at publish. Create it explicitly so downstream jobs can
+          # check out the tag and `git describe --tags --exact-match` resolves.
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            EXISTING=$(git rev-parse "$TAG^{commit}")
+            [ "$EXISTING" = "$REF" ] || {
+              echo "::error::tag $TAG exists at $EXISTING, expected $REF"
+              exit 1
+            }
+            echo "tag $TAG already exists at $REF"
+          else
+            git tag "$TAG" "$REF"
+            git push origin "refs/tags/$TAG"
+            echo "created tag $TAG at $REF"
           fi
 
-          echo "✓ Release $TAG is a prerelease - proceeding with upload"
+      - name: Ensure draft release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.release_tag }}
+          REF: ${{ steps.resolve.outputs.ref_sha }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release view "$TAG" --json isDraft --jq '.isDraft' | grep -q true || {
+              echo "::error::$TAG already published — refusing to touch it"
+              exit 1
+            }
+            echo "reusing existing draft $TAG"
+          else
+            gh release create "$TAG" --draft --target "$REF" \
+              --title "$TAG" --generate-notes
+            echo "created draft $TAG at $REF"
+          fi
+
+  # ─────────────────────────────────────────────────────────
+  # Build all artifacts from the tag, attach to the draft, emit digests.
+  # ─────────────────────────────────────────────────────────
+  build:
+    name: Build & attach assets
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      checksums: ${{ steps.digests.outputs.checksums }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.release_tag }} # build the tag, not a branch
+          fetch-depth: 0 # git describe --tags --exact-match needs the tag
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
-          go-version: '1.21'
+          go-version-file: go.mod
           cache: true
 
       - name: Run unit tests
         run: go test ./...
 
       - name: Build release binaries and packages
+        env:
+          RPM_RELEASE: 1
         run: |
-          # Extract version from tag (strip 'v' prefix for package version)
-          VERSION="${GITHUB_REF_NAME#v}"
-          export VERSION
-          export RPM_RELEASE=1
-
-          echo "Building version: $VERSION"
+          # VERSION comes from `git describe --tags --exact-match` (Makefile),
+          # which is why the job checks out the tag itself.
+          echo "Building: $(git describe --tags --exact-match)"
           make release packages
 
       - name: List all built artifacts
@@ -69,42 +176,103 @@ jobs:
           echo "=== Built artifacts ==="
           ls -lh dist/
 
-          echo ""
-          echo "=== DEB Package Info ==="
-          for deb in dist/*.deb; do
-            echo "--- $deb ---"
-            dpkg-deb -I "$deb" 2>/dev/null | grep -E "(Package|Version|Architecture|Maintainer)" || echo "dpkg-deb not available"
-          done
-
-          echo ""
-          echo "=== RPM Package Info ==="
-          for rpm in dist/*.rpm; do
-            echo "--- $rpm ---"
-            rpm -qip "$rpm" 2>/dev/null | grep -E "(Name|Version|Release|Architecture|Group)" || \
-              echo "rpm command not available for detailed info"
-          done
-
-      - name: Upload artifacts to prerelease
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate checksum manifest
+        id: digests
         run: |
-          VERSION="${{ github.ref_name }}"
+          cd dist && sha256sum -- * | tee checksums.txt
+          {
+            echo "checksums<<EOF"
+            cat checksums.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
-          echo "Uploading artifacts to prerelease $VERSION..."
-          gh release upload "$VERSION" dist/*
+      - name: Attach artifacts to draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.prepare.outputs.release_tag }}"
+          echo "Uploading artifacts to draft $TAG..."
+          gh release upload "$TAG" dist/* --clobber
 
   # ─────────────────────────────────────────────────────────
-  # E2E gate: runs against the prerelease artifacts.
-  # Promotes to latest only if all platform tests pass.
+  # E2E gate: runs against the draft's real assets across all platforms.
   # ─────────────────────────────────────────────────────────
-  e2e-gate:
+  e2e:
     name: E2E Gate
-    needs: release-prerelease
+    needs: [prepare, build]
     uses: ./.github/workflows/e2e.yml
     with:
-      release_tag: ${{ needs.release-prerelease.outputs.release_tag }}
+      release_tag: ${{ needs.prepare.outputs.release_tag }}
       test_org_1: "gh-app-auth-test-1"
       test_org_2: "gh-app-auth-test-2"
     secrets:
       E2E_APP_ID: ${{ secrets.E2E_APP_ID }}
       E2E_PRIVATE_KEY_B64: ${{ secrets.E2E_PRIVATE_KEY_B64 }}
+
+  # ─────────────────────────────────────────────────────────
+  # SLSA build provenance over content digests (isolated workflow).
+  # Runs in parallel with E2E — digests don't depend on test outcomes.
+  # ─────────────────────────────────────────────────────────
+  attest:
+    name: Attest (SLSA provenance)
+    needs: [prepare, build]
+    uses: ./.github/workflows/attest-release.yml
+    with:
+      release_tag: ${{ needs.prepare.outputs.release_tag }}
+      checksums: ${{ needs.build.outputs.checksums }}
+    # No secrets passed — the attestation boundary gets GITHUB_TOKEN only.
+
+  # ─────────────────────────────────────────────────────────
+  # Publish: promote the draft to latest. Only runs when every gate passed.
+  # ─────────────────────────────────────────────────────────
+  publish:
+    name: Publish (draft → latest)
+    needs: [prepare, e2e, attest]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # promote + download assets for post-publish sanity
+      attestations: read # gh attestation verify reads the repo attestation store
+    steps:
+      - name: Promote draft to latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          gh release edit "$TAG" --draft=false --latest
+          echo "Release $TAG published as latest"
+
+      - name: Post-publish sanity
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          gh release view "$TAG" --json isDraft,isPrerelease \
+            --jq '"draft=\(.isDraft) prerelease=\(.isPrerelease)"'
+          gh release download "$TAG" --pattern "linux-amd64" --dir /tmp/verify --clobber
+          /tmp/verify/linux-amd64 --version
+          gh attestation verify /tmp/verify/linux-amd64 --owner "${{ github.repository_owner }}"
+
+  # ─────────────────────────────────────────────────────────
+  # Failure reporting: the release stays a draft; explain how to resume.
+  # ─────────────────────────────────────────────────────────
+  report-failure:
+    name: Report failure
+    needs: [prepare, build, e2e, attest, publish]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Summarize failure state
+        env:
+          TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          {
+            echo "## ❌ Release pipeline failed"
+            echo ""
+            echo "Release **${TAG:-unknown}** remains a draft — nothing is public."
+            echo ""
+            echo "Fix the cause, then re-run the workflow with the same version."
+            echo "The pipeline is idempotent: the draft is reused and uploads are"
+            echo "clobbered on retry."
+          } >> "$GITHUB_STEP_SUMMARY"

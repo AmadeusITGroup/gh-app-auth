@@ -414,9 +414,12 @@ test(auth): add integration tests for token refresh
 
 ### Releasing a Version
 
-Releases are triggered by creating a GitHub **pre-release** on a `vX.Y.Z` tag; the workflow builds
-and uploads all assets, then promotes the release to latest. Never create a final release directly —
-it would ship with no assets. See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
+Releases are dispatched via `gh workflow run release.yml` (`bump=auto` resolves the semver bump from
+conventional commits; `version=vX.Y.Z` overrides). The pipeline creates the tag and a **draft**
+release, builds and attaches all assets, gates on the cross-platform E2E suite and SLSA attestation,
+then publishes the draft as latest. Never publish a release directly — only the pipeline produces a
+complete release, and draft is the only mutable state under immutable releases. See
+[docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
 
 ### Fixing a Bug
 

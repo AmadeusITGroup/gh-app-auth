@@ -1,8 +1,8 @@
 name: E2E Tests
 
-# Reusable workflow — called from release.yml after prerelease artifacts are uploaded.
-# Runs the full E2E test suite against real release artifacts across all supported
-# platforms. On success the caller promotes the prerelease to latest.
+# Reusable workflow — called from release.yml after artifacts are attached to
+# the draft release. Runs the full E2E test suite against real release assets
+# across all supported platforms. Promotion is the caller's publish job.
 on:
   workflow_call:
     inputs:
@@ -25,9 +25,29 @@ on:
         required: true
       E2E_PRIVATE_KEY_B64:
         required: true
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "The release tag to test (e.g. v1.2.3)"
+        required: true
+        type: string
+      test_org_1:
+        description: "First test organization name"
+        required: false
+        type: string
+        default: "gh-app-auth-test-1"
+      test_org_2:
+        description: "Second test organization name"
+        required: false
+        type: string
+        default: "gh-app-auth-test-2"
+
+# contents: write is required to *download* draft-release assets — read-only
+# tokens cannot see drafts (verified). Jobs only read; they never mutate.
+permissions:
+  contents: write
 
 env:
-  GO_VERSION: "1.21"
   TEST_TIMEOUT: "10m"
 
 jobs:
@@ -38,15 +58,15 @@ jobs:
     name: E2E / Linux ARM64 Binary
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
-      - name: Download linux-arm64 binary from prerelease
+      - name: Download linux-arm64 binary from draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -81,12 +101,12 @@ jobs:
     container:
       image: fedora:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install prerequisites
         run: dnf install -y git golang gh jq which
 
-      - name: Download RPM artifact from prerelease
+      - name: Download RPM artifact from draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -127,14 +147,14 @@ jobs:
     container:
       image: ubuntu:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install prerequisites
         run: |
           apt-get update
           apt-get install -y git golang-go gh jq curl
 
-      - name: Download DEB artifact from prerelease
+      - name: Download DEB artifact from draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -173,15 +193,15 @@ jobs:
     name: E2E / Linux AMD64 Binary
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
-      - name: Download linux-amd64 binary from prerelease
+      - name: Download linux-amd64 binary from draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -216,12 +236,12 @@ jobs:
     container:
       image: fedora:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install prerequisites
         run: dnf install -y git golang gh jq which
 
-      - name: Download RPM artifact from prerelease
+      - name: Download RPM artifact from draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -262,14 +282,14 @@ jobs:
     container:
       image: ubuntu:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install prerequisites
         run: |
           apt-get update
           apt-get install -y git golang-go gh jq curl
 
-      - name: Download DEB artifact from prerelease
+      - name: Download DEB artifact from draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -308,15 +328,15 @@ jobs:
     name: E2E / macOS ARM64 Binary
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
-      - name: Download macOS ARM64 binary from prerelease
+      - name: Download macOS ARM64 binary from draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -348,15 +368,15 @@ jobs:
     name: E2E / macOS AMD64 Binary
     runs-on: macos-15-intel
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
-      - name: Download macOS AMD64 binary from prerelease
+      - name: Download macOS AMD64 binary from draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -388,15 +408,15 @@ jobs:
     name: E2E / Windows ARM64 Binary
     runs-on: windows-11-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
-      - name: Download Windows ARM64 binary from prerelease
+      - name: Download Windows ARM64 binary from draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -426,15 +446,15 @@ jobs:
     name: E2E / Windows AMD64 Binary
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
-      - name: Download Windows binary from prerelease
+      - name: Download Windows binary from draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -456,24 +476,3 @@ jobs:
           E2E_TEST_ORG_2: ${{ inputs.test_org_2 }}
         run: |
           go test -v -tags=e2e -timeout=${{ env.TEST_TIMEOUT }} ./test/e2e/...
-
-  # ─────────────────────────────────────────────
-  # Promote: runs only if ALL platform jobs pass
-  # ─────────────────────────────────────────────
-  promote-release:
-    name: Promote prerelease to latest
-    needs: [e2e-linux, e2e-linux-arm64, e2e-linux-rpm, e2e-linux-rpm-arm64, e2e-linux-deb, e2e-linux-deb-arm64, e2e-macos, e2e-macos-arm64, e2e-windows, e2e-windows-arm64]
-    runs-on: ubuntu-latest
-    if: success()
-    permissions:
-      contents: write
-    steps:
-      - name: Mark release as latest
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release edit "${{ inputs.release_tag }}" \
-            --repo "${{ github.repository }}" \
-            --prerelease=false \
-            --latest
-          echo "✅ Release ${{ inputs.release_tag }} promoted to latest"
