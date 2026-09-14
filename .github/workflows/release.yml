@@ -200,6 +200,10 @@ jobs:
   e2e:
     name: E2E Gate
     needs: [prepare, build]
+    permissions:
+      # The called workflow's own permission grants can never exceed what the
+      # caller grants here. contents: write is needed to download draft assets.
+      contents: write
     uses: ./.github/workflows/e2e.yml
     with:
       release_tag: ${{ needs.prepare.outputs.release_tag }}
@@ -216,6 +220,10 @@ jobs:
   attest:
     name: Attest (SLSA provenance)
     needs: [prepare, build]
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     uses: ./.github/workflows/attest-release.yml
     with:
       release_tag: ${{ needs.prepare.outputs.release_tag }}
