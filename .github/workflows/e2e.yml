@@ -49,6 +49,10 @@ permissions:
 
 env:
   TEST_TIMEOUT: "10m"
+  # The release artifacts are static (CGO_ENABLED=0 in the Makefile); the test
+  # driver is pure Go too. Disabling cgo keeps `go test` working in minimal
+  # containers (ubuntu:latest ships gcc without libc headers).
+  CGO_ENABLED: "0"
 
 jobs:
   # ─────────────────────────────────────────────
