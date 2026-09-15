@@ -2,7 +2,7 @@ version: "2"
 
 run:
   timeout: 5m
-  go: "1.21"
+  go: "1.26"
 
 output:
   formats:
@@ -33,7 +33,7 @@ linters:
     - forcetypeassert
     - goconst
     - goheader
-    - gomodguard
+    - gomodguard_v2
     - goprintffuncname
     - gosec
     - lll
@@ -68,10 +68,21 @@ linters:
     goheader:
       template: ""
 
-    gomodguard:
+    gomodguard_v2:
       blocked:
-        modules: []
-        versions: []
+        - module: github.com/pkg/errors
+          recommendations:
+            - errors
+            - fmt
+          reason: "deprecated; use stdlib errors with fmt.Errorf wrapping"
+        - module: github.com/dgrijalva/jwt-go
+          recommendations:
+            - github.com/golang-jwt/jwt/v5
+          reason: "archived and unmaintained with known CVEs; use golang-jwt/jwt/v5"
+        - module: gopkg.in/yaml.v2
+          recommendations:
+            - gopkg.in/yaml.v3
+          reason: "unmaintained; project standardises on yaml.v3"
 
     gosec:
       severity: medium

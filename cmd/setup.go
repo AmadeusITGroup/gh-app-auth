@@ -383,7 +383,7 @@ func expandPath(path string) (string, error) {
 }
 
 func validateKeyFile(keyPath string) error {
-	fileInfo, err := os.Stat(keyPath)
+	fileInfo, err := os.Stat(keyPath) // #nosec G703 -- keyPath is the user's own key file supplied via --key-file
 	if err != nil {
 		return fmt.Errorf("failed to access key file: %w", err)
 	}
@@ -468,7 +468,7 @@ func getPrivateKey(keyFile string) (string, string, error) {
 		}
 
 		// Read key content
-		keyData, err := os.ReadFile(expandedKeyFile)
+		keyData, err := os.ReadFile(expandedKeyFile) // #nosec G703 -- user-supplied key file path
 		if err != nil {
 			return "", "", fmt.Errorf("failed to read key file: %w", err)
 		}

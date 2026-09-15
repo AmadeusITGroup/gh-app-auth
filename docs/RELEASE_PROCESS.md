@@ -2,10 +2,11 @@
 
 How to publish a new version of `gh-app-auth`.
 
-The short version: **create a GitHub *pre-release* on a `vX.Y.Z` tag.** The
-[`Release` workflow](../.github/workflows/release.yml) then builds every asset, uploads them to that
-release, and finally flips it to a normal "latest" release. Nothing is built for a release created
-directly as final — the workflow would never run.
+The short version: **dispatch the `Release` workflow.** It resolves the version,
+creates the tag and a *draft* release, builds and attaches every asset, gates on
+the cross-platform E2E suite and SLSA attestation, then publishes the draft as
+latest. Nothing is publicly visible until the final publish step — the draft is
+the staging area, not a prerelease.
 
 ## TL;DR
 
@@ -13,70 +14,128 @@ directly as final — the workflow would never run.
 # 1. Make sure main is green and CHANGELOG.md is updated
 git checkout main && git pull
 
-# 2. Create an annotated tag
-git tag -a v1.2.3 -m "Release v1.2.3"
-git push origin v1.2.3
+# 2. Dispatch the workflow (auto-detects the semver bump from conventional
+#    commits; pass an explicit version or bump to override)
+gh workflow run release.yml                    # bump=auto, ref=main
+gh workflow run release.yml -f bump=minor
+gh workflow run release.yml -f version=v1.2.3
+gh workflow run release.yml -f dry_run=true    # everything except publish
 
-# 3. Create the release AS A PRE-RELEASE (this is the trigger)
-gh release create v1.2.3 --prerelease --generate-notes --title "v1.2.3"
-
-# 4. Watch the workflow build and attach the assets
+# 3. Watch the pipeline
 gh run watch
 
-# 5. Verify
+# 4. Verify
 gh release view v1.2.3
 ```
 
-After step 4 the release is no longer a pre-release: the workflow promotes it with
-`gh release edit --prerelease=false --latest`.
+Equivalent UI path: **Actions → Release → Run workflow**.
 
-## Why the pre-release step exists
+Alternative trigger: push a `v*` tag by hand (`git tag v1.2.3 && git push origin
+v1.2.3`) — the same pipeline stages the draft on it. This is also the fallback if
+the tag already exists.
 
-`release.yml` is triggered by `on: release: types: [prereleased]`.
+## Automated trigger (release-please)
 
-```yaml
-on:
-  release:
-    types: [prereleased]
+`release-please.yml` runs on every push to `main` and maintains a **release PR**
+that accumulates conventional-commit changelog entries and the proposed version
+bump. The maintainer's release action becomes **"merge the release PR"**:
+
+```
+merge release PR → release-please cuts tag + draft → workflow_call → release.yml
 ```
 
-This gives a two-phase release:
+- release-please creates the release as a **draft** (`"draft": true` in
+  `release-please-config.json` — mandatory: a published release would lock its
+  assets under immutable releases before the pipeline could attach them).
+- The handoff is an explicit `workflow_call`, not an event — tags created by
+  `GITHUB_TOKEN` never fire `push: tags`.
+- Version selection then comes entirely from conventional commits;
+  `.release-please-manifest.json` tracks the current version and `version.txt`
+  is bumped by the release PR.
+- While the project is `0.x`, `bump-minor-pre-major` keeps breaking changes on a
+  minor bump rather than jumping to `1.0.0`.
 
-1. **Pre-release phase** — the release exists and is visible, but marked as a pre-release, so
-   `gh extension install` and `gh extension upgrade` ignore it. The workflow runs tests, builds all
-   binaries and packages, and uploads them.
-2. **Promotion phase** — once every asset is uploaded, the same workflow clears the pre-release flag
-   and marks the release as `--latest`.
+The manual dispatch above remains the override — same pipeline either way.
 
-The consequence is that users never see a "latest" release with missing or partial assets. A release
-either has no assets and is a pre-release, or it has all assets and is latest.
+## Pipeline shape
 
-The practical rules that follow:
+```
+prepare → build → [e2e ∥ attest] → publish
+(version,  (assets   (gates must    (draft →
+ tag,       to the    both pass)     latest)
+ draft)     draft)
+```
 
-- **Always create the release as a pre-release.** `gh release create v1.2.3` without `--prerelease`
-  publishes a release with zero assets and no build. `gh extension install` will fail for everyone.
-- **Do not manually unmark the pre-release flag.** The workflow does that as its last step.
-- **Re-running the workflow is safe.** Uploads use `--clobber`, so assets are overwritten. To re-run
-  after a failure, either re-run the failed job from the Actions UI, or mark the release back to
-  pre-release (`gh release edit v1.2.3 --prerelease`) and re-publish to fire the event again.
+| Job | What it does |
+|-----|--------------|
+| `prepare` | Resolves the version (`scripts/next-version.sh`), creates the git tag, creates or reuses the **draft** release |
+| `build` | Checks out the tag, runs unit tests, `make release packages`, writes `checksums.txt`, uploads `dist/*` to the draft with `--clobber` |
+| `e2e` | Calls `e2e.yml` — the 10-job matrix validates the draft's real assets on Linux (deb/rpm, amd64+arm64), macOS (arm64+intel), Windows (amd64+arm64) |
+| `attest` | Calls `attest-release.yml` — generates SLSA build provenance for every asset digest, in an isolated reusable workflow |
+| `publish` | `gh release edit --draft=false --latest`, then verifies the release and its attestation |
+| `report-failure` | On any failure, summarizes that the release stayed a draft and how to re-run |
 
-## What the workflow does
+## Why draft-first (and not prerelease)
+
+Two reasons, both verified on the fork:
+
+1. **Zero public exposure window.** Drafts are invisible to everyone without
+   push access — a failed gate leaves an invisible draft, not a public
+   prerelease with missing assets. `gh extension install` only sees `latest`.
+2. **Immutable releases.** GitHub's "Make new releases immutable" locks assets
+   and the tag *at publish* — a published prerelease is already locked
+   (`HTTP 422: Cannot upload assets to an immutable release`). Drafts are the
+   only unconditionally mutable state; all asset mutation happens before
+   publish.
+
+Draft specifics that shaped the pipeline:
+
+- **Drafts do not create the git tag** — it materializes at publish. `prepare`
+  creates the tag explicitly so `build` can check it out and
+  `git describe --tags --exact-match` (which feeds `LDFLAGS` in the Makefile)
+  resolves.
+- **Downloading draft assets needs `contents: write`** — a read-only
+  `GITHUB_TOKEN` gets `release not found`. The e2e jobs carry `contents: write`
+  for this reason; they never mutate the release.
+
+## Version resolution (`scripts/next-version.sh`)
+
+| Input | Behaviour |
+|-------|-----------|
+| `version` set | Validated as semver; must be newer than the latest `v*` tag and not already exist |
+| `bump=auto` | Scans conventional commits since the latest tag: `BREAKING CHANGE`/`!:` → major (**minor while `0.x`**, matching release-please's `bump-minor-pre-major`), `feat` → minor, `fix`/`perf`/`revert`/`deps` → patch; aborts if nothing releasable |
+| `bump=patch\|minor\|major` | Applied directly |
+| `release_tag` (workflow_call) | Used as-is after validation — this is the release-please path |
+
+## Failure and recovery
+
+- **Any gate fails** → the release stays a draft; nothing is public. Fix the
+  cause and re-dispatch with the same version — the pipeline is idempotent:
+  the existing draft is reused and uploads are `--clobber`ed.
+- **Tag exists at the wrong commit** → `prepare` aborts rather than re-tag.
+- **Version already published** → `prepare` aborts; published releases are
+  never touched.
+- **A bad release is already published** → immutable releases mean no
+  post-publish fixes; cut the next patch release. Drafts can be deleted freely.
+
+## What the workflow does (build detail)
 
 | Step | Command | Purpose |
 |------|---------|---------|
-| Checkout | `actions/checkout@v7` with `fetch-depth: 0` | Full history so `git describe --tags --exact-match` resolves the version |
-| Set up Go | `actions/setup-go@v5`, Go 1.21 | Toolchain |
-| Install tools | `gettext-base` if `envsubst` is missing | `envsubst` templates `nfpm.yaml` |
+| Checkout | `actions/checkout` at the tag, `fetch-depth: 0` | Full history + the tag so `git describe --tags --exact-match` resolves the version |
+| Set up Go | `actions/setup-go` with `go-version-file: go.mod` | Toolchain matches go.mod |
 | Test | `go test ./...` | Release gate — a failing test aborts the release |
 | Build | `make release packages` | Produces every asset in `dist/` |
-| Inspect | `dpkg-deb -I`, `rpm -qip` | Logs package metadata for auditing |
-| Upload | `gh release upload "$VERSION" dist/* --clobber` | Attaches **everything** in `dist/` |
-| Promote | `gh release edit "$VERSION" --prerelease=false --latest` | Makes the release installable |
+| Checksums | `sha256sum` of `dist/*` → `dist/checksums.txt` | Attestation manifest + manual verification |
+| Upload | `gh release upload "$TAG" dist/* --clobber` | Attaches **everything** in `dist/` (idempotent re-runs) |
+| Attest | `actions/attest-build-provenance` with `subject-checksums` | SLSA provenance in the repo attestation store |
+| Promote | `gh release edit "$TAG" --draft=false --latest` | Makes the release installable |
 
 Two environment values drive the version:
 
-- `VERSION="${GITHUB_REF_NAME#v}"` — the tag with the leading `v` stripped, used for package
-  filenames and package metadata.
+- `VERSION` — derived by the Makefile from `git describe --tags --exact-match`
+  (e.g. `v1.2.3`); `PKG_VERSION` strips the leading `v` for package filenames
+  and metadata.
 - `RPM_RELEASE=1` — the RPM release/revision number. Bump it manually only if you need to rebuild
   the same upstream version as a new RPM.
 
@@ -84,7 +143,7 @@ Two environment values drive the version:
 tag must exist and point at the checked-out commit. Without an exact tag match the version falls
 back to the string `dev` and the binaries report `dev` from `--version`.
 
-## Assets built during the pre-release
+## Assets built during the release
 
 `make release packages` writes everything into `dist/`, and the upload step attaches the whole
 directory. For version `1.2.3` you should see 10 assets: 6 binaries and 4 Linux packages.
@@ -145,16 +204,16 @@ make treats them as satisfied and silently does nothing. **No armhf packages are
 `make packages` still reports "All packages built successfully!". If armhf support is needed, add
 `linux-arm` to `BUILD_MATRIX` and write the two missing targets.
 
-## Pre-release checklist
+## Release checklist
 
-Before creating the pre-release:
+Before dispatching the workflow:
 
 - [ ] `main` is green in CI (test matrix, lint, security, CodeQL)
 - [ ] `make quality` passes locally
 - [ ] `CHANGELOG.md` has a section for the new version (move items out of `[Unreleased]`, add the
       compare link at the bottom)
 - [ ] Version number follows [Semantic Versioning](https://semver.org/) and matches the commit types
-      since the last tag: breaking change → major, `feat` → minor, `fix` → patch
+      since the last tag: breaking change → major (minor while `0.x`), `feat` → minor, `fix` → patch
 - [ ] Any breaking change or significant new feature has an [ADR](adr/README.md)
 - [ ] Docs (`README.md`, `docs/`) reflect new or changed commands and flags
 
@@ -164,8 +223,8 @@ Before creating the pre-release:
 # All 10 assets present?
 gh release view v1.2.3 --json assets --jq '.assets[].name'
 
-# Release is latest and no longer a pre-release?
-gh release view v1.2.3 --json isLatest,isPrerelease
+# Release is published (not a draft)?
+gh release view v1.2.3 --json isDraft,isPrerelease
 
 # Extension install picks up the precompiled binary
 gh extension install AmadeusITGroup/gh-app-auth
@@ -208,10 +267,11 @@ fetched on demand via `go run`, so no separate install is required.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Release published with no assets | Release was created as a final release, not a pre-release | `gh release edit vX.Y.Z --prerelease`, then re-publish to fire the `prereleased` event |
-| Workflow never started | Tag pushed but no GitHub release object created | Create the release: `gh release create vX.Y.Z --prerelease` |
+| `prepare` fails: "tag exists at a different commit" | The tag was already pushed/published at another commit | Pick a new version, or delete the stray tag deliberately |
+| `prepare` fails: "already published" | That version was already released | Bump the version — published releases are never touched |
+| E2E fails mid-pipeline | Infra issue or real regression | Release stays a draft; fix and re-dispatch the same version |
 | Binaries report version `dev` | `git describe --tags --exact-match` found no tag on HEAD, or checkout lacked full history | Ensure the tag points at the released commit and `fetch-depth: 0` is set |
-| `envsubst: command not found` | Missing `gettext-base` | Install it; the workflow does this automatically |
+| `envsubst: command not found` | Missing `gettext-base` | Install it (`gettext-base` on Debian/Ubuntu) |
 | `gh extension install` builds from source instead of downloading | Asset names do not match `<goos>-<goarch>` | Restore the `BUILD_MATRIX` naming |
 | Upload rejected as duplicate | Asset already attached from an earlier run | Already handled by `--clobber`; if editing manually, delete the asset first |
 | Wrong architecture inside a package | `nfpm.yaml` templating or `GOARCH` mismatch | Run `make validate-packages` to locate the mismatch |
