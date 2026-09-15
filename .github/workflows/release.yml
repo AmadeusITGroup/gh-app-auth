@@ -64,9 +64,9 @@ on:
 
 concurrency:
   group: release-pipeline
-  cancel-in-progress: false # never cancel a release mid-flight
+  cancel-in-progress: false  # never cancel a release mid-flight
 
-permissions: {} # deny-all by default; jobs declare their own
+permissions: {}  # deny-all by default; jobs declare their own
 
 jobs:
   # ─────────────────────────────────────────────────────────
@@ -81,10 +81,10 @@ jobs:
       release_tag: ${{ steps.resolve.outputs.release_tag }}
       ref_sha: ${{ steps.resolve.outputs.ref_sha }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           ref: ${{ inputs.ref || github.ref }}
-          fetch-depth: 0 # tags + history needed for semver resolution
+          fetch-depth: 0  # tags + history needed for semver resolution
 
       - name: Resolve / validate release tag
         id: resolve
@@ -148,13 +148,13 @@ jobs:
     outputs:
       checksums: ${{ steps.digests.outputs.checksums }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
-          ref: ${{ needs.prepare.outputs.release_tag }} # build the tag, not a branch
-          fetch-depth: 0 # git describe --tags --exact-match needs the tag
+          ref: ${{ needs.prepare.outputs.release_tag }}  # build the tag, not a branch
+          fetch-depth: 0  # git describe --tags --exact-match needs the tag
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
         with:
           go-version-file: go.mod
           cache: true
@@ -228,7 +228,7 @@ jobs:
     with:
       release_tag: ${{ needs.prepare.outputs.release_tag }}
       checksums: ${{ needs.build.outputs.checksums }}
-    # No secrets passed — the attestation boundary gets GITHUB_TOKEN only.
+      # No secrets passed — the attestation boundary gets GITHUB_TOKEN only.
 
   # ─────────────────────────────────────────────────────────
   # Publish: promote the draft to latest. Only runs when every gate passed.
@@ -239,8 +239,8 @@ jobs:
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write # promote + download assets for post-publish sanity
-      attestations: read # gh attestation verify reads the repo attestation store
+      contents: write  # promote + download assets for post-publish sanity
+      attestations: read  # gh attestation verify reads the repo attestation store
     steps:
       - name: Promote draft to latest
         env:
