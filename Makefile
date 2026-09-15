@@ -66,7 +66,7 @@ RPM_RELEASE ?= 1
 COMMIT := $(shell git rev-parse --short HEAD)
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.Commit=$(COMMIT) -X main.BuildTime=$(BUILD_TIME)"
-GOLANGCI_LINT_VERSION := v2.1.6
+GOLANGCI_LINT_VERSION := v2.13.2
 MARKDOWNLINT_CLI2_VERSION := 0.20.0
 YAMLLINT_VERSION := 1.38.0
 ACTIONLINT_VERSION := 1.7.11
@@ -82,7 +82,9 @@ INEFFASSIGN := go run github.com/gordonklaus/ineffassign@latest
 MISSPELL := go run github.com/client9/misspell/cmd/misspell@latest
 GOSEC := go run github.com/securego/gosec/v2/cmd/gosec@latest
 GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@latest
-NFPM_CMD := go run github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+# Pinned: @latest floats and can silently outrun the go.mod toolchain (v2.47.0
+# requires go >= 1.26.4). Keep this in sync with the go directive in go.mod.
+NFPM_CMD := go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.47.0
 ACTIONLINT := go run github.com/rhysd/actionlint/cmd/actionlint@v$(ACTIONLINT_VERSION)
 
 # Build the extension
