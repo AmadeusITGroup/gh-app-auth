@@ -82,11 +82,16 @@ elif [ "${EVENT_NAME:-}" = "push" ]; then
     [[ "$tag" =~ $SEMVER_RE ]] || die "invalid tag '$tag' (expected vX.Y.Z)"
 
 elif [ -n "${INPUT_VERSION:-}" ]; then
-    # dispatch with explicit version — must be new and newer than the latest tag.
+    # dispatch with explicit version — new and newer than the latest tag, OR an
+    # existing tag at ref_sha (resume a failed run whose draft is still staged).
     tag="$INPUT_VERSION"
     [[ "$tag" =~ $SEMVER_RE ]] || die "invalid version '$tag' (expected vX.Y.Z)"
-    git rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1 && die "tag $tag already exists"
-    [ -z "$latest" ] || version_gt "$tag" "$latest" || die "$tag is not newer than latest tag $latest"
+    if git rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1; then
+        [ "$(git rev-parse "$tag^{commit}")" = "$ref_sha" ] || die "tag $tag exists at a different commit ($(git rev-parse "$tag^{commit}") != $ref_sha)"
+        echo "tag $tag exists at ref_sha — resuming (existing draft will be reused)"
+    else
+        [ -z "$latest" ] || version_gt "$tag" "$latest" || die "$tag is not newer than latest tag $latest"
+    fi
 
 else
     # dispatch with bump
