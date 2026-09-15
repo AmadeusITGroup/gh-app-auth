@@ -37,10 +37,10 @@ on:
           - major
         default: auto
       ref:
-        description: "Commit-ish to release from"
+        description: "Commit-ish to release from (default: the ref this run was dispatched on)"
         required: false
         type: string
-        default: main
+        default: ""
       dry_run:
         description: "Build + E2E + attest but leave the release as draft"
         required: false
