@@ -43,7 +43,14 @@ detect_bump() {
     bodies="$(git log "$range" --format=%B)"
 
     if printf '%s' "$bodies" | grep -qE 'BREAKING[ -]CHANGE|^[a-zA-Z]+(\([^)]*\))?!:'; then
-        echo "major"
+        # bump-minor-pre-major (matches release-please-config.json): a breaking
+        # change on a 0.x project bumps minor, not major. An explicit
+        # 'bump=major' dispatch still forces 1.0.0.
+        if [[ "$latest" =~ ^v0\. ]]; then
+            echo "minor"
+        else
+            echo "major"
+        fi
     elif printf '%s' "$subjects" | grep -qE '^feat(\(|:)'; then
         echo "minor"
     elif printf '%s' "$subjects" | grep -qE '^(fix|perf|revert|deps)(\(|:)'; then

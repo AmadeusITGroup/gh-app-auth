@@ -103,6 +103,24 @@ commit "refactor: reshape api
 BREAKING CHANGE: config format changed"
 INPUT_BUMP=auto run_case; check "auto: BREAKING CHANGE body → major"            expect_tag v2.0.0
 
+# bump-minor-pre-major: breaking on 0.x bumps minor, matching release-please
+new_repo auto-pre-major-bang
+tag v0.4.0
+commit "feat!: drop old flag"
+INPUT_BUMP=auto run_case; check "auto: feat! on 0.x → minor (pre-major)"        expect_tag v0.5.0
+
+new_repo auto-pre-major-body
+tag v0.4.0
+commit "refactor: reshape api
+
+BREAKING CHANGE: config format changed"
+INPUT_BUMP=auto run_case; check "auto: BREAKING on 0.x → minor (pre-major)"     expect_tag v0.5.0
+
+new_repo explicit-major-pre-1x
+tag v0.4.0
+commit "docs: only docs"
+INPUT_BUMP=major run_case; check "explicit major on 0.x still forces 1.0.0"     expect_tag v1.0.0
+
 new_repo auto-nothing
 tag v1.0.0
 commit "docs: tweak"
@@ -114,6 +132,7 @@ tag v3.1.4
 commit "docs: only docs"        # no releasable type — explicit bump must still work
 INPUT_BUMP=minor run_case; check "explicit minor applies"                       expect_tag v3.2.0
 INPUT_BUMP=major run_case; check "explicit major applies"                       expect_tag v4.0.0
+# shellcheck disable=SC2209  # INPUT_BUMP is an env prefix, not a substitution
 INPUT_BUMP=patch run_case; check "explicit patch applies"                       expect_tag v3.1.5
 
 # ── no prior tag ────────────────────────────────────────────────────

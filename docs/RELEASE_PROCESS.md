@@ -103,7 +103,7 @@ Draft specifics that shaped the pipeline:
 | Input | Behaviour |
 |-------|-----------|
 | `version` set | Validated as semver; must be newer than the latest `v*` tag and not already exist |
-| `bump=auto` | Scans conventional commits since the latest tag: `BREAKING CHANGE`/`!:` → major, `feat` → minor, `fix`/`perf`/`revert`/`deps` → patch; aborts if nothing releasable |
+| `bump=auto` | Scans conventional commits since the latest tag: `BREAKING CHANGE`/`!:` → major (**minor while `0.x`**, matching release-please's `bump-minor-pre-major`), `feat` → minor, `fix`/`perf`/`revert`/`deps` → patch; aborts if nothing releasable |
 | `bump=patch\|minor\|major` | Applied directly |
 | `release_tag` (workflow_call) | Used as-is after validation — this is the release-please path |
 
@@ -213,7 +213,7 @@ Before dispatching the workflow:
 - [ ] `CHANGELOG.md` has a section for the new version (move items out of `[Unreleased]`, add the
       compare link at the bottom)
 - [ ] Version number follows [Semantic Versioning](https://semver.org/) and matches the commit types
-      since the last tag: breaking change → major, `feat` → minor, `fix` → patch
+      since the last tag: breaking change → major (minor while `0.x`), `feat` → minor, `fix` → patch
 - [ ] Any breaking change or significant new feature has an [ADR](adr/README.md)
 - [ ] Docs (`README.md`, `docs/`) reflect new or changed commands and flags
 
