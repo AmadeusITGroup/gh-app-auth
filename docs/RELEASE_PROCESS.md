@@ -34,6 +34,29 @@ Alternative trigger: push a `v*` tag by hand (`git tag v1.2.3 && git push origin
 v1.2.3`) — the same pipeline stages the draft on it. This is also the fallback if
 the tag already exists.
 
+## Automated trigger (release-please)
+
+`release-please.yml` runs on every push to `main` and maintains a **release PR**
+that accumulates conventional-commit changelog entries and the proposed version
+bump. The maintainer's release action becomes **"merge the release PR"**:
+
+```
+merge release PR → release-please cuts tag + draft → workflow_call → release.yml
+```
+
+- release-please creates the release as a **draft** (`"draft": true` in
+  `release-please-config.json` — mandatory: a published release would lock its
+  assets under immutable releases before the pipeline could attach them).
+- The handoff is an explicit `workflow_call`, not an event — tags created by
+  `GITHUB_TOKEN` never fire `push: tags`.
+- Version selection then comes entirely from conventional commits;
+  `.release-please-manifest.json` tracks the current version and `version.txt`
+  is bumped by the release PR.
+- While the project is `0.x`, `bump-minor-pre-major` keeps breaking changes on a
+  minor bump rather than jumping to `1.0.0`.
+
+The manual dispatch above remains the override — same pipeline either way.
+
 ## Pipeline shape
 
 ```

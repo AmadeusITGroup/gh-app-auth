@@ -238,6 +238,9 @@ jobs:
     needs: [prepare, e2e, attest]
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
+    # Deployment target — auto-created on first run. Add required reviewers in
+    # repo settings to turn publish into a two-person gate (optional hardening).
+    environment: release
     permissions:
       contents: write  # promote + download assets for post-publish sanity
       attestations: read  # gh attestation verify reads the repo attestation store
