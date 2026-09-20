@@ -1,0 +1,50 @@
+name: Attest Release Artifacts
+
+# Reusable workflow — the SLSA Build L3 attestation boundary.
+#
+# The caller (release.yml) passes artifact digests, not files: the attestation
+# job never runs build code and never touches the build environment, so the
+# build cannot influence the identity being attested. Attestations are signed
+# keylessly via Sigstore (OIDC → Fulcio → Rekor) and stored in the repository's
+# attestation store — they are not release assets and are unaffected by
+# release immutability.
+#
+# Permissions are deliberately minimal and there are NO secrets inputs:
+# the attestation boundary only needs the implicit GITHUB_TOKEN.
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Release tag being attested (for logging/traceability)"
+        required: true
+        type: string
+      checksums:
+        description: "sha256sum-format manifest lines for every release asset"
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  attest:
+    name: Generate build provenance
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # OIDC token → Sigstore signing certificate
+      attestations: write  # persist to the repo attestation store
+    steps:
+      - name: Materialize checksum manifest
+        env:
+          CHECKSUMS: ${{ inputs.checksums }}
+        run: |
+          printf '%s\n' "$CHECKSUMS" > checksums.txt
+          echo "Attesting ${{ inputs.release_tag }} artifacts:"
+          cat checksums.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-checksums: checksums.txt
+          push-to-registry: false
