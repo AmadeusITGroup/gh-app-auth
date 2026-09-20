@@ -1,6 +1,6 @@
 module github.com/AmadeusITGroup/gh-app-auth
 
-go 1.25.0
+go 1.26.4
 
 require (
 	github.com/cli/go-gh/v2 v2.16.0

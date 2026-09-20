@@ -63,7 +63,7 @@ BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.Commit=$(COMMIT) -X main.BuildTime=$(BUILD_TIME)"
 
 # Go tool commands
-GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0
+GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 GOIMPORTS := go run golang.org/x/tools/cmd/goimports@latest
 STATICCHECK := go run honnef.co/go/tools/cmd/staticcheck@latest
 GOCYCLO := go run github.com/fzipp/gocyclo/cmd/gocyclo@latest
@@ -112,6 +112,28 @@ test-coverage-check:
 	else \
 		echo "✅ Coverage $$COVERAGE% meets threshold $(COVERAGE_THRESHOLD)%"; \
 	fi
+
+# E2E tests against real GitHub App credentials (see docs/E2E_INFRASTRUCTURE.md).
+# Requires E2E_APP_ID and E2E_PRIVATE_KEY / E2E_PRIVATE_KEY_B64 in the environment.
+.PHONY: test-e2e test-e2e-local test-e2e-cover
+test-e2e:
+	@echo "Running E2E tests (requires test infrastructure)..."
+	go test -v -tags=e2e -timeout=15m ./test/e2e/...
+
+# Run E2E tests using a locally built binary (builds from source automatically).
+test-e2e-local:
+	@echo "Building binary for E2E tests..."
+	go build -o /tmp/gh-app-auth-e2e-local .
+	@echo "Running E2E tests with local binary..."
+	E2E_BINARY_PATH=/tmp/gh-app-auth-e2e-local \
+		go test -v -tags=e2e -timeout=15m ./test/e2e/...
+	rm -f /tmp/gh-app-auth-e2e-local
+
+# Run E2E tests against a coverage-instrumented binary (go build -cover).
+# Emits e2e-coverage.out + e2e-coverage-summary.md; see scripts/e2e-coverage.sh.
+test-e2e-cover:
+	@echo "Running E2E tests with coverage instrumentation..."
+	./scripts/e2e-coverage.sh
 
 # Lint code with golangci-lint
 lint:

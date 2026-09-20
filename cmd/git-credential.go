@@ -21,6 +21,25 @@ import (
 
 var gitCredentialPattern string
 
+const (
+	// Git credential helper protocol fields
+	credFieldProtocol = "protocol"
+	credFieldHost     = "host"
+	credFieldPath     = "path"
+	credFieldUsername = "username"
+	credFieldURL      = "url"
+
+	// Structured log fields
+	logFieldOperation     = "operation"
+	logFieldPattern       = "pattern"
+	logFieldRepoURL       = "repo_url"
+	logFieldReason        = "reason"
+	logFieldAppIdentifier = "app_identifier"
+	logFieldAppName       = "app_name"
+	logFieldPATName       = "pat_name"
+	logFieldTokenHash     = "token_hash"
+)
+
 func NewGitCredentialCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "git-credential",
@@ -52,14 +71,14 @@ func gitCredentialRun(cmd *cobra.Command, args []string) error {
 	operation := args[0]
 
 	logger.FlowStart("git_credential", map[string]interface{}{
-		"operation": operation,
-		"pattern":   gitCredentialPattern,
+		logFieldOperation: operation,
+		logFieldPattern:   gitCredentialPattern,
 	})
 
 	// Log all the input arguments - not just the operation
 	logger.FlowStep("git_credential", map[string]interface{}{
-		"args":    args,
-		"pattern": gitCredentialPattern,
+		"args":          args,
+		logFieldPattern: gitCredentialPattern,
 	})
 
 	var err error
@@ -76,13 +95,13 @@ func gitCredentialRun(cmd *cobra.Command, args []string) error {
 
 	if err != nil {
 		logger.FlowError("git_credential", err, map[string]interface{}{
-			"operation": operation,
-			"pattern":   gitCredentialPattern,
+			logFieldOperation: operation,
+			logFieldPattern:   gitCredentialPattern,
 		})
 	} else {
 		logger.FlowSuccess("git_credential", map[string]interface{}{
-			"operation": operation,
-			"pattern":   gitCredentialPattern,
+			logFieldOperation: operation,
+			logFieldPattern:   gitCredentialPattern,
 		})
 	}
 
@@ -98,10 +117,10 @@ func handleCredentialGet() error {
 
 	// Git credential protocol: When git queries with just host (no path),
 	// we should exit silently. Git will call again with the full path.
-	if input["path"] == "" {
+	if input[credFieldPath] == "" {
 		logger.FlowStep("host_only_query", map[string]interface{}{
-			"host": input["host"],
-			"note": "Exiting silently, git will query again with full path",
+			credFieldHost: input[credFieldHost],
+			"note":        "Exiting silently, git will query again with full path",
 		})
 		return nil
 	}
@@ -135,7 +154,7 @@ func handleCredentialGet() error {
 func processCredentialInput() (map[string]string, string, error) {
 	logger.FlowStep("read_input", map[string]interface{}{})
 	logger.FlowStep("git_credential_pattern", map[string]interface{}{
-		"pattern": gitCredentialPattern,
+		logFieldPattern: gitCredentialPattern,
 	})
 
 	// Read input from git
@@ -147,9 +166,9 @@ func processCredentialInput() (map[string]string, string, error) {
 
 	// Sanitize input for logging (remove sensitive data)
 	sanitizedInput := logger.SanitizeConfig(map[string]interface{}{
-		"protocol": input["protocol"],
-		"host":     input["host"],
-		"path":     input["path"],
+		credFieldProtocol: input[credFieldProtocol],
+		credFieldHost:     input[credFieldHost],
+		credFieldPath:     input[credFieldPath],
 	})
 	logger.FlowStep("parse_input", sanitizedInput)
 
@@ -163,7 +182,7 @@ func processCredentialInput() (map[string]string, string, error) {
 	}
 
 	logger.FlowStep("build_url", map[string]interface{}{
-		"url": logger.SanitizeURL(repoURL),
+		credFieldURL: logger.SanitizeURL(repoURL),
 	})
 
 	return input, repoURL, nil
@@ -262,8 +281,8 @@ func matchesPatternForPAT(pattern, repoURL string) bool {
 // findAppByPattern finds an app using the --pattern flag
 func findAppByPattern(cfg *config.Config, repoURL string) *config.GitHubApp {
 	logger.FlowStep("match_by_pattern", map[string]interface{}{
-		"pattern":  gitCredentialPattern,
-		"repo_url": logger.SanitizeURL(repoURL),
+		logFieldPattern: gitCredentialPattern,
+		logFieldRepoURL: logger.SanitizeURL(repoURL),
 	})
 
 	// Normalize both pattern and URL for comparison (remove protocol)
@@ -275,9 +294,9 @@ func findAppByPattern(cfg *config.Config, repoURL string) *config.GitHubApp {
 		strings.HasPrefix(normalizedPattern, normalizedURL)
 	if !patternMatches {
 		logger.FlowStep("no_pattern_match", map[string]interface{}{
-			"pattern":  gitCredentialPattern,
-			"repo_url": logger.SanitizeURL(repoURL),
-			"reason":   "URL prefix mismatch",
+			logFieldPattern: gitCredentialPattern,
+			logFieldRepoURL: logger.SanitizeURL(repoURL),
+			logFieldReason:  "URL prefix mismatch",
 		})
 		return nil
 	}
@@ -290,20 +309,20 @@ func findAppByPattern(cfg *config.Config, repoURL string) *config.GitHubApp {
 	for i := range cfg.GitHubApps {
 		app := &cfg.GitHubApps[i]
 		logger.FlowStep("match_by_pattern", map[string]interface{}{
-			"app_identifier":       app.GetIdentifier(),
-			"app_name":             app.Name,
-			"pattern":              gitCredentialPattern,
-			"repo_url":             logger.SanitizeURL(repoURL),
+			logFieldAppIdentifier:  app.GetIdentifier(),
+			logFieldAppName:        app.Name,
+			logFieldPattern:        gitCredentialPattern,
+			logFieldRepoURL:        logger.SanitizeURL(repoURL),
 			"gitCredentialPattern": gitCredentialPattern,
 		})
 
 		for _, pattern := range app.Patterns {
 			if matchesPattern(pattern, gitCredentialPattern) {
 				logger.FlowStep("app_matched_by_pattern", map[string]interface{}{
-					"app_identifier": app.GetIdentifier(),
-					"app_name":       app.Name,
-					"pattern":        pattern,
-					"repo_url":       logger.SanitizeURL(repoURL),
+					logFieldAppIdentifier: app.GetIdentifier(),
+					logFieldAppName:       app.Name,
+					logFieldPattern:       pattern,
+					logFieldRepoURL:       logger.SanitizeURL(repoURL),
 				})
 				return app
 			}
@@ -311,9 +330,9 @@ func findAppByPattern(cfg *config.Config, repoURL string) *config.GitHubApp {
 	}
 
 	logger.FlowStep("no_pattern_match", map[string]interface{}{
-		"pattern":  gitCredentialPattern,
-		"repo_url": logger.SanitizeURL(repoURL),
-		"reason":   "pattern not found",
+		logFieldPattern: gitCredentialPattern,
+		logFieldRepoURL: logger.SanitizeURL(repoURL),
+		logFieldReason:  "pattern not found",
 	})
 	return nil
 }
@@ -321,7 +340,7 @@ func findAppByPattern(cfg *config.Config, repoURL string) *config.GitHubApp {
 // findAppByURL finds an app using URL-based matching
 func findAppByURL(cfg *config.Config, repoURL string) (*config.GitHubApp, error) {
 	logger.FlowStep("match_app", map[string]interface{}{
-		"url": logger.SanitizeURL(repoURL),
+		credFieldURL: logger.SanitizeURL(repoURL),
 	})
 
 	m := matcher.NewMatcher(cfg.GitHubApps)
@@ -331,29 +350,29 @@ func findAppByURL(cfg *config.Config, repoURL string) (*config.GitHubApp, error)
 		// If URL doesn't have a path (e.g., just host), exit silently
 		if strings.Contains(err.Error(), "no path found") {
 			logger.FlowStep("no_path_exit", map[string]interface{}{
-				"url":   logger.SanitizeURL(repoURL),
-				"error": err.Error(),
+				credFieldURL: logger.SanitizeURL(repoURL),
+				"error":      err.Error(),
 			})
 			return nil, nil
 		}
 		// Other errors should be reported
 		logger.FlowError("match_app", err, map[string]interface{}{
-			"url": logger.SanitizeURL(repoURL),
+			credFieldURL: logger.SanitizeURL(repoURL),
 		})
 		return nil, err
 	}
 
 	if matchedApp == nil {
 		logger.FlowStep("no_match_exit", map[string]interface{}{
-			"url": logger.SanitizeURL(repoURL),
+			credFieldURL: logger.SanitizeURL(repoURL),
 		})
 		return nil, nil
 	}
 
 	logger.FlowStep("app_matched", map[string]interface{}{
-		"app_identifier": matchedApp.GetIdentifier(),
-		"app_name":       matchedApp.Name,
-		"patterns":       matchedApp.Patterns,
+		logFieldAppIdentifier: matchedApp.GetIdentifier(),
+		logFieldAppName:       matchedApp.Name,
+		"patterns":            matchedApp.Patterns,
 	})
 
 	return matchedApp, nil
@@ -362,7 +381,7 @@ func findAppByURL(cfg *config.Config, repoURL string) (*config.GitHubApp, error)
 // matchesPattern checks if a pattern matches the git credential pattern
 func matchesPattern(appPattern, gitCredPattern string) bool {
 	logger.FlowStep("match_by_pattern", map[string]interface{}{
-		"pattern":                    appPattern,
+		logFieldPattern:              appPattern,
 		"gitCredentialPattern":       gitCredPattern,
 		"pattern_len":                len(appPattern),
 		"gitCredentialPattern_len":   len(gitCredPattern),
@@ -419,12 +438,12 @@ func doAutomaticSetup(repoURL string) (*config.GitHubApp, error) {
 		}
 
 		logger.FlowStep("automatic_setup", map[string]interface{}{
-			"app_key":        keyFile,
-			"app_identifier": identifier,
-			"useFileSystem":  useFileSystem,
-			"keyFile":        keyFile,
-			"useKeyring":     useKeyring,
-			"patterns":       patterns,
+			"app_key":             keyFile,
+			logFieldAppIdentifier: identifier,
+			"useFileSystem":       useFileSystem,
+			"keyFile":             keyFile,
+			"useKeyring":          useKeyring,
+			"patterns":            patterns,
 		})
 		return setupGitHubApp(
 			cfg, appID, clientID, keyFile, "Auto setup", 0,
@@ -437,7 +456,7 @@ func doAutomaticSetup(repoURL string) (*config.GitHubApp, error) {
 // generateAndOutputPATCredentials generates PAT credentials and outputs them
 func generateAndOutputPATCredentials(matchedPAT *config.PersonalAccessToken) error {
 	logger.FlowStep("generate_pat_credentials", map[string]interface{}{
-		"pat_name": matchedPAT.Name,
+		logFieldPATName: matchedPAT.Name,
 	})
 
 	// Initialize secrets manager
@@ -452,15 +471,15 @@ func generateAndOutputPATCredentials(matchedPAT *config.PersonalAccessToken) err
 	token, err := matchedPAT.GetPAT(secretMgr)
 	if err != nil {
 		logger.FlowError("get_pat", err, map[string]interface{}{
-			"pat_name": matchedPAT.Name,
+			logFieldPATName: matchedPAT.Name,
 		})
 		return fmt.Errorf("failed to get PAT: %w", err)
 	}
 
 	logger.FlowStep("pat_retrieved", map[string]interface{}{
-		"pat_name":     matchedPAT.Name,
-		"token_hash":   logger.HashToken(token),
-		"token_length": len(token),
+		logFieldPATName:   matchedPAT.Name,
+		logFieldTokenHash: logger.HashToken(token),
+		"token_length":    len(token),
 	})
 
 	// Determine username for HTTP basic auth
@@ -475,9 +494,9 @@ func generateAndOutputPATCredentials(matchedPAT *config.PersonalAccessToken) err
 	fmt.Printf("password=%s\n", token)
 
 	logger.FlowStep("output_pat_credentials", map[string]interface{}{
-		"pat_name":   matchedPAT.Name,
-		"username":   username,
-		"token_hash": logger.HashToken(token),
+		logFieldPATName:   matchedPAT.Name,
+		credFieldUsername: username,
+		logFieldTokenHash: logger.HashToken(token),
 	})
 
 	return nil
@@ -486,23 +505,23 @@ func generateAndOutputPATCredentials(matchedPAT *config.PersonalAccessToken) err
 // generateAndOutputCredentials generates authentication credentials and outputs them
 func generateAndOutputCredentials(matchedApp *config.GitHubApp, repoURL string) error {
 	logger.FlowStep("generate_credentials", map[string]interface{}{
-		"app_identifier": matchedApp.GetIdentifier(),
+		logFieldAppIdentifier: matchedApp.GetIdentifier(),
 	})
 
 	authenticator := auth.NewAuthenticator()
 	token, username, err := authenticator.GetCredentials(matchedApp, repoURL)
 	if err != nil {
 		logger.FlowError("generate_credentials", err, map[string]interface{}{
-			"app_identifier": matchedApp.GetIdentifier(),
+			logFieldAppIdentifier: matchedApp.GetIdentifier(),
 		})
 		return fmt.Errorf("failed to get credentials: %w", err)
 	}
 
 	logger.FlowStep("credentials_generated", map[string]interface{}{
-		"app_identifier": matchedApp.GetIdentifier(),
-		"username":       username,
-		"token_hash":     logger.HashToken(token),
-		"token_length":   len(token),
+		logFieldAppIdentifier: matchedApp.GetIdentifier(),
+		credFieldUsername:     username,
+		logFieldTokenHash:     logger.HashToken(token),
+		"token_length":        len(token),
 	})
 
 	// Output credentials in git credential format
@@ -510,8 +529,8 @@ func generateAndOutputCredentials(matchedApp *config.GitHubApp, repoURL string) 
 	fmt.Printf("password=%s\n", token)
 
 	logger.FlowStep("output_credentials", map[string]interface{}{
-		"username":   username,
-		"token_hash": logger.HashToken(token),
+		credFieldUsername: username,
+		logFieldTokenHash: logger.HashToken(token),
 	})
 
 	return nil
@@ -530,16 +549,16 @@ func handleCredentialStore() error {
 
 	// Sanitize input for logging
 	sanitizedInput := logger.SanitizeConfig(map[string]interface{}{
-		"protocol": input["protocol"],
-		"host":     input["host"],
-		"path":     input["path"],
-		"username": input["username"],
+		credFieldProtocol: input[credFieldProtocol],
+		credFieldHost:     input[credFieldHost],
+		credFieldPath:     input[credFieldPath],
+		credFieldUsername: input[credFieldUsername],
 	})
 	logger.FlowStep("store_input_received", sanitizedInput)
 
 	// Nothing to store for GitHub App authentication
 	logger.FlowStep("store_noop", map[string]interface{}{
-		"reason": "dynamic token generation",
+		logFieldReason: "dynamic token generation",
 	})
 	return nil
 }
@@ -556,9 +575,9 @@ func handleCredentialErase() error {
 
 	// Sanitize input for logging
 	sanitizedInput := logger.SanitizeConfig(map[string]interface{}{
-		"protocol": input["protocol"],
-		"host":     input["host"],
-		"path":     input["path"],
+		credFieldProtocol: input[credFieldProtocol],
+		credFieldHost:     input[credFieldHost],
+		credFieldPath:     input[credFieldPath],
 	})
 	logger.FlowStep("erase_input_received", sanitizedInput)
 
@@ -572,14 +591,14 @@ func handleCredentialErase() error {
 	}
 
 	logger.FlowStep("erase_url_built", map[string]interface{}{
-		"url": logger.SanitizeURL(repoURL),
+		credFieldURL: logger.SanitizeURL(repoURL),
 	})
 
 	// Clear any cached tokens for this repository
 	// This is a placeholder - actual implementation would clear cache
 	logger.FlowStep("erase_cache_clear", map[string]interface{}{
-		"url":    logger.SanitizeURL(repoURL),
-		"status": "placeholder",
+		credFieldURL: logger.SanitizeURL(repoURL),
+		"status":     "placeholder",
 	})
 	return nil
 }
@@ -603,17 +622,17 @@ func readCredentialInput(reader io.Reader) (map[string]string, error) {
 
 		// Handle URL format: git can send "url=https://github.com/owner/repo"
 		// instead of separate protocol/host/path fields
-		if key == "url" {
+		if key == credFieldURL {
 			u, err := url.Parse(value)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse URL %q: %w", value, err)
 			}
-			input["protocol"] = u.Scheme
-			input["host"] = u.Host
-			input["path"] = strings.TrimPrefix(u.Path, "/")
+			input[credFieldProtocol] = u.Scheme
+			input[credFieldHost] = u.Host
+			input[credFieldPath] = strings.TrimPrefix(u.Path, "/")
 			if u.User != nil {
 				if username := u.User.Username(); username != "" {
-					input["username"] = username
+					input[credFieldUsername] = username
 				}
 				if password, ok := u.User.Password(); ok {
 					input["password"] = password
@@ -632,8 +651,8 @@ func readCredentialInput(reader io.Reader) (map[string]string, error) {
 }
 
 func buildRepositoryURL(input map[string]string) string {
-	host := input["host"]
-	path := input["path"]
+	host := input[credFieldHost]
+	path := input[credFieldPath]
 
 	if host == "" {
 		return ""

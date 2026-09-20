@@ -8,6 +8,14 @@ import (
 	"github.com/cli/go-gh/v2/pkg/api"
 )
 
+// GitHub REST API connection details shared by the scope lookups below.
+const (
+	githubAPIHost   = "api.github.com"
+	headerAuth      = "Authorization"
+	headerAccept    = "Accept"
+	githubAcceptVal = "application/vnd.github+json"
+)
+
 // Manager handles installation scope detection and caching
 type Manager struct {
 	clientFactory func(api.ClientOptions) (*api.RESTClient, error)
@@ -22,13 +30,15 @@ func NewManager() *Manager {
 
 // FetchScope retrieves and caches installation scope information
 func (m *Manager) FetchScope(app *config.GitHubApp, jwtToken string) error {
-	// Create API client with JWT
+	// AuthToken satisfies go-gh's construction-time auth resolution; the
+	// explicit Authorization header still wins on the wire (Bearer scheme).
 	client, err := m.clientFactory(api.ClientOptions{
+		AuthToken: jwtToken,
 		Headers: map[string]string{
-			"Authorization": "Bearer " + jwtToken,
-			"Accept":        "application/vnd.github+json",
+			headerAuth:   "Bearer " + jwtToken,
+			headerAccept: githubAcceptVal,
 		},
-		Host: "api.github.com",
+		Host: githubAPIHost,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
@@ -84,11 +94,12 @@ func (m *Manager) getRepositories(installationID int64, jwtToken string) ([]conf
 
 	// Create client with installation token
 	client, err := m.clientFactory(api.ClientOptions{
+		AuthToken: installToken,
 		Headers: map[string]string{
-			"Authorization": "token " + installToken,
-			"Accept":        "application/vnd.github+json",
+			headerAuth:   "token " + installToken,
+			headerAccept: githubAcceptVal,
 		},
-		Host: "api.github.com",
+		Host: githubAPIHost,
 	})
 	if err != nil {
 		return nil, err
@@ -129,11 +140,12 @@ func (m *Manager) getRepositories(installationID int64, jwtToken string) ([]conf
 // getInstallationToken exchanges JWT for installation access token
 func (m *Manager) getInstallationToken(jwtToken string, installationID int64) (string, error) {
 	client, err := m.clientFactory(api.ClientOptions{
+		AuthToken: jwtToken,
 		Headers: map[string]string{
-			"Authorization": "Bearer " + jwtToken,
-			"Accept":        "application/vnd.github+json",
+			headerAuth:   "Bearer " + jwtToken,
+			headerAccept: githubAcceptVal,
 		},
-		Host: "api.github.com",
+		Host: githubAPIHost,
 	})
 	if err != nil {
 		return "", err
