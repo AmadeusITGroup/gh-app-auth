@@ -10,6 +10,14 @@ import (
 	"time"
 )
 
+// Structured log field names and the generic label for classified secrets.
+const (
+	logFieldOperation = "operation"
+	logFieldFlow      = "flow"
+	logFieldMessage   = "message"
+	secretLabel       = "secret"
+)
+
 // DiagnosticLogger provides conditional logging for debugging git credential flows
 type DiagnosticLogger struct {
 	enabled          bool
@@ -37,12 +45,14 @@ func Initialize() {
 	}
 
 	// Ensure log directory exists
+	// #nosec G703 -- logPath is set by the user via env or a fixed default
 	if err := os.MkdirAll(filepath.Dir(logPath), 0700); err != nil {
 		// Fallback to temp directory
 		logPath = filepath.Join(os.TempDir(), "gh-app-auth-debug.log")
 	}
 
 	// Open log file for append
+	// #nosec G703 -- logPath is set by the user via env or a fixed default
 	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		// Disable logging if can't open file
@@ -112,8 +122,8 @@ func FlowStart(operation string, data map[string]interface{}) {
 	}
 
 	logData := map[string]interface{}{
-		"operation": operation,
-		"flow":      "START",
+		logFieldOperation: operation,
+		logFieldFlow:      "START",
 	}
 	for k, v := range data {
 		logData[k] = v
@@ -129,8 +139,8 @@ func FlowStep(step string, data map[string]interface{}) {
 	}
 
 	logData := map[string]interface{}{
-		"step": step,
-		"flow": "STEP",
+		"step":       step,
+		logFieldFlow: "STEP",
 	}
 	for k, v := range data {
 		logData[k] = v
@@ -146,8 +156,8 @@ func FlowSuccess(operation string, data map[string]interface{}) {
 	}
 
 	logData := map[string]interface{}{
-		"operation": operation,
-		"flow":      "SUCCESS",
+		logFieldOperation: operation,
+		logFieldFlow:      "SUCCESS",
 	}
 	for k, v := range data {
 		logData[k] = v
@@ -163,9 +173,9 @@ func FlowError(operation string, err error, data map[string]interface{}) {
 	}
 
 	logData := map[string]interface{}{
-		"operation": operation,
-		"flow":      "ERROR",
-		"error":     err.Error(),
+		logFieldOperation: operation,
+		logFieldFlow:      "ERROR",
+		"error":           err.Error(),
 	}
 	for k, v := range data {
 		logData[k] = v
@@ -196,7 +206,7 @@ var sensitiveKeyPatterns = []string{
 	"passwd",
 	"pwd",
 	"token",
-	"secret",
+	secretLabel,
 	"_key", // api_key, private_key, etc. (underscore prefix avoids matching "key" in "monkey")
 	"key_", // key_id, key_file, etc.
 	"credential",
@@ -312,7 +322,7 @@ func identifySecretType(value string) string {
 	case strings.Contains(value, "://") && strings.Contains(value, "@"):
 		return "url_with_creds"
 	default:
-		return "secret"
+		return secretLabel
 	}
 }
 
@@ -346,7 +356,7 @@ func SanitizeConfig(data map[string]interface{}) map[string]interface{} {
 
 	for key, value := range data {
 		switch strings.ToLower(key) {
-		case "token", "password", "secret", "key", "private_key":
+		case "token", "password", secretLabel, "key", "private_key":
 			if str, ok := value.(string); ok {
 				sanitized[key] = HashToken(str)
 			} else {
@@ -372,7 +382,7 @@ func Debug(message string, data map[string]interface{}) {
 	}
 
 	logData := map[string]interface{}{
-		"message": message,
+		logFieldMessage: message,
 	}
 	for k, v := range data {
 		logData[k] = v
@@ -388,7 +398,7 @@ func Info(message string, data map[string]interface{}) {
 	}
 
 	logData := map[string]interface{}{
-		"message": message,
+		logFieldMessage: message,
 	}
 	for k, v := range data {
 		logData[k] = v
@@ -404,8 +414,8 @@ func Error(message string, err error, data map[string]interface{}) {
 	}
 
 	logData := map[string]interface{}{
-		"message": message,
-		"error":   err.Error(),
+		logFieldMessage: message,
+		"error":         err.Error(),
 	}
 	for k, v := range data {
 		logData[k] = v

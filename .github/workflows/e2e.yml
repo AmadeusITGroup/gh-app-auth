@@ -1,0 +1,89 @@
+name: E2E Tests
+
+# Standalone CI workflow — runs the e2e suite against a coverage-instrumented
+# binary on every PR/push/dispatch, across all three desktop platforms.
+# Requires repository secrets E2E_APP_ID + E2E_PRIVATE_KEY_B64; when they are
+# absent the e2e job is skipped (see the secrets-check gate job).
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TEST_TIMEOUT: "15m"
+  # The test driver is pure Go; disabling cgo keeps `go test` working on
+  # minimal runners and matches the static release binaries.
+  CGO_ENABLED: "0"
+
+jobs:
+  # secrets is not a valid context in jobs.<id>.if, so a cheap gate job
+  # probes for the credentials and exposes the result as an output.
+  secrets-check:
+    name: Check E2E secrets
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        env:
+          APP_ID: ${{ secrets.E2E_APP_ID }}
+          KEY: ${{ secrets.E2E_PRIVATE_KEY_B64 }}
+        run: |
+          if [ -n "$APP_ID" ] && [ -n "$KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::E2E secrets not configured — e2e jobs will be skipped. See docs/E2E_INFRASTRUCTURE.md."
+          fi
+
+  e2e:
+    name: E2E / ${{ matrix.os }}
+    needs: secrets-check
+    if: needs.secrets-check.outputs.enabled == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run E2E suite with coverage instrumentation
+        shell: bash
+        env:
+          E2E_APP_ID: ${{ secrets.E2E_APP_ID }}
+          E2E_PRIVATE_KEY_B64: ${{ secrets.E2E_PRIVATE_KEY_B64 }}
+        run: ./scripts/e2e-coverage.sh
+
+      - name: Append coverage summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f e2e-coverage-summary.md ]; then
+            cat e2e-coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload coverage evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: e2e-coverage-${{ matrix.os }}
+          path: |
+            .e2e-covdata/
+            e2e-coverage.out
+            e2e-coverage-summary.md
+          if-no-files-found: ignore

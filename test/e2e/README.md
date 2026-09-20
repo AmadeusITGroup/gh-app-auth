@@ -239,41 +239,28 @@ func buildBinary(t *testing.T) string {
 ### Makefile Targets
 
 ```makefile
-# Run e2e tests (no credentials)
-test-e2e:
-    go test -v ./test/e2e/...
+# Run e2e tests against real GitHub App credentials (source build)
+make test-e2e
 
-# Run e2e tests with real API (requires credentials)
-test-e2e-real:
-    go test -v -tags=e2e ./test/e2e/...
+# Run e2e tests against a locally built binary
+make test-e2e-local
+
+# Run e2e tests against a coverage-instrumented binary;
+# emits e2e-coverage.out + e2e-coverage-summary.md
+make test-e2e-cover
 ```
+
+All three require `E2E_APP_ID` and `E2E_PRIVATE_KEY` / `E2E_PRIVATE_KEY_B64`
+(see `docs/E2E_INFRASTRUCTURE.md`).
 
 ### GitHub Actions
 
-```yaml
-name: E2E Tests
-
-on: [push, pull_request]
-
-jobs:
-  e2e-basic:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-      - run: make test-e2e
-
-  e2e-real-api:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-      - run: make test-e2e-real
-        env:
-          GITHUB_APP_ID: ${{ secrets.TEST_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.TEST_PRIVATE_KEY }}
-```
+`.github/workflows/e2e.yml` runs `make test-e2e-cover` on every PR, push to
+`main`, and manual dispatch — across `ubuntu-latest`, `macos-latest` and
+`windows-latest`. Each run appends the per-package coverage table to the
+workflow-run summary and uploads `e2e-coverage-<os>` artifacts (raw covdata +
+textfmt profile). Jobs are skipped automatically when `E2E_APP_ID` /
+`E2E_PRIVATE_KEY_B64` secrets are not configured.
 
 ## Troubleshooting
 
