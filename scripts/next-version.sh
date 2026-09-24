@@ -4,9 +4,7 @@
 # Reads (environment):
 #   INPUT_TAG      tag provided by a workflow_call caller (e.g. release-please)
 #   INPUT_VERSION  explicit version from workflow_dispatch (e.g. "v1.4.0")
-#   INPUT_BUMP     auto|patch|minor|major — used when INPUT_VERSION is empty
-#   EVENT_NAME     github.event_name
-#   REF_NAME       github.ref_name (the tag name on push: tags events)
+#   INPUT_BUMP     patch|minor|major — used when INPUT_VERSION is empty
 #
 # Writes to $GITHUB_OUTPUT:
 #   release_tag    resolved vX.Y.Z tag
@@ -14,9 +12,8 @@
 #
 # Resolution order:
 #   1. INPUT_TAG        (workflow_call — tag/release created by the caller)
-#   2. push: tags       (tag pushed by hand — REF_NAME is the tag)
-#   3. INPUT_VERSION    (dispatch with explicit version)
-#   4. INPUT_BUMP       (dispatch — computed from conventional commits)
+#   2. INPUT_VERSION    (dispatch with explicit version)
+#   3. INPUT_BUMP       (manual dispatch — explicitly selected semver bump)
 
 set -euo pipefail
 
@@ -32,46 +29,16 @@ version_gt() {
     [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "${1#v}" "${2#v}" | sort -V | head -n1)" = "${2#v}" ]
 }
 
-# detect_bump → prints major|minor|patch or nothing, based on conventional
-# commits in <latest-tag>..HEAD
-detect_bump() {
-    local range="HEAD"
-    [ -n "$latest" ] && range="$latest..HEAD"
-
-    local subjects bodies
-    subjects="$(git log "$range" --format=%s)"
-    bodies="$(git log "$range" --format=%B)"
-
-    if printf '%s' "$bodies" | grep -qE 'BREAKING[ -]CHANGE|^[a-zA-Z]+(\([^)]*\))?!:'; then
-        # bump-minor-pre-major (matches release-please-config.json): a breaking
-        # change on a 0.x project bumps minor, not major. An explicit
-        # 'bump=major' dispatch still forces 1.0.0.
-        if [[ "$latest" =~ ^v0\. ]]; then
-            echo "minor"
-        else
-            echo "major"
-        fi
-    elif printf '%s' "$subjects" | grep -qE '^feat(\(|:)'; then
-        echo "minor"
-    elif printf '%s' "$subjects" | grep -qE '^(fix|perf|revert|deps)(\(|:)'; then
-        echo "patch"
-    fi
-}
-
 # apply_bump LATEST BUMP → prints the next tag
 apply_bump() {
     local cur="$1" bump="$2"
-    if [ -z "$cur" ]; then
-        echo "v0.1.0"
-        return
-    fi
     local major minor patch
     IFS=. read -r major minor patch <<< "${cur#v}"
     case "$bump" in
         major) echo "v$((major + 1)).0.0" ;;
         minor) echo "v${major}.$((minor + 1)).0" ;;
         patch) echo "v${major}.${minor}.$((patch + 1))" ;;
-        *) die "unknown bump '$bump' (expected auto|patch|minor|major)" ;;
+        *) die "unknown bump '$bump' (expected patch|minor|major)" ;;
     esac
 }
 
@@ -82,11 +49,6 @@ if [ -n "${INPUT_TAG:-}" ]; then
     # The tag may not exist yet: draft releases don't materialize git tags.
     tag="$INPUT_TAG"
     [[ "$tag" =~ $SEMVER_RE ]] || die "invalid release_tag '$tag' (expected vX.Y.Z)"
-
-elif [ "${EVENT_NAME:-}" = "push" ]; then
-    # push: tags path — the tag exists by definition.
-    tag="${REF_NAME:?}"
-    [[ "$tag" =~ $SEMVER_RE ]] || die "invalid tag '$tag' (expected vX.Y.Z)"
 
 elif [ -n "${INPUT_VERSION:-}" ]; then
     # dispatch with explicit version — new and newer than the latest tag, OR an
@@ -101,13 +63,9 @@ elif [ -n "${INPUT_VERSION:-}" ]; then
     fi
 
 else
-    # dispatch with bump
-    bump="${INPUT_BUMP:-auto}"
-    if [ "$bump" = "auto" ]; then
-        bump="$(detect_bump)"
-        [ -n "$bump" ] || die "no releasable conventional commits since ${latest:-<beginning>} — pass an explicit version or bump"
-        echo "auto-detected bump: $bump (since ${latest:-<beginning>})"
-    fi
+    bump="${INPUT_BUMP:-}"
+    [ -n "$bump" ] || die "pass an explicit version or bump"
+    [ -n "$latest" ] || die "no prior release tag; pass an explicit version"
     tag="$(apply_bump "$latest" "$bump")"
     git rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1 && die "tag $tag already exists"
 fi

@@ -2,37 +2,36 @@
 
 How to publish a new version of `gh-app-auth`.
 
-The short version: **dispatch the `Release` workflow.** It resolves the version,
-stages the tag and creates a *draft* release, builds and attaches every asset, gates on
-the cross-platform E2E suite and SLSA attestation, then publishes the draft as
-latest. Nothing is publicly visible until the final publish step — the draft is
-the staging area, not a prerelease.
+The normal path is **merge the release-please PR**. That starts the `Release`
+workflow, which stages the tag and creates a *draft* release, builds and attaches
+every asset, gates on the cross-platform E2E suite and provenance, then publishes
+the draft as latest. Nothing is publicly visible until the final publish step —
+the draft is the staging area, not a prerelease.
 
 ## TL;DR
 
 ```bash
-# 1. Make sure main is green and CHANGELOG.md is updated
-git checkout main && git pull
+# Normal releases: review and merge the release-please PR.
 
-# 2. Dispatch the workflow (auto-detects the semver bump from conventional
-#    commits; pass an explicit version or bump to override)
-gh workflow run release.yml                    # bump=auto, ref=main
-gh workflow run release.yml -f bump=minor
-gh workflow run release.yml -f version=v1.2.3
-gh workflow run release.yml -f dry_run=true    # everything except publish
+# Manual override / pipeline validation: run explicitly against main and
+# provide either a version or an operator-selected bump.
+gh workflow run release.yml --ref main -f bump=minor
+gh workflow run release.yml --ref main -f version=v1.2.3
+gh workflow run release.yml --ref main -f version=v1.2.3 -f dry_run=true
 
-# 3. Watch the pipeline
+# Watch and verify
 gh run watch
-
-# 4. Verify
 gh release view v1.2.3
 ```
 
-Equivalent UI path: **Actions → Release → Run workflow**.
-
-Alternative trigger: push a `v*` tag by hand (`git tag v1.2.3 && git push origin
-v1.2.3`) — the same pipeline stages the draft on it. This is also the fallback if
-the tag already exists.
+Equivalent UI path: **Actions → Release → Run workflow**, selecting `main`.
+The workflow rejects dispatches whose selected ref is not `main`; there is no
+tag-push release trigger. Protect `main` with required review so the workflow
+and release source can only change through reviewed commits. Tags are staged
+and published only by the pipeline. The YAML guard prevents accidental
+wrong-ref runs; it is not a substitute for protecting workflow files. Require
+review for changes under `.github/workflows/` on `main` and limit manual release
+execution to trusted maintainers.
 
 ## Automated trigger (release-please)
 
@@ -47,11 +46,16 @@ merge release PR → release-please cuts tag + draft → workflow_call → relea
 - release-please creates the release as a **draft** (`"draft": true` in
   `release-please-config.json` — mandatory: a published release would lock its
   assets under immutable releases before the pipeline could attach them).
-- The handoff is an explicit `workflow_call`, not an event — tags created by
-  `GITHUB_TOKEN` never fire `push: tags`.
-- Version selection then comes entirely from conventional commits;
-  `.release-please-manifest.json` tracks the current version and `version.txt`
-  is bumped by the release PR.
+- The handoff is an explicit `workflow_call`, not a tag event; the release
+  workflow is only called from a run on `main`.
+- Release-please is authoritative for automatic version selection from
+  conventional commits. `.release-please-manifest.json` tracks its current
+  version and the release PR updates the generated changelog.
+- Manual dispatch is an explicit operator override: supply `version` or
+  `bump=patch|minor|major`. It does not independently interpret conventional
+  commits; after an emergency manual release, reconcile the manifest and
+  changelog through the release-please PR before the next normal release
+  (run `gh workflow run release-please.yml --ref main` to refresh it if needed).
 - While the project is `0.x`, `bump-minor-pre-major` keeps breaking changes on a
   minor bump rather than jumping to `1.0.0`.
 - **Post-merge regeneration quirk (observed on fork)**: immediately after a
@@ -65,6 +69,9 @@ merge release PR → release-please cuts tag + draft → workflow_call → relea
   release does not free its `tag_name` — the name is permanently bound and any
   later release reusing it fails at publish (`tag_name was used by an
   immutable release`). Never re-cut a released version; bump instead.
+- Configure a `v*` tag ruleset as defense in depth: block tag updates and
+  deletion, while allowing the release workflow to create the tag at publish.
+  This is repository configuration, not enforced by the workflow YAML.
 
 The manual dispatch above remains the override — same pipeline either way.
 
@@ -81,10 +88,10 @@ prepare → build → [e2e ∥ attest] → publish
 |-----|--------------|
 | `prepare` | Resolves the version (`scripts/next-version.sh`), stages the git tag (local ref — remote materializes at publish), creates or reuses the **draft** release |
 | `build` | Checks out the release commit and tags it locally, runs unit tests, `make release packages`, writes `checksums.txt`, uploads `dist/*` to the draft with `--clobber` |
-| `e2e` | Calls `e2e-release.yml` — the 10-job matrix validates the draft's real assets on Linux (deb/rpm, amd64+arm64), macOS (arm64+intel), Windows (amd64+arm64) |
-| `attest` | Calls `attest-release.yml` — generates SLSA build provenance for every asset digest, in an isolated reusable workflow |
+| `e2e` | Calls `e2e-release.yml`; one write-scoped staging job downloads the draft assets, then ten read-scoped jobs test per-platform Actions artifact copies of those exact bytes |
+| `attest` | Calls `attest-release.yml` — generates GitHub build provenance for every asset digest, in an isolated reusable workflow; provenance records origin/integrity, not artifact safety |
 | `publish` | `gh release edit --draft=false --latest`, then verifies the release and its attestation |
-| `report-failure` | On any failure, summarizes that the release stayed a draft and how to re-run |
+| `report-failure` | On failure, tells maintainers to check draft/published state before retrying |
 
 ## Why draft-first (and not prerelease)
 
@@ -108,40 +115,45 @@ Draft specifics that shaped the pipeline:
   `git describe --tags --exact-match` (which feeds `LDFLAGS` in the Makefile)
   resolves; `publish` materializes the remote tag at `target_commitish`.
 - **Downloading draft assets needs `contents: write`** — a read-only
-  `GITHUB_TOKEN` gets `release not found`. The e2e jobs carry `contents: write`
-  for this reason; they never mutate the release.
+  `GITHUB_TOKEN` gets `release not found`. One staging job downloads the assets
+  and uploads per-platform Actions artifacts; the ten E2E jobs use those exact
+  downloaded bytes with `contents: read`. Only the staging job has write access;
+  the test jobs still receive the dedicated E2E App credentials for the test
+  step, so those credentials must remain limited to the test organizations.
 
 ## Version resolution (`scripts/next-version.sh`)
 
 | Input | Behaviour |
 |-------|-----------|
 | `version` set | Validated as semver; must be newer than the latest `v*` tag and not already exist |
-| `bump=auto` | Scans conventional commits since the latest tag: `BREAKING CHANGE`/`!:` → major (**minor while `0.x`**, matching release-please's `bump-minor-pre-major`), `feat` → minor, `fix`/`perf`/`revert`/`deps` → patch; aborts if nothing releasable |
-| `bump=patch\|minor\|major` | Applied directly |
+| `bump=patch\|minor\|major` | Explicit operator selection, applied to the latest tag; requires a prior release tag |
+| no version or bump | Rejected — release-please owns automatic conventional-commit version selection |
 | `release_tag` (workflow_call) | Used as-is after validation — this is the release-please path |
 
 ## Failure and recovery
 
-- **Any gate fails** → the release stays a draft; nothing is public. Fix the
-  cause and re-dispatch with the same version — the pipeline is idempotent:
-  the existing draft is reused and uploads are `--clobber`ed.
+- **Failure before publish** → the release stays a draft; nothing is public.
+  Fix the cause and re-run with the same version and source commit — the draft
+  is reused and uploads are `--clobber`ed.
 - **Tag exists at the wrong commit** → `prepare` aborts rather than re-tag.
 - **Version already published** → `prepare` aborts; published releases are
   never touched.
-- **A bad release is already published** → immutable releases mean no
-  post-publish fixes; cut the next patch release. Drafts can be deleted freely.
+- **Failure after publish** → immutable release contents and tag cannot be
+  repaired or reused. Cut the next version (normally the next patch); do not
+  retry the published version. Drafts that have not been published can be
+  deleted and recreated.
 
 ## What the workflow does (build detail)
 
 | Step | Command | Purpose |
 |------|---------|---------|
-| Checkout | `actions/checkout` at the tag, `fetch-depth: 0` | Full history + the tag so `git describe --tags --exact-match` resolves the version |
+| Checkout | `actions/checkout` at the main event SHA, `fetch-depth: 0` | Trusted source commit plus history for version validation; build stages the release tag locally before compiling |
 | Set up Go | `actions/setup-go` with `go-version-file: go.mod` | Toolchain matches go.mod |
 | Test | `go test ./...` | Release gate — a failing test aborts the release |
 | Build | `make release packages` | Produces every asset in `dist/` |
 | Checksums | `sha256sum` of `dist/*` → `dist/checksums.txt` | Attestation manifest + manual verification |
 | Upload | `gh release upload "$TAG" dist/* --clobber` | Attaches **everything** in `dist/` (idempotent re-runs) |
-| Attest | `actions/attest-build-provenance` with `subject-checksums` | SLSA provenance in the repo attestation store |
+| Attest | `actions/attest-build-provenance` with `subject-checksums` | GitHub build provenance in the repository attestation store; origin/integrity evidence, not a safety verdict |
 | Promote | `gh release edit "$TAG" --draft=false --latest` | Makes the release installable |
 
 Two environment values drive the version:
@@ -209,22 +221,13 @@ Package contents (from `nfpm.yaml`):
 Note the differing version conventions: DEB uses `1.2.3`, RPM appends the release number as
 `1.2.3-1`.
 
-### Known gap: no armhf packages
-
-`make help` advertises `package-deb-arm` and `package-rpm-arm` (32-bit arm/armhf), and `packages`
-lists them as prerequisites. Neither target has a recipe — they exist only in the `.PHONY` list, so
-make treats them as satisfied and silently does nothing. **No armhf packages are produced**, and
-`make packages` still reports "All packages built successfully!". If armhf support is needed, add
-`linux-arm` to `BUILD_MATRIX` and write the two missing targets.
-
 ## Release checklist
 
-Before dispatching the workflow:
+Before merging the release-please PR (or running an explicit manual override):
 
 - [ ] `main` is green in CI (test matrix, lint, security, CodeQL)
 - [ ] `make quality` passes locally
-- [ ] `CHANGELOG.md` has a section for the new version (move items out of `[Unreleased]`, add the
-      compare link at the bottom)
+- [ ] Review the release-please PR's generated `CHANGELOG.md` section and edit release notes there if needed
 - [ ] Version number follows [Semantic Versioning](https://semver.org/) and matches the commit types
       since the last tag: breaking change → major (minor while `0.x`), `feat` → minor, `fix` → patch
 - [ ] Any breaking change or significant new feature has an [ADR](adr/README.md)
@@ -280,9 +283,9 @@ fetched on demand via `go run`, so no separate install is required.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `prepare` fails: "tag exists at a different commit" | The tag was already pushed/published at another commit | Pick a new version, or delete the stray tag deliberately |
+| `prepare` fails: "tag exists at a different commit" | The version is already bound to another source commit | Pick a new version; never move a published tag |
 | `prepare` fails: "already published" | That version was already released | Bump the version — published releases are never touched |
-| E2E fails mid-pipeline | Infra issue or real regression | Release stays a draft; fix and re-dispatch the same version |
+| E2E fails before publish | Infra issue or real regression | Release stays a draft; fix and re-run the same version from the same main commit |
 | Binaries report version `dev` | `git describe --tags --exact-match` found no tag on HEAD, or checkout lacked full history | Ensure the tag points at the released commit and `fetch-depth: 0` is set |
 | `envsubst: command not found` | Missing `gettext-base` | Install it (`gettext-base` on Debian/Ubuntu) |
 | `gh extension install` builds from source instead of downloading | Asset names do not match `<goos>-<goarch>` | Restore the `BUILD_MATRIX` naming |

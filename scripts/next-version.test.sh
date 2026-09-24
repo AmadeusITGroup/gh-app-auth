@@ -36,8 +36,7 @@ run_case() {
     local out
     out="$(cd "$REPO" && \
         INPUT_TAG="${INPUT_TAG:-}" INPUT_VERSION="${INPUT_VERSION:-}" \
-        INPUT_BUMP="${INPUT_BUMP:-}" EVENT_NAME="${EVENT_NAME:-}" \
-        REF_NAME="${REF_NAME:-}" GITHUB_OUTPUT="$WORKDIR/output" \
+        INPUT_BUMP="${INPUT_BUMP:-}" GITHUB_OUTPUT="$WORKDIR/output" \
         bash "$NEXT_VERSION" 2>&1)"
     RC=$?
     LAST_OUT="$out"
@@ -79,74 +78,32 @@ INPUT_VERSION=v1.0.1 run_case; check "tag at HEAD resumes (same commit)"        
 tag v1.0.2 HEAD~1     # tag at a different commit
 INPUT_VERSION=v1.0.2 run_case; check "tag at different commit rejected"         expect_fail
 
-# ── auto-bump detection ─────────────────────────────────────────────
-new_repo auto-minor
-tag v1.0.0
-commit "feat(auth): add thing"
-commit "docs: update readme"
-INPUT_BUMP=auto run_case; check "auto: feat → minor"                            expect_tag v1.1.0
-
-new_repo auto-patch
-tag v2.3.4
-commit "fix(cli): repair flag"
-INPUT_BUMP=auto run_case; check "auto: fix → patch"                             expect_tag v2.3.5
-
-new_repo auto-major
-tag v1.4.0
-commit "feat!: drop old flag"
-INPUT_BUMP=auto run_case; check "auto: feat! → major"                           expect_tag v2.0.0
-
-new_repo auto-major-body
-tag v1.4.0
-commit "refactor: reshape api
-
-BREAKING CHANGE: config format changed"
-INPUT_BUMP=auto run_case; check "auto: BREAKING CHANGE body → major"            expect_tag v2.0.0
-
-# bump-minor-pre-major: breaking on 0.x bumps minor, matching release-please
-new_repo auto-pre-major-bang
-tag v0.4.0
-commit "feat!: drop old flag"
-INPUT_BUMP=auto run_case; check "auto: feat! on 0.x → minor (pre-major)"        expect_tag v0.5.0
-
-new_repo auto-pre-major-body
-tag v0.4.0
-commit "refactor: reshape api
-
-BREAKING CHANGE: config format changed"
-INPUT_BUMP=auto run_case; check "auto: BREAKING on 0.x → minor (pre-major)"     expect_tag v0.5.0
-
-new_repo explicit-major-pre-1x
-tag v0.4.0
-commit "docs: only docs"
-INPUT_BUMP=major run_case; check "explicit major on 0.x still forces 1.0.0"     expect_tag v1.0.0
-
-new_repo auto-nothing
-tag v1.0.0
-commit "docs: tweak"
-commit "ci: adjust workflow"
-INPUT_BUMP=auto run_case; check "auto: nothing releasable → abort"              expect_fail
-
-new_repo auto-explicit-bump
+# ── explicit bump selection ─────────────────────────────────────────
+new_repo explicit-bump
 tag v3.1.4
-commit "docs: only docs"        # no releasable type — explicit bump must still work
+commit "docs: only docs"
 INPUT_BUMP=minor run_case; check "explicit minor applies"                       expect_tag v3.2.0
 INPUT_BUMP=major run_case; check "explicit major applies"                       expect_tag v4.0.0
 # shellcheck disable=SC2209  # INPUT_BUMP is an env prefix, not a substitution
 INPUT_BUMP=patch run_case; check "explicit patch applies"                       expect_tag v3.1.5
 
-# ── no prior tag ────────────────────────────────────────────────────
-new_repo no-tag
-INPUT_BUMP=auto  run_case; check "no tag + nothing releasable → abort"          expect_fail
-new_repo no-tag-feat
-commit "feat: first feature"
-INPUT_BUMP=auto run_case; check "no tag + feat → v0.1.0"                        expect_tag v0.1.0
+new_repo explicit-major-pre-1x
+tag v0.4.0
+INPUT_BUMP=major run_case; check "explicit major on 0.x forces 1.0.0"           expect_tag v1.0.0
 
-# ── push: tags path ─────────────────────────────────────────────────
-new_repo push-event
-tag v5.5.5
-EVENT_NAME=push REF_NAME=v5.5.5 run_case; check "push event uses REF_NAME"      expect_tag v5.5.5
-EVENT_NAME=push REF_NAME=bad-tag run_case; check "push event rejects non-semver" expect_fail
+new_repo auto-rejected
+tag v1.0.0
+INPUT_BUMP=auto run_case; check "automatic bump selection is rejected"          expect_fail
+
+# ── no prior tag ────────────────────────────────────────────────────
+new_repo no-tag-no-input
+run_case; check "no prior tag requires an explicit version"                     expect_fail
+
+new_repo no-tag-bump
+INPUT_BUMP=minor run_case; check "bump without a prior tag is rejected"         expect_fail
+
+new_repo no-tag-version
+INPUT_VERSION=v0.1.0 run_case; check "explicit version works without prior tag"  expect_tag v0.1.0
 
 # ── workflow_call path ──────────────────────────────────────────────
 new_repo call-input

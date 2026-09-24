@@ -1,8 +1,9 @@
 name: E2E Release Gate
 
 # Reusable workflow — called from release.yml after artifacts are attached to
-# the draft release. Runs the full E2E test suite against real release assets
-# across all supported platforms. Promotion is the caller's publish job.
+# the draft release. A write-scoped staging job downloads the assets; the
+# read-scoped matrix tests their per-platform artifact copies. Promotion remains
+# the caller's publish job.
 on:
   workflow_call:
     inputs:
@@ -25,27 +26,10 @@ on:
         required: true
       E2E_PRIVATE_KEY_B64:
         required: true
-  workflow_dispatch:
-    inputs:
-      release_tag:
-        description: "The release tag to test (e.g. v1.2.3)"
-        required: true
-        type: string
-      test_org_1:
-        description: "First test organization name"
-        required: false
-        type: string
-        default: "gh-app-auth-test-1"
-      test_org_2:
-        description: "Second test organization name"
-        required: false
-        type: string
-        default: "gh-app-auth-test-2"
-
-# contents: write is required to *download* draft-release assets — read-only
-# tokens cannot see drafts (verified). Jobs only read; they never mutate.
+# Draft assets are downloaded once by the staging job with contents: write.
+# The secret-bearing test matrix receives read-only repository permissions.
 permissions:
-  contents: write
+  contents: read
 
 env:
   TEST_TIMEOUT: "10m"
@@ -55,29 +39,126 @@ env:
   CGO_ENABLED: "0"
 
 jobs:
+  download-assets:
+    name: Stage release assets
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download assets from the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          mkdir -p release-assets
+          gh release download "$RELEASE_TAG" --repo "$REPOSITORY" --dir release-assets
+
+      - name: Upload Linux ARM64 binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: release-linux-arm64-binary
+          path: release-assets/linux-arm64
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Linux ARM64 RPM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: release-linux-arm64-rpm
+          path: release-assets/gh-app-auth_*_aarch64.rpm
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Linux ARM64 DEB
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: release-linux-arm64-deb
+          path: release-assets/gh-app-auth_*_arm64.deb
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Linux AMD64 binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: release-linux-amd64-binary
+          path: release-assets/linux-amd64
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Linux AMD64 RPM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: release-linux-amd64-rpm
+          path: release-assets/gh-app-auth_*_x86_64.rpm
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Linux AMD64 DEB
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: release-linux-amd64-deb
+          path: release-assets/gh-app-auth_*_amd64.deb
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload macOS ARM64 binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: release-darwin-arm64-binary
+          path: release-assets/darwin-arm64
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload macOS AMD64 binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: release-darwin-amd64-binary
+          path: release-assets/darwin-amd64
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Windows ARM64 binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: release-windows-arm64-binary
+          path: release-assets/windows-arm64.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Windows AMD64 binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: release-windows-amd64-binary
+          path: release-assets/windows-amd64.exe
+          if-no-files-found: error
+          retention-days: 1
+
   # ─────────────────────────────────────────────
   # Linux ARM64: test the linux-arm64 binary directly
   # ─────────────────────────────────────────────
   e2e-linux-arm64:
     name: E2E / Linux ARM64 Binary
+    needs: download-assets
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: Download linux-arm64 binary from draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download staged Linux ARM64 binary
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: release-linux-arm64-binary
+          path: ./e2e-artifact
+
+      - name: Prepare Linux ARM64 binary
         run: |
-          gh release download "${{ inputs.release_tag }}" \
-            --repo "${{ github.repository }}" \
-            --pattern "linux-arm64" \
-            --dir ./e2e-artifact
           mv ./e2e-artifact/linux-arm64 ./e2e-artifact/gh-app-auth
           chmod +x ./e2e-artifact/gh-app-auth
 
@@ -101,27 +182,21 @@ jobs:
   # ─────────────────────────────────────────────
   e2e-linux-rpm-arm64:
     name: E2E / Fedora ARM64 RPM
+    needs: download-assets
     runs-on: ubuntu-24.04-arm
     container:
       image: fedora:latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Install prerequisites
         run: dnf install -y git golang gh jq which
 
-      - name: Download RPM artifact from draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Strip 'v' prefix from version for package matching
-          VERSION="${{ inputs.release_tag }}"
-          PKG_VERSION="${VERSION#v}"
-          # Use wildcard for RPM_RELEASE to match any release number (e.g., -1, -2)
-          gh release download "${{ inputs.release_tag }}" \
-            --repo "${{ github.repository }}" \
-            --pattern "gh-app-auth_${PKG_VERSION}-*_aarch64.rpm" \
-            --dir ./e2e-artifact
+      - name: Download staged ARM64 RPM
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: release-linux-arm64-rpm
+          path: ./e2e-artifact
 
       - name: Install RPM package
         run: rpm -i ./e2e-artifact/*.rpm
@@ -147,28 +222,23 @@ jobs:
   # ─────────────────────────────────────────────
   e2e-linux-deb-arm64:
     name: E2E / Ubuntu ARM64 DEB
+    needs: download-assets
     runs-on: ubuntu-24.04-arm
     container:
       image: ubuntu:latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Install prerequisites
         run: |
           apt-get update
           apt-get install -y git golang-go gh jq curl
 
-      - name: Download DEB artifact from draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Strip 'v' prefix from version for package matching
-          VERSION="${{ inputs.release_tag }}"
-          PKG_VERSION="${VERSION#v}"
-          gh release download "${{ inputs.release_tag }}" \
-            --repo "${{ github.repository }}" \
-            --pattern "gh-app-auth_${PKG_VERSION}_arm64.deb" \
-            --dir ./e2e-artifact
+      - name: Download staged ARM64 DEB
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: release-linux-arm64-deb
+          path: ./e2e-artifact
 
       - name: Install DEB package
         run: |
@@ -195,24 +265,25 @@ jobs:
   # ─────────────────────────────────────────────
   e2e-linux:
     name: E2E / Linux AMD64 Binary
+    needs: download-assets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: Download linux-amd64 binary from draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download staged Linux AMD64 binary
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: release-linux-amd64-binary
+          path: ./e2e-artifact
+
+      - name: Prepare Linux AMD64 binary
         run: |
-          gh release download "${{ inputs.release_tag }}" \
-            --repo "${{ github.repository }}" \
-            --pattern "linux-amd64" \
-            --dir ./e2e-artifact
           mv ./e2e-artifact/linux-amd64 ./e2e-artifact/gh-app-auth
           chmod +x ./e2e-artifact/gh-app-auth
 
@@ -236,27 +307,21 @@ jobs:
   # ─────────────────────────────────────────────
   e2e-linux-rpm:
     name: E2E / Fedora AMD64 RPM
+    needs: download-assets
     runs-on: ubuntu-latest
     container:
       image: fedora:latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Install prerequisites
         run: dnf install -y git golang gh jq which
 
-      - name: Download RPM artifact from draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Strip 'v' prefix from version for package matching
-          VERSION="${{ inputs.release_tag }}"
-          PKG_VERSION="${VERSION#v}"
-          # Use wildcard for RPM_RELEASE to match any release number (e.g., -1, -2)
-          gh release download "${{ inputs.release_tag }}" \
-            --repo "${{ github.repository }}" \
-            --pattern "gh-app-auth_${PKG_VERSION}-*_x86_64.rpm" \
-            --dir ./e2e-artifact
+      - name: Download staged AMD64 RPM
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: release-linux-amd64-rpm
+          path: ./e2e-artifact
 
       - name: Install RPM package
         run: rpm -i ./e2e-artifact/*.rpm
@@ -282,28 +347,23 @@ jobs:
   # ─────────────────────────────────────────────
   e2e-linux-deb:
     name: E2E / Ubuntu AMD64 DEB
+    needs: download-assets
     runs-on: ubuntu-latest
     container:
       image: ubuntu:latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Install prerequisites
         run: |
           apt-get update
           apt-get install -y git golang-go gh jq curl
 
-      - name: Download DEB artifact from draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Strip 'v' prefix from version for package matching
-          VERSION="${{ inputs.release_tag }}"
-          PKG_VERSION="${VERSION#v}"
-          gh release download "${{ inputs.release_tag }}" \
-            --repo "${{ github.repository }}" \
-            --pattern "gh-app-auth_${PKG_VERSION}_amd64.deb" \
-            --dir ./e2e-artifact
+      - name: Download staged AMD64 DEB
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: release-linux-amd64-deb
+          path: ./e2e-artifact
 
       - name: Install DEB package
         run: |
@@ -330,24 +390,25 @@ jobs:
   # ─────────────────────────────────────────────
   e2e-macos-arm64:
     name: E2E / macOS ARM64 Binary
+    needs: download-assets
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: Download macOS ARM64 binary from draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download staged macOS ARM64 binary
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: release-darwin-arm64-binary
+          path: ./e2e-artifact
+
+      - name: Prepare macOS ARM64 binary
         run: |
-          gh release download "${{ inputs.release_tag }}" \
-            --repo "${{ github.repository }}" \
-            --pattern "darwin-arm64" \
-            --dir ./e2e-artifact
           mv ./e2e-artifact/darwin-arm64 ./e2e-artifact/gh-app-auth
           chmod +x ./e2e-artifact/gh-app-auth
 
@@ -370,24 +431,25 @@ jobs:
   # ─────────────────────────────────────────────
   e2e-macos:
     name: E2E / macOS AMD64 Binary
+    needs: download-assets
     runs-on: macos-15-intel
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: Download macOS AMD64 binary from draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download staged macOS AMD64 binary
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: release-darwin-amd64-binary
+          path: ./e2e-artifact
+
+      - name: Prepare macOS AMD64 binary
         run: |
-          gh release download "${{ inputs.release_tag }}" \
-            --repo "${{ github.repository }}" \
-            --pattern "darwin-amd64" \
-            --dir ./e2e-artifact
           mv ./e2e-artifact/darwin-amd64 ./e2e-artifact/gh-app-auth
           chmod +x ./e2e-artifact/gh-app-auth
 
@@ -410,25 +472,25 @@ jobs:
   # ─────────────────────────────────────────────
   e2e-windows-arm64:
     name: E2E / Windows ARM64 Binary
+    needs: download-assets
     runs-on: windows-11-arm
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: Download Windows ARM64 binary from draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release download "${{ inputs.release_tag }}" `
-            --repo "${{ github.repository }}" `
-            --pattern "windows-arm64.exe" `
-            --dir ./e2e-artifact
-          Move-Item -Path "./e2e-artifact/windows-arm64.exe" -Destination "./e2e-artifact/gh-app-auth.exe"
+      - name: Download staged Windows ARM64 binary
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: release-windows-arm64-binary
+          path: ./e2e-artifact
+
+      - name: Prepare Windows ARM64 binary
+        run: Move-Item -Path "./e2e-artifact/windows-arm64.exe" -Destination "./e2e-artifact/gh-app-auth.exe"
 
       - name: Verify binary
         run: .\e2e-artifact\gh-app-auth.exe --version
@@ -448,25 +510,25 @@ jobs:
   # ─────────────────────────────────────────────
   e2e-windows:
     name: E2E / Windows AMD64 Binary
+    needs: download-assets
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: Download Windows binary from draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release download "${{ inputs.release_tag }}" `
-            --repo "${{ github.repository }}" `
-            --pattern "windows-amd64.exe" `
-            --dir ./e2e-artifact
-          Move-Item -Path "./e2e-artifact/windows-amd64.exe" -Destination "./e2e-artifact/gh-app-auth.exe"
+      - name: Download staged Windows AMD64 binary
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: release-windows-amd64-binary
+          path: ./e2e-artifact
+
+      - name: Prepare Windows AMD64 binary
+        run: Move-Item -Path "./e2e-artifact/windows-amd64.exe" -Destination "./e2e-artifact/gh-app-auth.exe"
 
       - name: Verify binary
         run: .\e2e-artifact\gh-app-auth.exe --version

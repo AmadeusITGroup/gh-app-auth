@@ -414,11 +414,12 @@ test(auth): add integration tests for token refresh
 
 ### Releasing a Version
 
-Releases are dispatched via `gh workflow run release.yml` (`bump=auto` resolves the semver bump from
-conventional commits; `version=vX.Y.Z` overrides). The pipeline stages the tag and creates a **draft**
-release, builds and attaches all assets, gates on the cross-platform E2E suite and SLSA attestation,
-then publishes the draft as latest. Never publish a release directly — only the pipeline produces a
-complete release, and draft is the only mutable state under immutable releases. See
+Normal releases come from merging the release-please PR on `main`; release-please owns automatic
+version selection from conventional commits. The manual `release.yml` override is main-only and
+requires an explicit `version` or operator-selected `bump=patch|minor|major`. The pipeline stages the
+tag and creates a **draft** release, builds and attaches all assets, gates on the cross-platform E2E
+suite and build provenance, then publishes the draft as latest. Never publish a release directly —
+once published, an immutable release cannot be repaired or reused; cut the next version. See
 [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
 
 ### Fixing a Bug

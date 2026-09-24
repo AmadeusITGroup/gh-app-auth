@@ -1,13 +1,15 @@
 name: Attest Release Artifacts
 
-# Reusable workflow — the SLSA Build L3 attestation boundary.
+# Reusable workflow — isolated build-provenance attestation.
 #
-# The caller (release.yml) passes artifact digests, not files: the attestation
-# job never runs build code and never touches the build environment, so the
-# build cannot influence the identity being attested. Attestations are signed
-# keylessly via Sigstore (OIDC → Fulcio → Rekor) and stored in the repository's
-# attestation store — they are not release assets and are unaffected by
-# release immutability.
+# The caller (release.yml) passes the checksum manifest generated from release
+# assets. This job separates signing from the build environment and never
+# downloads or executes those assets. The build still controls the binaries and
+# their digests, so provenance binds artifacts to a workflow execution; it does
+# not establish that they are safe. E2E is an independent quality gate.
+# Attestations are signed keylessly via Sigstore (OIDC → Fulcio → Rekor) and
+# stored in the repository's attestation store — they are not release assets
+# and are unaffected by release immutability.
 #
 # Permissions are deliberately minimal and there are NO secrets inputs:
 # the attestation boundary only needs the implicit GITHUB_TOKEN.
@@ -29,6 +31,7 @@ permissions: {}
 jobs:
   attest:
     name: Generate build provenance
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

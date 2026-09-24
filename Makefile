@@ -44,10 +44,9 @@ help:
 	@echo "Packaging targets:"
 	@echo "  package-deb          Build DEB package for amd64"
 	@echo "  package-deb-arm64    Build DEB package for arm64 (requires 'make release')"
-	@echo "  package-deb-arm      Build DEB package for arm/armhf (requires 'make release')"
 	@echo "  package-rpm          Build RPM package for amd64"
 	@echo "  package-rpm-arm64    Build RPM package for arm64 (requires 'make release')"
-	@echo "  packages             Build all packages (deb/rpm for all architectures)"
+	@echo "  packages             Build DEB/RPM packages for amd64 and arm64"
 	@echo "  packages-local       Build packages for local architecture only"
 	@echo "  validate-packages    Verify binary/package architectures match targets"
 	@echo ""
@@ -71,18 +70,25 @@ GOLANGCI_LINT_VERSION := v2.13.2
 MARKDOWNLINT_CLI2_VERSION := 0.20.0
 YAMLLINT_VERSION := 1.38.0
 ACTIONLINT_VERSION := 1.7.11
+GOIMPORTS_VERSION := v0.50.0
+STATICCHECK_VERSION := v0.8.1
+GOCYCLO_VERSION := v0.6.0
+INEFFASSIGN_VERSION := v0.2.0
+MISSPELL_VERSION := v0.3.4
+GOSEC_VERSION := v2.29.0
+GOVULNCHECK_VERSION := v1.8.0
 TOOLCHAIN_VERSION := $(shell awk '/^toolchain / {print $$2}' go.mod)
 export GOTOOLCHAIN ?= $(if $(TOOLCHAIN_VERSION),$(TOOLCHAIN_VERSION),auto)
 
 # Go tool commands
 GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
-GOIMPORTS := go run golang.org/x/tools/cmd/goimports@latest
-STATICCHECK := go run honnef.co/go/tools/cmd/staticcheck@latest
-GOCYCLO := go run github.com/fzipp/gocyclo/cmd/gocyclo@latest
-INEFFASSIGN := go run github.com/gordonklaus/ineffassign@latest
-MISSPELL := go run github.com/client9/misspell/cmd/misspell@latest
-GOSEC := go run github.com/securego/gosec/v2/cmd/gosec@latest
-GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@latest
+GOIMPORTS := go run golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
+STATICCHECK := go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
+GOCYCLO := go run github.com/fzipp/gocyclo/cmd/gocyclo@$(GOCYCLO_VERSION)
+INEFFASSIGN := go run github.com/gordonklaus/ineffassign@$(INEFFASSIGN_VERSION)
+MISSPELL := go run github.com/client9/misspell/cmd/misspell@$(MISSPELL_VERSION)
+GOSEC := go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION)
+GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 # Pinned: @latest floats and can silently outrun the go.mod toolchain (v2.47.0
 # requires go >= 1.26.4). Keep this in sync with the go directive in go.mod.
 NFPM_CMD := go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.47.0
@@ -394,7 +400,7 @@ quality: validate-lint-tools fmt lint-all test-coverage-check security-scan
 	@echo "Quality check complete!"
 
 # Packaging targets
-.PHONY: package-deb package-deb-arm64 package-deb-arm package-rpm package-rpm-arm64 package-rpm-arm packages packages-local validate-packages
+.PHONY: package-deb package-deb-arm64 package-rpm package-rpm-arm64 packages packages-local validate-packages
 
 # Build DEB package for amd64
 package-deb:
@@ -460,7 +466,7 @@ package-rpm-arm64: release
 
 
 # Build all packages (requires release binaries)
-packages: dev-setup release package-deb package-rpm package-deb-arm64 package-rpm-arm64 package-deb-arm package-rpm-arm
+packages: dev-setup release package-deb package-rpm package-deb-arm64 package-rpm-arm64
 	@echo ""
 	@echo "=========================================="
 	@echo "  All packages built successfully!"

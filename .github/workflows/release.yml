@@ -2,24 +2,20 @@ name: Release
 
 # Draft-first gated release pipeline.
 #
-# Lifecycle: tag + draft release → build & attach assets → E2E gate →
-# SLSA attestation → publish (draft → latest). Nothing is publicly visible
+# Lifecycle: local tag staging + draft release → build & attach assets → E2E gate →
+# build provenance → publish (draft → latest). Nothing is publicly visible
 # until the final publish step, which keeps the pipeline compatible with
 # GitHub immutable releases (assets and tags lock at publish; drafts remain
 # fully mutable — verified on fork, see docs/RELEASE_PROCESS.md).
 #
 # Triggers:
-#   workflow_dispatch  "release now" — resolves the version from an explicit
-#                      input or conventional-commit bump, stages tag + creates draft.
-#   push: tags         a v* tag pushed by hand — the pipeline stages the draft
-#                      on it and gates as usual.
+#   workflow_dispatch  manual release from main with an explicit version or bump.
 #   workflow_call      chained from release-please.yml after a release PR
 #                      merges (release-please creates the draft; we fill it).
+#
+# Both paths use the workflow definition and source commit from main.
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -27,20 +23,9 @@ on:
         required: false
         type: string
       bump:
-        description: "Semver bump applied when 'version' is empty"
-        required: false
-        type: choice
-        options:
-          - auto
-          - patch
-          - minor
-          - major
-        default: auto
-      ref:
-        description: "Commit-ish to release from (default: the ref this run was dispatched on)"
+        description: "Explicit semver bump (patch, minor, or major) when 'version' is empty"
         required: false
         type: string
-        default: ""
       dry_run:
         description: "Build + E2E + attest but leave the release as draft"
         required: false
@@ -74,6 +59,7 @@ jobs:
   # ─────────────────────────────────────────────────────────
   prepare:
     name: Prepare (version, tag, draft)
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -83,8 +69,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
-          ref: ${{ inputs.ref || github.ref }}
-          fetch-depth: 0  # tags + history needed for semver resolution
+          ref: ${{ github.sha }}
+          fetch-depth: 0  # tags + history needed for version validation
 
       - name: Resolve / validate release tag
         id: resolve
@@ -92,8 +78,6 @@ jobs:
           INPUT_TAG: ${{ inputs.release_tag }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_BUMP: ${{ inputs.bump }}
-          EVENT_NAME: ${{ github.event_name }}
-          REF_NAME: ${{ github.ref_name }}
         run: ./scripts/next-version.sh
 
       - name: Ensure tag exists
@@ -113,7 +97,7 @@ jobs:
               echo "::error::tag $TAG exists at $EXISTING, expected $REF"
               exit 1
             }
-            echo "tag $TAG already exists at $REF (manual-tag trigger)"
+            echo "tag $TAG already exists at $REF"
           else
             git tag "$TAG" "$REF"
             echo "staged tag $TAG at $REF — publish materializes the remote ref"
@@ -205,8 +189,7 @@ jobs:
     name: E2E Gate
     needs: [prepare, build]
     permissions:
-      # The called workflow's own permission grants can never exceed what the
-      # caller grants here. contents: write is needed to download draft assets.
+      # The called workflow's asset-staging job needs write permission to download draft assets.
       contents: write
     uses: ./.github/workflows/e2e-release.yml
     with:
@@ -218,11 +201,11 @@ jobs:
       E2E_PRIVATE_KEY_B64: ${{ secrets.E2E_PRIVATE_KEY_B64 }}
 
   # ─────────────────────────────────────────────────────────
-  # SLSA build provenance over content digests (isolated workflow).
+  # Build provenance over content digests (isolated workflow).
   # Runs in parallel with E2E — digests don't depend on test outcomes.
   # ─────────────────────────────────────────────────────────
   attest:
-    name: Attest (SLSA provenance)
+    name: Attest (build provenance)
     needs: [prepare, build]
     permissions:
       contents: read
@@ -272,7 +255,7 @@ jobs:
           gh attestation verify /tmp/verify/linux-amd64 --owner "${{ github.repository_owner }}"
 
   # ─────────────────────────────────────────────────────────
-  # Failure reporting: the release stays a draft; explain how to resume.
+  # Failure reporting: explain how to check release state and recover safely.
   # ─────────────────────────────────────────────────────────
   report-failure:
     name: Report failure
@@ -286,11 +269,11 @@ jobs:
           TAG: ${{ needs.prepare.outputs.release_tag }}
         run: |
           {
-            echo "## ❌ Release pipeline failed"
+            echo "## Release pipeline failed"
             echo ""
-            echo "Release **${TAG:-unknown}** remains a draft — nothing is public."
+            echo "Release **${TAG:-unknown}** did not complete. Check its state before retrying."
             echo ""
-            echo "Fix the cause, then re-run the workflow with the same version."
-            echo "The pipeline is idempotent: the draft is reused and uploads are"
-            echo "clobbered on retry."
+            echo "- If it is still a draft, fix the cause and re-run the same version"
+            echo "  from the same main commit; uploads are clobbered."
+            echo "- If it is published, do not retry that version; cut the next version."
           } >> "$GITHUB_STEP_SUMMARY"

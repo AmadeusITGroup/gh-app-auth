@@ -2,8 +2,7 @@ name: Release Please
 
 # Maintains a release PR on main from conventional commits. Merging that PR
 # makes release-please cut a tag + DRAFT release, then the `release` job below
-# hands the tag to release.yml via workflow_call — the chain must be explicit
-# because GITHUB_TOKEN-created tags never fire `push: tags`.
+# hands the tag to release.yml via workflow_call; release execution stays on main.
 #
 # `draft: true` in release-please-config.json is mandatory: a published release
 # locks its assets under immutable releases, closing the staging window our
@@ -11,13 +10,14 @@ name: Release Please
 on:
   push:
     branches: [main]
-  workflow_dispatch: {}  # manual "maintain the release PR now"
+  workflow_dispatch: {}  # manual refresh, main only
 
 permissions: {}  # deny-all by default; jobs declare their own
 
 jobs:
   release-please:
     name: Maintain release PR / cut draft
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write  # create tag + draft release, read history
