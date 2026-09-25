@@ -136,6 +136,8 @@ Draft specifics that shaped the pipeline:
   Fix the cause and re-run with the same version and source commit — the draft
   is reused and uploads are `--clobber`ed.
 - **Tag exists at the wrong commit** → `prepare` aborts rather than re-tag.
+- **Existing draft targets another commit** → `prepare` aborts before building;
+  do not mix artifacts from a new commit into an older draft. Cut a new version.
 - **Version already published** → `prepare` aborts; published releases are
   never touched.
 - **Failure after publish** → immutable release contents and tag cannot be
@@ -171,7 +173,8 @@ back to the string `dev` and the binaries report `dev` from `--version`.
 ## Assets built during the release
 
 `make release packages` writes everything into `dist/`, and the upload step attaches the whole
-directory. For version `1.2.3` you should see 10 assets: 6 binaries and 4 Linux packages.
+directory. For version `1.2.3` you should see 11 assets: 6 binaries, 4 Linux packages, and
+`checksums.txt`.
 
 ### Cross-platform binaries (`make release`)
 

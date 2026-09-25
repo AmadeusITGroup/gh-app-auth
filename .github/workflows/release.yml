@@ -110,8 +110,26 @@ jobs:
           REF: ${{ steps.resolve.outputs.ref_sha }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release view "$TAG" --json isDraft --jq '.isDraft' | grep -q true || {
+            RELEASE_STATE=$(gh release view "$TAG" --json isDraft,targetCommitish \
+              --jq '"\(.isDraft) \(.targetCommitish)"')
+            read -r IS_DRAFT TARGET <<< "$RELEASE_STATE"
+            [ "$IS_DRAFT" = true ] || {
               echo "::error::$TAG already published — refusing to touch it"
+              exit 1
+            }
+            if [ -z "$TARGET" ] || [ "$TARGET" = "null" ]; then
+              echo "::error::draft $TAG has no target commit"
+              exit 1
+            fi
+            TARGET_REF="${TARGET#refs/heads/}"
+            TARGET_SHA=$(git rev-parse -q --verify --end-of-options \
+              "refs/remotes/origin/${TARGET_REF}^{commit}" 2>/dev/null ||
+              git rev-parse -q --verify --end-of-options "${TARGET}^{commit}" 2>/dev/null) || {
+              echo "::error::draft $TAG target $TARGET could not be resolved"
+              exit 1
+            }
+            [ "$TARGET_SHA" = "$REF" ] || {
+              echo "::error::draft $TAG targets $TARGET_SHA ($TARGET), expected $REF"
               exit 1
             }
             echo "reusing existing draft $TAG"
