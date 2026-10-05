@@ -414,9 +414,13 @@ test(auth): add integration tests for token refresh
 
 ### Releasing a Version
 
-Releases are triggered by creating a GitHub **pre-release** on a `vX.Y.Z` tag; the workflow builds
-and uploads all assets, then promotes the release to latest. Never create a final release directly —
-it would ship with no assets. See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
+Normal releases come from merging the release-please PR on `main`; release-please owns automatic
+version selection from conventional commits. The manual `release.yml` override is main-only and
+requires an explicit `version` or operator-selected `bump=patch|minor|major`. The pipeline stages the
+tag and creates a **draft** release, builds and attaches all assets, gates on the cross-platform E2E
+suite and build provenance, then publishes the draft as latest. Never publish a release directly —
+once published, an immutable release cannot be repaired or reused; cut the next version. See
+[docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
 
 ### Fixing a Bug
 

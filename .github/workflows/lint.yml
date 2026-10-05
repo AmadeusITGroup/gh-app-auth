@@ -58,6 +58,7 @@ jobs:
           globs: |
             **/*.md
             !node_modules/**
+            !CHANGELOG.md
 
   yaml:
     name: YAML Lint

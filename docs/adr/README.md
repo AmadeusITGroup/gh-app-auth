@@ -120,6 +120,7 @@ interface, the file layout:
 |-----|-------|------|--------|
 | [0001](0001-jwt-clock-skew-margin.md) | Leave Margin on GitHub App JWT Timestamp Claims | 2026-08-05 | Accepted |
 | [0002](0002-explicit-github-app-token-output.md) | Explicit GitHub App Token Output | 2026-08-20 | Proposed |
+| [0003](0003-draft-first-gated-release-pipeline.md) | Draft-First Gated Release Pipeline | 2026-09-15 | Proposed |
 
 Add a row here whenever you add an ADR.
 

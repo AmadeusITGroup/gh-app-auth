@@ -1,6 +1,6 @@
 # gh-app-auth Makefile
 
-.PHONY: help build test lint clean install dev-setup security-scan release deps vet gocyclo staticcheck ineffassign misspell test-coverage-check markdownlint yamllint actionlint cli-smoke-test package-deb package-rpm packages
+.PHONY: help build test lint clean install dev-setup security-scan security-gosec security-vulncheck release deps vet gocyclo staticcheck ineffassign misspell test-coverage-check markdownlint yamllint actionlint cli-smoke-test package-deb package-rpm packages test-e2e test-e2e-local test-e2e-cover
 
 # Default target
 help:
@@ -28,28 +28,33 @@ help:
 	@echo "  uninstall          Uninstall extension from GitHub CLI"
 	@echo "  dev-setup          Set up development environment (config only)"
 	@echo "  validate-tools     Validate core tools are installed"
-	@echo "  validate-lint-tools Validate linting tools can run"
+	@echo "  validate-lint-tools Validate linting tools are installed"
 	@echo "  security-scan      Run security scans (gosec, govulncheck)"
+	@echo "  security-gosec     Run gosec checks via golangci-lint policy"
+	@echo "  security-vulncheck Run govulncheck vulnerability scan"
 	@echo "  deps               Download and verify dependencies"
 	@echo "  dev                Quick development cycle (fmt + lint + test + build)"
 	@echo "  ci                 CI pipeline simulation (mirrors GitHub CI)"
 	@echo "  quality            Full quality check (all linters + tests + security)"
 	@echo "  release            Build release binaries for all platforms"
+	@echo "  test-e2e           Run E2E tests (requires test infra + secrets)"
+	@echo "  test-e2e-local     Run E2E tests with locally built binary"
+	@echo "  test-e2e-cover     Run E2E tests with coverage instrumentation"
 	@echo ""
 	@echo "Packaging targets:"
 	@echo "  package-deb          Build DEB package for amd64"
 	@echo "  package-deb-arm64    Build DEB package for arm64 (requires 'make release')"
-	@echo "  package-deb-arm      Build DEB package for arm/armhf (requires 'make release')"
 	@echo "  package-rpm          Build RPM package for amd64"
 	@echo "  package-rpm-arm64    Build RPM package for arm64 (requires 'make release')"
-	@echo "  packages             Build all packages (deb/rpm for all architectures)"
+	@echo "  packages             Build DEB/RPM packages for amd64 and arm64"
 	@echo "  packages-local       Build packages for local architecture only"
 	@echo "  validate-packages    Verify binary/package architectures match targets"
 	@echo ""
 	@echo "Presentation targets:"
+	@echo "  presentation-setup Install presentation tools (mermaid-cli, mermaid-filter)"
 	@echo "  presentation       Build both HTML and PDF presentations"
 	@echo "  presentation-html  Build interactive HTML presentation"
-	@echo "  presentation-pdf   Build PDF presentation"
+	@echo "  presentation-pdf   Build PDF presentation (requires presentation-setup)"
 	@echo "  presentation-serve Serve presentation locally on :8000"
 	@echo "  presentation-clean Clean presentation build artifacts"
 
@@ -61,18 +66,33 @@ RPM_RELEASE ?= 1
 COMMIT := $(shell git rev-parse --short HEAD)
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.Commit=$(COMMIT) -X main.BuildTime=$(BUILD_TIME)"
+GOLANGCI_LINT_VERSION := v2.13.2
+MARKDOWNLINT_CLI2_VERSION := 0.20.0
+YAMLLINT_VERSION := 1.38.0
+ACTIONLINT_VERSION := 1.7.11
+GOIMPORTS_VERSION := v0.50.0
+STATICCHECK_VERSION := v0.8.1
+GOCYCLO_VERSION := v0.6.0
+INEFFASSIGN_VERSION := v0.2.0
+MISSPELL_VERSION := v0.3.4
+GOSEC_VERSION := v2.29.0
+GOVULNCHECK_VERSION := v1.8.0
+TOOLCHAIN_VERSION := $(shell awk '/^toolchain / {print $$2}' go.mod)
+export GOTOOLCHAIN ?= $(if $(TOOLCHAIN_VERSION),$(TOOLCHAIN_VERSION),auto)
 
 # Go tool commands
-GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
-GOIMPORTS := go run golang.org/x/tools/cmd/goimports@latest
-STATICCHECK := go run honnef.co/go/tools/cmd/staticcheck@latest
-GOCYCLO := go run github.com/fzipp/gocyclo/cmd/gocyclo@latest
-INEFFASSIGN := go run github.com/gordonklaus/ineffassign@latest
-MISSPELL := go run github.com/client9/misspell/cmd/misspell@latest
-GOSEC := go run github.com/securego/gosec/v2/cmd/gosec@latest
-GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@latest
-ACTIONLINT := go run github.com/rhysd/actionlint/cmd/actionlint@latest
-NFPM_CMD := go run github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+GOIMPORTS := go run golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
+STATICCHECK := go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
+GOCYCLO := go run github.com/fzipp/gocyclo/cmd/gocyclo@$(GOCYCLO_VERSION)
+INEFFASSIGN := go run github.com/gordonklaus/ineffassign@$(INEFFASSIGN_VERSION)
+MISSPELL := go run github.com/client9/misspell/cmd/misspell@$(MISSPELL_VERSION)
+GOSEC := go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION)
+GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
+# Pinned: @latest floats and can silently outrun the go.mod toolchain (v2.47.0
+# requires go >= 1.26.4). Keep this in sync with the go directive in go.mod.
+NFPM_CMD := go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.47.0
+ACTIONLINT := go run github.com/rhysd/actionlint/cmd/actionlint@v$(ACTIONLINT_VERSION)
 
 # Build the extension
 build:
@@ -100,10 +120,10 @@ test-cover:
 COVERAGE_THRESHOLD ?= 50.0
 test-coverage-check:
 	@echo "Checking coverage threshold (minimum: $(COVERAGE_THRESHOLD)%)..."
-	@go test -race -coverprofile=coverage.out -covermode=atomic ./... > /dev/null 2>&1 || true
+	@go test -race -coverprofile=coverage.out -covermode=atomic ./... > /dev/null
 	@COVERAGE=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
 	echo "Current coverage: $$COVERAGE%"; \
-	if [ "$$(echo "$$COVERAGE < $(COVERAGE_THRESHOLD)" | bc -l)" -eq 1 ]; then \
+	if awk "BEGIN {exit !($$COVERAGE < $(COVERAGE_THRESHOLD))}"; then \
 		echo "❌ Coverage $$COVERAGE% is below threshold $(COVERAGE_THRESHOLD)%"; \
 		echo ""; \
 		echo "Package breakdown:"; \
@@ -135,10 +155,11 @@ test-e2e-cover:
 	@echo "Running E2E tests with coverage instrumentation..."
 	./scripts/e2e-coverage.sh
 
-# Lint code with golangci-lint
+# Lint code with golangci-lint (comprehensive)
 lint:
 	@echo "Running golangci-lint..."
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) config verify
+	$(GOLANGCI_LINT) run --timeout=5m
 
 # Run go vet
 vet:
@@ -168,19 +189,23 @@ misspell:
 # Run markdownlint (requires npx/node)
 markdownlint:
 	@echo "Running markdownlint..."
-	@command -v npx >/dev/null 2>&1 || { echo "⚠️  npx not found, skipping markdownlint"; exit 0; }
-	npx markdownlint-cli2 "**/*.md" "!node_modules/**" || echo "⚠️  Markdown lint issues found"
+	@command -v npx >/dev/null 2>&1 || { echo "❌ npx not found. Install Node.js to run markdownlint"; exit 1; }
+	npx --yes markdownlint-cli2@$(MARKDOWNLINT_CLI2_VERSION) "**/*.md" "!node_modules/**" "!.tmp/**" "!CHANGELOG.md"
 
 # Run yamllint (requires pip install yamllint)
 yamllint:
 	@echo "Running yamllint..."
-	@command -v yamllint >/dev/null 2>&1 || { echo "⚠️  yamllint not found, skipping (install: pip install yamllint)"; exit 0; }
-	yamllint -d relaxed . || echo "⚠️  YAML lint issues found"
+	@if command -v yamllint >/dev/null 2>&1; then \
+		yamllint .; \
+	else \
+		echo "❌ yamllint not found. Install yamllint"; \
+		exit 1; \
+	fi
 
-# Run actionlint on GitHub workflow files
+# Run actionlint on GitHub workflow files (requires actionlint binary)
 actionlint:
 	@echo "Running actionlint..."
-	@$(ACTIONLINT) || echo "⚠️  Action lint issues found"
+	$(ACTIONLINT) -color
 
 # CLI smoke test - verify binary works
 cli-smoke-test: build
@@ -216,7 +241,7 @@ uninstall:
 	@echo "Uninstalling extension from GitHub CLI..."
 	gh extension remove app-auth || true
 
-# Set up development environment (configuration only, no tool installation)
+# Set up development environment
 dev-setup:
 	@echo "Setting up development environment..."
 	go mod download
@@ -227,14 +252,37 @@ dev-setup:
 	@echo "💡 Tip: Use 'git commit' (without -m) to use the conventional commit template"
 	@echo "📖 See CONTRIBUTING.md for conventional commit guidelines"
 
-# Run security scans
-security-scan:
-	@echo "Running security scans..."
-	$(GOSEC) -fmt sarif -out gosec.sarif ./... || true
-	@echo "Running vulnerability check..."
-	$(GOVULNCHECK) ./... || true
+# Set up presentation tools (installs mermaid-cli and mermaid-filter globally)
+presentation-setup:
+	@echo "Setting up presentation tools..."
+	@command -v npm >/dev/null 2>&1 || { echo "npm is required. Install Node.js first"; exit 1; }
+	@echo "Installing Mermaid CLI..."
+	npm install -g @mermaid-js/mermaid-cli
+	@echo "Installing mermaid-filter for pandoc..."
+	npm install -g mermaid-filter
+	@echo "✅ Presentation tools installed globally"
 
-# Download and verify dependencies
+# Run gosec using the same policy enforced by golangci-lint
+security-gosec:
+	@echo "Running gosec via golangci-lint policy..."
+	$(GOLANGCI_LINT) run --timeout=5m --enable-only gosec
+
+# Run govulncheck against the current toolchain and dependencies
+security-vulncheck:
+	@echo "Running vulnerability check..."
+	$(GOVULNCHECK) ./...
+
+# Run security scans
+security-scan: security-gosec
+	@$(MAKE) --no-print-directory security-vulncheck || { \
+		echo ""; \
+		echo "⚠️  govulncheck reported vulnerabilities."; \
+		echo "⚠️  In local runs, these may come from the active Go toolchain or indirect modules."; \
+		echo "⚠️  Review the output above and upgrade your local Go toolchain or dependencies if needed."; \
+	}
+	@echo "Security scans completed!"
+
+# Download and verify dependencies  
 deps:
 	@echo "Downloading dependencies..."
 	go mod download
@@ -288,25 +336,20 @@ validate-tools:
 	@command -v git >/dev/null 2>&1 || { echo "❌ Git is required but not installed"; exit 1; }
 	@echo "✅ Core tools are installed."
 
-# Validate that linting tools can be executed
+# Validate that linting tools are installed
 validate-lint-tools:
-	@echo "Validating linting tools can be executed..."
-	@$(GOLANGCI_LINT) version >/dev/null 2>&1 || { echo "❌ golangci-lint failed"; exit 1; }
-	@$(GOIMPORTS) -l . >/dev/null 2>&1 || { echo "❌ goimports failed"; exit 1; }
-	@$(STATICCHECK) --help >/dev/null 2>&1 || { echo "❌ staticcheck failed"; exit 1; }
-	@$(GOCYCLO) . >/dev/null 2>&1 || { echo "❌ gocyclo failed"; exit 1; }
-	@$(INEFFASSIGN) . >/dev/null 2>&1 || { echo "❌ ineffassign failed"; exit 1; }
-	@$(MISSPELL) --help >/dev/null 2>&1 || { echo "❌ misspell failed"; exit 1; }
-	@$(GOSEC) --help >/dev/null 2>&1 || { echo "❌ gosec failed"; exit 1; }
-	@$(GOVULNCHECK) --help >/dev/null 2>&1 || { echo "❌ govulncheck failed"; exit 1; }
-	@echo "✅ All linting tools work"
+	@echo "Validating linting tools are installed..."
+	@command -v go >/dev/null 2>&1 || { echo "❌ Go is required but not installed"; exit 1; }
+	@command -v npx >/dev/null 2>&1 || { echo "❌ npx not found. Install Node.js to run markdownlint"; exit 1; }
+	@{ command -v yamllint >/dev/null 2>&1; } || { echo "❌ yamllint is required"; exit 1; }
+	@echo "✅ Linting tool prerequisites are available"
 
 # Quick development cycle
 dev: fmt lint test build
 	@echo "Development cycle complete!"
 
 # CI pipeline simulation (mirrors GitHub CI workflows)
-# Runs: deps → vet → lint → test-race → coverage-check → security → build → smoke-test
+# Runs: deps → vet → lint → test-race → coverage-check → security → build → smoke-test → docs/workflow-lint
 ci: deps validate-tools validate-lint-tools
 	@echo ""
 	@echo "=========================================="
@@ -317,7 +360,7 @@ ci: deps validate-tools validate-lint-tools
 	go vet ./...
 	@echo ""
 	@echo "Step 2/8: Running golangci-lint..."
-	$(GOLANGCI_LINT) run --timeout=5m
+	@$(MAKE) lint
 	@echo ""
 	@echo "Step 3/8: Running tests with race detection..."
 	go test -race -coverprofile=coverage.out -covermode=atomic ./...
@@ -332,7 +375,7 @@ ci: deps validate-tools validate-lint-tools
 		echo "✅ Coverage $$COVERAGE% meets threshold 35.0%"; \
 	fi
 	@echo ""
-	@echo "Step 5/8: Running security scans..."
+	@echo "Step 5/8: Running security scans (blocking gosec, advisory govulncheck)..."
 	@$(MAKE) security-scan
 	@echo ""
 	@echo "Step 6/8: Building binary..."
@@ -343,10 +386,10 @@ ci: deps validate-tools validate-lint-tools
 	./$(BINARY_NAME) --version > /dev/null
 	@echo "✅ CLI smoke tests passed"
 	@echo ""
-	@echo "Step 8/8: Running additional linters (non-blocking)..."
-	@$(MAKE) markdownlint || true
-	@$(MAKE) yamllint || true
-	@$(MAKE) actionlint || true
+	@echo "Step 8/8: Running documentation and workflow linters..."
+	@$(MAKE) markdownlint
+	@$(MAKE) yamllint
+	@$(MAKE) actionlint
 	@echo ""
 	@echo "=========================================="
 	@echo "  ✅ CI Pipeline Complete!"
@@ -357,7 +400,7 @@ quality: validate-lint-tools fmt lint-all test-coverage-check security-scan
 	@echo "Quality check complete!"
 
 # Packaging targets
-.PHONY: package-deb package-deb-arm64 package-deb-arm package-rpm package-rpm-arm64 package-rpm-arm packages packages-local validate-packages
+.PHONY: package-deb package-deb-arm64 package-rpm package-rpm-arm64 packages packages-local validate-packages
 
 # Build DEB package for amd64
 package-deb:
@@ -366,9 +409,13 @@ package-deb:
 	@echo "Building Linux amd64 binary..."
 	@GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o dist/linux-amd64 .
 	@export GOARCH=amd64 ARCH=amd64 VERSION=$(PKG_VERSION); \
-	envsubst '$$GOARCH $$ARCH $$VERSION' < nfpm.yaml > nfpm-temp.yaml; \
-	GOARCH=$(shell go env GOARCH) $(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_amd64.deb; \
+	envsubst '$$GOARCH $$ARCH $$VERSION' < nfpm.yaml > nfpm-temp.yaml && \
+	GOARCH=$(shell go env GOARCH) $(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_amd64.deb || \
+		{ rm -f nfpm-temp.yaml; \
+		  echo "❌ nfpm failed — check 'go version' satisfies the nfpm module's Go requirement ($(NFPM_CMD))"; \
+		  exit 1; }; \
 	rm nfpm-temp.yaml
+	@test -f dist/$(BINARY_NAME)_$(PKG_VERSION)_amd64.deb || { echo "❌ expected package missing: dist/$(BINARY_NAME)_$(PKG_VERSION)_amd64.deb"; exit 1; }
 	@echo "✅ DEB package created: dist/$(BINARY_NAME)_$(PKG_VERSION)_amd64.deb"
 
 # Build DEB package for arm64
@@ -376,9 +423,13 @@ package-deb-arm64: release
 	@echo "Building DEB package for arm64..."
 	@test -f dist/linux-arm64 || { echo "❌ Linux ARM64 binary not found. Run 'make release' first."; exit 1; }
 	@export GOARCH=arm64 ARCH=arm64 VERSION=$(PKG_VERSION); \
-	envsubst '$$GOARCH $$ARCH $$VERSION' < nfpm.yaml > nfpm-temp.yaml; \
-	GOARCH=$(shell go env GOARCH) $(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_arm64.deb; \
+	envsubst '$$GOARCH $$ARCH $$VERSION' < nfpm.yaml > nfpm-temp.yaml && \
+	GOARCH=$(shell go env GOARCH) $(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_arm64.deb || \
+		{ rm -f nfpm-temp.yaml; \
+		  echo "❌ nfpm failed — check 'go version' satisfies the nfpm module's Go requirement ($(NFPM_CMD))"; \
+		  exit 1; }; \
 	rm nfpm-temp.yaml
+	@test -f dist/$(BINARY_NAME)_$(PKG_VERSION)_arm64.deb || { echo "❌ expected package missing: dist/$(BINARY_NAME)_$(PKG_VERSION)_arm64.deb"; exit 1; }
 	@echo "✅ DEB package created: dist/$(BINARY_NAME)_$(PKG_VERSION)_arm64.deb"
 
 
@@ -389,9 +440,13 @@ package-rpm:
 	@echo "Building Linux amd64 binary..."
 	@GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o dist/linux-amd64 .
 	@export GOARCH=amd64 ARCH=amd64 VERSION=$(PKG_VERSION) RPM_RELEASE=$(RPM_RELEASE); \
-	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml; \
-	GOARCH=$(shell go env GOARCH) $(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_x86_64.rpm; \
+	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml && \
+	GOARCH=$(shell go env GOARCH) $(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_x86_64.rpm || \
+		{ rm -f nfpm-temp.yaml; \
+		  echo "❌ nfpm failed — check 'go version' satisfies the nfpm module's Go requirement ($(NFPM_CMD))"; \
+		  exit 1; }; \
 	rm nfpm-temp.yaml
+	@test -f dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_x86_64.rpm || { echo "❌ expected package missing: dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_x86_64.rpm"; exit 1; }
 	@echo "✅ RPM package created: dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_x86_64.rpm"
 
 # Build RPM package for arm64
@@ -399,20 +454,36 @@ package-rpm-arm64: release
 	@echo "Building RPM package for arm64..."
 	@test -f dist/linux-arm64 || { echo "❌ Linux ARM64 binary not found. Run 'make release' first."; exit 1; }
 	@export GOARCH=arm64 ARCH=arm64 VERSION=$(PKG_VERSION) RPM_RELEASE=$(RPM_RELEASE); \
-	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml; \
-	GOARCH=$(shell go env GOARCH) $(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_aarch64.rpm; \
+	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml && \
+	GOARCH=$(shell go env GOARCH) $(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_aarch64.rpm || \
+		{ rm -f nfpm-temp.yaml; \
+		  echo "❌ nfpm failed — check 'go version' satisfies the nfpm module's Go requirement ($(NFPM_CMD))"; \
+		  exit 1; }; \
 	rm nfpm-temp.yaml
+	@test -f dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_aarch64.rpm || { echo "❌ expected package missing: dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_aarch64.rpm"; exit 1; }
 	@echo "✅ RPM package created: dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_aarch64.rpm"
 
 
 
 # Build all packages (requires release binaries)
-packages: dev-setup release package-deb package-rpm package-deb-arm64 package-rpm-arm64 package-deb-arm package-rpm-arm
+packages: dev-setup release package-deb package-rpm package-deb-arm64 package-rpm-arm64
 	@echo ""
 	@echo "=========================================="
 	@echo "  All packages built successfully!"
 	@echo "=========================================="
-	@ls -lh dist/*.deb dist/*.rpm 2>/dev/null || echo "⚠️  Some packages may not have been created"
+	@missing=0; \
+	for pkg in \
+		dist/$(BINARY_NAME)_$(PKG_VERSION)_amd64.deb \
+		dist/$(BINARY_NAME)_$(PKG_VERSION)_arm64.deb \
+		dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_x86_64.rpm \
+		dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_aarch64.rpm; do \
+		if [ -f "$$pkg" ]; then \
+			ls -lh "$$pkg"; \
+		else \
+			echo "❌ missing expected package: $$pkg"; missing=1; \
+		fi; \
+	done; \
+	[ "$$missing" -eq 0 ] || { echo "❌ package build incomplete — see missing files above"; exit 1; }
 
 # Validate package architectures match targets
 validate-packages:
@@ -468,30 +539,42 @@ packages-local:
 	@GOOS=linux GOARCH=$(shell go env GOARCH) CGO_ENABLED=0 go build $(LDFLAGS) -o dist/linux-$(shell go env GOARCH) .
 ifeq ($(shell go env GOARCH),amd64)
 	@export GOARCH=amd64 ARCH=amd64 VERSION=$(PKG_VERSION) RPM_RELEASE=$(RPM_RELEASE); \
-	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml; \
-	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_amd64.deb; \
-	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_x86_64.rpm; \
+	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml && \
+	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_amd64.deb && \
+	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_x86_64.rpm || \
+		{ rm -f nfpm-temp.yaml; \
+		  echo "❌ nfpm failed — check 'go version' satisfies the nfpm module's Go requirement ($(NFPM_CMD))"; \
+		  exit 1; }; \
 	rm nfpm-temp.yaml
 	@echo "✅ Local packages created (amd64)"
 else ifeq ($(shell go env GOARCH),arm64)
 	@export GOARCH=arm64 ARCH=arm64 VERSION=$(PKG_VERSION) RPM_RELEASE=$(RPM_RELEASE); \
-	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml; \
-	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_arm64.deb; \
-	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_aarch64.rpm; \
+	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml && \
+	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_arm64.deb && \
+	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_aarch64.rpm || \
+		{ rm -f nfpm-temp.yaml; \
+		  echo "❌ nfpm failed — check 'go version' satisfies the nfpm module's Go requirement ($(NFPM_CMD))"; \
+		  exit 1; }; \
 	rm nfpm-temp.yaml
 	@echo "✅ Local packages created (arm64)"
 else ifeq ($(shell go env GOARCH),386)
 	@export GOARCH=386 ARCH=386 VERSION=$(PKG_VERSION) RPM_RELEASE=$(RPM_RELEASE); \
-	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml; \
-	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_i386.deb; \
-	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_i386.rpm; \
+	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml && \
+	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_i386.deb && \
+	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_i386.rpm || \
+		{ rm -f nfpm-temp.yaml; \
+		  echo "❌ nfpm failed — check 'go version' satisfies the nfpm module's Go requirement ($(NFPM_CMD))"; \
+		  exit 1; }; \
 	rm nfpm-temp.yaml
 	@echo "✅ Local packages created (386)"
 else ifeq ($(shell go env GOARCH),arm)
 	@export GOARCH=arm ARCH=arm VERSION=$(PKG_VERSION) RPM_RELEASE=$(RPM_RELEASE); \
-	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml; \
-	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_armhf.deb; \
-	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_armv7hl.rpm; \
+	envsubst '$$GOARCH $$ARCH $$VERSION $$RPM_RELEASE' < nfpm.yaml > nfpm-temp.yaml && \
+	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager deb --target dist/$(BINARY_NAME)_$(PKG_VERSION)_armhf.deb && \
+	$(NFPM_CMD) pkg --config nfpm-temp.yaml --packager rpm --target dist/$(BINARY_NAME)_$(PKG_VERSION)-$(RPM_RELEASE)_armv7hl.rpm || \
+		{ rm -f nfpm-temp.yaml; \
+		  echo "❌ nfpm failed — check 'go version' satisfies the nfpm module's Go requirement ($(NFPM_CMD))"; \
+		  exit 1; }; \
 	rm nfpm-temp.yaml
 	@echo "✅ Local packages created (arm)"
 else
@@ -500,7 +583,7 @@ else
 endif
 
 # Presentation targets
-.PHONY: presentation presentation-html presentation-pdf presentation-serve presentation-clean
+.PHONY: presentation presentation-setup presentation-html presentation-pdf presentation-serve presentation-clean
 
 # Build presentation HTML
 presentation-html:
@@ -532,10 +615,9 @@ presentation-pdf:
 	@echo "Building presentation PDF..."
 	@command -v pandoc >/dev/null 2>&1 || { echo "Pandoc is required. Install: apt install pandoc"; exit 1; }
 	@command -v xelatex >/dev/null 2>&1 || { echo "XeLaTeX is required. Install: apt install texlive-xetex"; exit 1; }
-	@echo "Ensuring mermaid-filter is available..."
-	@command -v mermaid-filter >/dev/null 2>&1 || { echo "Installing mermaid-filter..." && npm install -g mermaid-filter; }
-	@mkdir -p dist/presentation
-	export PATH="$$(npm config get prefix)/bin:$$PATH"; \
+	@command -v mmdc >/dev/null 2>&1 || { echo "Mermaid CLI is required. Run: make presentation-setup"; exit 1; }
+	@npm list -g mermaid-filter >/dev/null 2>&1 || { echo "mermaid-filter is required. Run: make presentation-setup"; exit 1; }
+	mkdir -p dist/presentation
 	pandoc docs/presentation.md \
 		-o dist/presentation/presentation.pdf \
 		--pdf-engine=xelatex \
