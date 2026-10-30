@@ -56,7 +56,7 @@ jobs:
           gh release download "$RELEASE_TAG" --repo "$REPOSITORY" --dir release-assets
 
       - name: Upload Linux ARM64 binary
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-linux-arm64-binary
           path: release-assets/linux-arm64
@@ -64,7 +64,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Linux ARM64 RPM
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-linux-arm64-rpm
           path: release-assets/gh-app-auth_*_aarch64.rpm
@@ -72,7 +72,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Linux ARM64 DEB
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-linux-arm64-deb
           path: release-assets/gh-app-auth_*_arm64.deb
@@ -80,7 +80,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Linux AMD64 binary
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-linux-amd64-binary
           path: release-assets/linux-amd64
@@ -88,7 +88,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Linux AMD64 RPM
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-linux-amd64-rpm
           path: release-assets/gh-app-auth_*_x86_64.rpm
@@ -96,7 +96,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Linux AMD64 DEB
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-linux-amd64-deb
           path: release-assets/gh-app-auth_*_amd64.deb
@@ -104,7 +104,7 @@ jobs:
           retention-days: 1
 
       - name: Upload macOS ARM64 binary
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-darwin-arm64-binary
           path: release-assets/darwin-arm64
@@ -112,7 +112,7 @@ jobs:
           retention-days: 1
 
       - name: Upload macOS AMD64 binary
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-darwin-amd64-binary
           path: release-assets/darwin-amd64
@@ -120,7 +120,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Windows ARM64 binary
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-windows-arm64-binary
           path: release-assets/windows-arm64.exe
@@ -128,7 +128,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Windows AMD64 binary
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-windows-amd64-binary
           path: release-assets/windows-amd64.exe
