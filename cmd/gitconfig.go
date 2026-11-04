@@ -110,6 +110,10 @@ func syncGitConfig(scope string, auto bool) error {
 
 	// Track configured patterns to avoid duplicates
 	configured := make(map[string]bool)
+	// Track credential contexts already cleared in this sync. Several patterns can share one
+	// context (github.com/org/repo-a and github.com/org/repo-b both map to https://github.com/org),
+	// so a context is cleared once and each pattern then adds its own helper to it
+	clearedContexts := make(map[string]bool)
 	// Track hosts that need useHttpPath enabled for path-based matching
 	hostsNeedingHttpPath := make(map[string]bool)
 	// Track existing generic host helpers that need to be re-added AFTER specific ones
@@ -152,10 +156,14 @@ func syncGitConfig(scope string, auto bool) error {
 			return
 		}
 
-		// Clear existing helpers for this context
+		// Clear existing helpers for this context, once per sync, so patterns sharing the
+		// context keep each other's helpers
 		credKey := fmt.Sprintf("credential.%s.helper", context)
-		clearCmd := exec.Command("git", "config", scope, "--unset-all", credKey)
-		_ = clearCmd.Run() // Ignore error if nothing to unset
+		if !clearedContexts[context] {
+			clearCmd := exec.Command("git", "config", scope, "--unset-all", credKey)
+			_ = clearCmd.Run() // Ignore error if nothing to unset
+			clearedContexts[context] = true
+		}
 
 		// Set gh-app-auth as the credential helper with pattern matching
 		patternArg := pattern
