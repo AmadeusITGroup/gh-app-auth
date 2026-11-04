@@ -636,15 +636,27 @@ func TestSyncGitConfig_TwoRepoPatternsSameOwner(t *testing.T) {
 	if len(helpers) != 2 {
 		t.Fatalf("Expected 2 helpers for https://github.com/org, got %d: %q", len(helpers), helpers)
 	}
+	// On Windows the helper is the path of a .bat wrapper that holds the command
+	commands := make([]string, len(helpers))
+	for i, h := range helpers {
+		commands[i] = h
+		if isWindows() {
+			content, err := os.ReadFile(h)
+			if err != nil {
+				t.Fatalf("Failed to read wrapper %q: %v", h, err)
+			}
+			commands[i] = string(content)
+		}
+	}
 	for _, want := range []string{"--pattern github.com/org/repo-a", "--pattern github.com/org/repo-b"} {
 		found := false
-		for _, h := range helpers {
-			if strings.HasSuffix(h, want) {
+		for _, c := range commands {
+			if strings.Contains(c, want) {
 				found = true
 			}
 		}
 		if !found {
-			t.Errorf("No helper ending in %q among %q", want, helpers)
+			t.Errorf("No helper runs %q among %q", want, commands)
 		}
 	}
 
