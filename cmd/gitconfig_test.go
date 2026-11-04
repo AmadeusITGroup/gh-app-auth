@@ -585,3 +585,75 @@ func TestSyncGitConfig_WithClientIDApp(t *testing.T) {
 		t.Fatal("Expected .gitconfig to be created")
 	}
 }
+
+func TestSyncGitConfig_TwoRepoPatternsSameOwner(t *testing.T) {
+	// Two apps for two repositories under one owner share the credential context
+	// https://github.com/org; both helpers must survive the sync (issue #80)
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", tempDir)
+
+	configPath := filepath.Join(tempDir, "config.yml")
+	cfg := &config.Config{
+		Version: "1.0",
+		GitHubApps: []config.GitHubApp{
+			{
+				Name:             "Repo A App",
+				AppID:            111111,
+				InstallationID:   1,
+				Patterns:         []string{"github.com/org/repo-a"},
+				PrivateKeySource: config.PrivateKeySourceFilesystem,
+				PrivateKeyPath:   "/dummy/a.pem",
+			},
+			{
+				Name:             "Repo B App",
+				AppID:            222222,
+				InstallationID:   2,
+				Patterns:         []string{"github.com/org/repo-b"},
+				PrivateKeySource: config.PrivateKeySourceFilesystem,
+				PrivateKeyPath:   "/dummy/b.pem",
+			},
+		},
+	}
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("Failed to marshal config: %v", err)
+	}
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+
+	if err := syncGitConfig("--global", false); err != nil {
+		t.Fatalf("syncGitConfig() error = %v", err)
+	}
+
+	out, err := exec.Command("git", "config", "--global", "--get-all", "credential.https://github.com/org.helper").Output()
+	if err != nil {
+		t.Fatalf("Failed to read helpers: %v", err)
+	}
+	helpers := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(helpers) != 2 {
+		t.Fatalf("Expected 2 helpers for https://github.com/org, got %d: %q", len(helpers), helpers)
+	}
+	for _, want := range []string{"--pattern github.com/org/repo-a", "--pattern github.com/org/repo-b"} {
+		found := false
+		for _, h := range helpers {
+			if strings.HasSuffix(h, want) {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("No helper ending in %q among %q", want, helpers)
+		}
+	}
+
+	// A second sync replaces the helpers rather than duplicating them
+	if err := syncGitConfig("--global", false); err != nil {
+		t.Fatalf("second syncGitConfig() error = %v", err)
+	}
+	out, _ = exec.Command("git", "config", "--global", "--get-all", "credential.https://github.com/org.helper").Output()
+	if n := len(strings.Split(strings.TrimSpace(string(out)), "\n")); n != 2 {
+		t.Errorf("Expected 2 helpers after a second sync, got %d", n)
+	}
+}
