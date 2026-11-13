@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1](https://github.com/AmadeusITGroup/gh-app-auth/compare/v0.1.0...v0.1.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* **gitconfig:** keep every helper when patterns share a credential context ([#81](https://github.com/AmadeusITGroup/gh-app-auth/issues/81)) ([64906b3](https://github.com/AmadeusITGroup/gh-app-auth/commit/64906b35a090ca6a4d91ba27139075d07b43ae2e))
+
 ## [0.1.0](https://github.com/AmadeusITGroup/gh-app-auth/compare/v0.0.17...v0.1.0) (2026-10-05)
 
 
