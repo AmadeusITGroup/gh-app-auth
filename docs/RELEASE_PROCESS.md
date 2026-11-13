@@ -213,6 +213,7 @@ substitutes `${ARCH}`, `${GOARCH}`, `${VERSION}` and `${RPM_RELEASE}` before eac
 | `gh-app-auth_1.2.3_arm64.deb` | deb | arm64 |
 | `gh-app-auth_1.2.3-1_x86_64.rpm` | rpm | x86_64 |
 | `gh-app-auth_1.2.3-1_aarch64.rpm` | rpm | aarch64 |
+| `gh-app-auth-rpm-signing.pub` | RPM signing key | all |
 
 Package contents (from `nfpm.yaml`):
 
@@ -224,12 +225,32 @@ Package contents (from `nfpm.yaml`):
 Note the differing version conventions: DEB uses `1.2.3`, RPM appends the release number as
 `1.2.3-1`.
 
+RPMs are signed during release builds. The matching public key is attached to each release as
+`gh-app-auth-rpm-signing.pub`; Fedora 45 and later require importing it before installing an RPM.
+Before trusting it, compare its fingerprint with the value published by project maintainers:
+
+```bash
+VERSION=v1.2.3
+curl -fLO "https://github.com/AmadeusITGroup/gh-app-auth/releases/download/${VERSION}/gh-app-auth-rpm-signing.pub"
+gpg --show-keys --with-fingerprint gh-app-auth-rpm-signing.pub
+sudo rpm --import gh-app-auth-rpm-signing.pub
+rpmkeys --checksig --verbose gh-app-auth_1.2.3-1_x86_64.rpm
+sudo rpm -i gh-app-auth_1.2.3-1_x86_64.rpm
+```
+
+The release workflow requires the `RPM_SIGNING_PRIVATE_KEY_B64`,
+`RPM_SIGNING_PASSPHRASE`, and `RPM_SIGNING_PUBLIC_KEY_B64` repository Actions secrets. The
+`_B64` values are base64-encoded ASCII-armored OpenPGP exports. The public key is not confidential,
+but is stored as a secret for workflow handoff. The private key is decoded only to a temporary
+file during package creation; never commit it.
+
 ## Release checklist
 
 Before merging the release-please PR (or running an explicit manual override):
 
 - [ ] `main` is green in CI (test matrix, lint, security, CodeQL)
 - [ ] `make quality` passes locally
+- [ ] RPM signing Actions secrets are configured and the public-key fingerprint is published
 - [ ] Review the release-please PR's generated `CHANGELOG.md` section and edit release notes there if needed
 - [ ] Version number follows [Semantic Versioning](https://semver.org/) and matches the commit types
       since the last tag: breaking change → major (minor while `0.x`), `feat` → minor, `fix` → patch
@@ -239,7 +260,7 @@ Before merging the release-please PR (or running an explicit manual override):
 ## Verifying a release
 
 ```bash
-# All 10 assets present?
+# All expected assets present?
 gh release view v1.2.3 --json assets --jq '.assets[].name'
 
 # Release is published (not a draft)?
@@ -249,8 +270,8 @@ gh release view v1.2.3 --json isDraft,isPrerelease
 gh extension install AmadeusITGroup/gh-app-auth
 gh app-auth --version   # should print 1.2.3, not "dev"
 
-# Package installs cleanly
-sudo dpkg -i gh-app-auth_1.2.3_amd64.deb   # or: sudo rpm -i ...
+# DEB installs directly; RPM requires importing its release public key first
+sudo dpkg -i gh-app-auth_1.2.3_amd64.deb
 gh-app-auth --version
 ```
 

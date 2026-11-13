@@ -67,7 +67,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-linux-arm64-rpm
-          path: release-assets/gh-app-auth_*_aarch64.rpm
+          path: |
+            release-assets/gh-app-auth_*_aarch64.rpm
+            release-assets/gh-app-auth-rpm-signing.pub
           if-no-files-found: error
           retention-days: 1
 
@@ -91,7 +93,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: release-linux-amd64-rpm
-          path: release-assets/gh-app-auth_*_x86_64.rpm
+          path: |
+            release-assets/gh-app-auth_*_x86_64.rpm
+            release-assets/gh-app-auth-rpm-signing.pub
           if-no-files-found: error
           retention-days: 1
 
@@ -197,6 +201,11 @@ jobs:
         with:
           name: release-linux-arm64-rpm
           path: ./e2e-artifact
+
+      - name: Import RPM signing key and verify package
+        run: |
+          rpm --import ./e2e-artifact/gh-app-auth-rpm-signing.pub
+          rpmkeys --checksig --verbose ./e2e-artifact/*.rpm
 
       - name: Install RPM package
         run: rpm -i ./e2e-artifact/*.rpm
@@ -322,6 +331,11 @@ jobs:
         with:
           name: release-linux-amd64-rpm
           path: ./e2e-artifact
+
+      - name: Import RPM signing key and verify package
+        run: |
+          rpm --import ./e2e-artifact/gh-app-auth-rpm-signing.pub
+          rpmkeys --checksig --verbose ./e2e-artifact/*.rpm
 
       - name: Install RPM package
         run: rpm -i ./e2e-artifact/*.rpm

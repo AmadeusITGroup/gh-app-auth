@@ -46,6 +46,12 @@ on:
         required: false
       E2E_PRIVATE_KEY_B64:
         required: false
+      RPM_SIGNING_PRIVATE_KEY_B64:
+        required: true
+      RPM_SIGNING_PASSPHRASE:
+        required: true
+      RPM_SIGNING_PUBLIC_KEY_B64:
+        required: true
 
 concurrency:
   group: release-pipeline
@@ -71,6 +77,20 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0  # tags + history needed for version validation
+
+      - name: Verify RPM signing secrets are configured
+        env:
+          RPM_SIGNING_PRIVATE_KEY_B64: ${{ secrets.RPM_SIGNING_PRIVATE_KEY_B64 }}
+          RPM_SIGNING_PASSPHRASE: ${{ secrets.RPM_SIGNING_PASSPHRASE }}
+          RPM_SIGNING_PUBLIC_KEY_B64: ${{ secrets.RPM_SIGNING_PUBLIC_KEY_B64 }}
+        run: |
+          set -eu
+          for name in RPM_SIGNING_PRIVATE_KEY_B64 RPM_SIGNING_PASSPHRASE RPM_SIGNING_PUBLIC_KEY_B64; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Required repository Actions secret $name is not configured"
+              exit 1
+            fi
+          done
 
       - name: Resolve / validate release tag
         id: resolve
@@ -169,13 +189,33 @@ jobs:
         env:
           RPM_RELEASE: 1
           RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          RPM_SIGNING_PRIVATE_KEY_B64: ${{ secrets.RPM_SIGNING_PRIVATE_KEY_B64 }}
+          RPM_SIGNING_PASSPHRASE: ${{ secrets.RPM_SIGNING_PASSPHRASE }}
+          RPM_SIGNING_PUBLIC_KEY_B64: ${{ secrets.RPM_SIGNING_PUBLIC_KEY_B64 }}
         run: |
+          set -euo pipefail
+
+          private_key_file="$(mktemp)"
+          public_key_file="$(mktemp)"
+          trap 'rm -f "$private_key_file" "$public_key_file"' EXIT
+
+          printf '%s' "$RPM_SIGNING_PRIVATE_KEY_B64" | base64 --decode > "$private_key_file"
+          printf '%s' "$RPM_SIGNING_PUBLIC_KEY_B64" | base64 --decode > "$public_key_file"
+          chmod 600 "$private_key_file"
+          chmod 644 "$public_key_file"
+          test -s "$private_key_file"
+          test -s "$public_key_file"
+
+          export RPM_SIGNING_KEY_FILE="$private_key_file"
+          export NFPM_RPM_PASSPHRASE="$RPM_SIGNING_PASSPHRASE"
+
           # The remote tag only materializes at publish (draft-first flow) —
           # tag locally so `git describe --tags --exact-match` resolves VERSION.
           git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null || \
             git tag "$RELEASE_TAG"
           echo "Building: $(git describe --tags --exact-match)"
           make release packages
+          install -m 0644 "$public_key_file" dist/gh-app-auth-rpm-signing.pub
 
       - name: List all built artifacts
         run: |
