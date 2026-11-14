@@ -244,6 +244,73 @@ The release workflow requires the `RPM_SIGNING_PRIVATE_KEY_B64`,
 but is stored as a secret for workflow handoff. The private key is decoded only to a temporary
 file during package creation; never commit it.
 
+### Provisioning the signing key
+
+OpenPGP keys are managed here with GnuPG (`gpg`). As a trusted maintainer on an encrypted
+workstation, generate a unique passphrase with the approved password manager. This creates a
+signing-only RSA-4096 key with a two-year expiry; rotate and publish its new fingerprint before
+expiry:
+
+```bash
+install -d -m 700 "$HOME/.gnupg-gh-app-auth-rpm"
+export GNUPGHOME="$HOME/.gnupg-gh-app-auth-rpm"
+
+(
+  set -euo pipefail
+  read -r -s -p "New RPM signing passphrase: " SIGNING_PASSPHRASE
+  printf '\n'
+  test -n "$SIGNING_PASSPHRASE"
+  printf '%s\n' "$SIGNING_PASSPHRASE" |
+    gpg --batch --pinentry-mode loopback --passphrase-fd 0 \
+      --quick-generate-key "gh-app-auth RPM signing <opensource@amadeus.com>" rsa4096 sign 2y
+)
+
+gpg --list-secret-keys --with-fingerprint
+```
+
+Copy the full fingerprint (not the short key ID). Export the public key to `$HOME`; it is not
+created in the repository root. Keep this terminal open for the next step so `GNUPGHOME` and `FPR`
+remain set:
+
+```bash
+FPR=PASTE_FULL_FINGERPRINT_HERE
+PUBLIC_KEY="$HOME/gh-app-auth-rpm-signing.pub"
+gpg --armor --export "$FPR" > "$PUBLIC_KEY"
+chmod 644 "$PUBLIC_KEY"
+gpg --show-keys --with-fingerprint "$PUBLIC_KEY"
+```
+
+Authenticate `gh` as a maintainer allowed to manage Actions secrets. This reads the passphrase
+without echo, pipes the armored exports directly to GitHub CLI, and does not create a private-key
+file or put secret values on the command line:
+
+```bash
+(
+  set -euo pipefail
+  read -r -s -p "RPM signing passphrase: " SIGNING_PASSPHRASE
+  printf '\n'
+  test -n "$SIGNING_PASSPHRASE"
+
+  printf '%s\n' "$SIGNING_PASSPHRASE" |
+    gpg --batch --pinentry-mode loopback --passphrase-fd 0 \
+      --armor --export-secret-keys "$FPR" |
+    base64 | tr -d '\n' |
+    gh secret set RPM_SIGNING_PRIVATE_KEY_B64 --repo AmadeusITGroup/gh-app-auth
+  gpg --armor --export "$FPR" |
+    base64 | tr -d '\n' |
+    gh secret set RPM_SIGNING_PUBLIC_KEY_B64 --repo AmadeusITGroup/gh-app-auth
+  printf '%s' "$SIGNING_PASSPHRASE" |
+    gh secret set RPM_SIGNING_PASSPHRASE --repo AmadeusITGroup/gh-app-auth
+)
+```
+
+Confirm the three secret names with `gh secret list --repo AmadeusITGroup/gh-app-auth`; values are
+not displayed. Keep the passphrase in the approved password manager. Back up the
+passphrase-protected GPG home and `$GNUPGHOME/openpgp-revocs.d/<FPR>.rev` to access-controlled,
+encrypted offline storage; keep the passphrase separate from that backup. Restrict who can change
+release workflows or manage repository secrets. The public key can be distributed; the release
+workflow publishes it with each release.
+
 ## Release checklist
 
 Before merging the release-please PR (or running an explicit manual override):
