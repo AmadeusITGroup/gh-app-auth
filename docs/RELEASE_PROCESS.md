@@ -313,13 +313,13 @@ workflow publishes it with each release.
 
 ### Rotating the signing key
 
-Before expiry, generate a replacement using the steps above and publish its full fingerprint. In
-one maintenance window, replace all three Actions secrets with values from that same keypair; do
-not run a release until all are updated. Validate with the release workflow's `dry_run: true` and
-confirm Fedora signature checks pass (the dry run leaves a draft release). Keep prior public keys
-and fingerprints with existing releases. If a key is compromised, revoke it with its revocation
-certificate and publish a revocation notice immediately; normal expiry alone does not require
-revocation.
+Rotate before expiry. If compromised, revoke the old key immediately with its revocation
+certificate and publish a notice. Generate a replacement using the steps above and publish its full
+fingerprint. In one maintenance window, replace all three Actions secrets with values from that
+keypair; do not run a release until all are updated. Validate with the release workflow's
+`dry_run: true` and confirm Fedora signature checks pass (the dry run leaves a draft release).
+Keep prior public keys and fingerprints with existing releases; normal expiry alone does not
+require revocation.
 
 ## Release checklist
 
