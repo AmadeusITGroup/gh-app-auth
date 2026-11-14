@@ -42,3 +42,5 @@ contents:
 rpm:
   group: System Environment/Base
   packager: AmadeusITGroup <opensource@amadeus.com>
+  signature:
+    key_file: ${RPM_SIGNING_KEY_FILE}

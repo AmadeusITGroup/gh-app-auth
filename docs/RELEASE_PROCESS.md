@@ -213,6 +213,7 @@ substitutes `${ARCH}`, `${GOARCH}`, `${VERSION}` and `${RPM_RELEASE}` before eac
 | `gh-app-auth_1.2.3_arm64.deb` | deb | arm64 |
 | `gh-app-auth_1.2.3-1_x86_64.rpm` | rpm | x86_64 |
 | `gh-app-auth_1.2.3-1_aarch64.rpm` | rpm | aarch64 |
+| `gh-app-auth-rpm-signing.pub` | RPM signing key | all |
 
 Package contents (from `nfpm.yaml`):
 
@@ -224,12 +225,109 @@ Package contents (from `nfpm.yaml`):
 Note the differing version conventions: DEB uses `1.2.3`, RPM appends the release number as
 `1.2.3-1`.
 
+RPMs are signed during release builds. The matching public key is attached to each release as
+`gh-app-auth-rpm-signing.pub`; Fedora 45 and later require importing it before installing an RPM.
+Before trusting it, compare its fingerprint with the value published by project maintainers:
+
+```bash
+VERSION=v1.2.3
+curl -fLO "https://github.com/AmadeusITGroup/gh-app-auth/releases/download/${VERSION}/gh-app-auth-rpm-signing.pub"
+gpg --show-keys --with-fingerprint gh-app-auth-rpm-signing.pub
+sudo rpm --import gh-app-auth-rpm-signing.pub
+rpmkeys --checksig --verbose gh-app-auth_1.2.3-1_x86_64.rpm
+sudo rpm -i gh-app-auth_1.2.3-1_x86_64.rpm
+```
+
+The release workflow requires the `RPM_SIGNING_PRIVATE_KEY_B64`,
+`RPM_SIGNING_PASSPHRASE`, and `RPM_SIGNING_PUBLIC_KEY_B64` repository Actions secrets. The
+`_B64` values are base64-encoded ASCII-armored OpenPGP exports. The public key is not confidential,
+but is stored as a secret for workflow handoff. The private key is decoded only to a temporary
+file during package creation; never commit it.
+
+### Provisioning the signing key
+
+OpenPGP keys are managed here with GnuPG (`gpg`). As a trusted maintainer on an encrypted
+workstation, generate a unique passphrase with the approved password manager. This creates a
+signing-only RSA-4096 key with a two-year expiry; rotate and publish its new fingerprint before
+expiry:
+
+```bash
+install -d -m 700 "$HOME/.gnupg-gh-app-auth-rpm"
+export GNUPGHOME="$HOME/.gnupg-gh-app-auth-rpm"
+
+(
+  set -euo pipefail
+  read -r -s -p "New RPM signing passphrase: " SIGNING_PASSPHRASE
+  printf '\n'
+  test -n "$SIGNING_PASSPHRASE"
+  printf '%s\n' "$SIGNING_PASSPHRASE" |
+    gpg --batch --pinentry-mode loopback --passphrase-fd 0 \
+      --quick-generate-key "gh-app-auth RPM signing <opensource@amadeus.com>" rsa4096 sign 2y
+)
+
+gpg --list-secret-keys --with-fingerprint
+```
+
+Copy the full fingerprint (not the short key ID). Export the public key to `$HOME`; it is not
+created in the repository root. Keep this terminal open for the next step so `GNUPGHOME` and `FPR`
+remain set:
+
+```bash
+FPR=PASTE_FULL_FINGERPRINT_HERE
+PUBLIC_KEY="$HOME/gh-app-auth-rpm-signing.pub"
+gpg --armor --export "$FPR" > "$PUBLIC_KEY"
+chmod 644 "$PUBLIC_KEY"
+gpg --show-keys --with-fingerprint "$PUBLIC_KEY"
+```
+
+Authenticate `gh` as a maintainer allowed to manage Actions secrets. This reads the passphrase
+without echo, pipes the armored exports directly to GitHub CLI, and does not create a private-key
+file or put secret values on the command line:
+
+```bash
+(
+  set -euo pipefail
+  read -r -s -p "RPM signing passphrase: " SIGNING_PASSPHRASE
+  printf '\n'
+  test -n "$SIGNING_PASSPHRASE"
+
+  printf '%s\n' "$SIGNING_PASSPHRASE" |
+    gpg --batch --pinentry-mode loopback --passphrase-fd 0 \
+      --armor --export-secret-keys "$FPR" |
+    base64 | tr -d '\n' |
+    gh secret set RPM_SIGNING_PRIVATE_KEY_B64 --repo AmadeusITGroup/gh-app-auth
+  gpg --armor --export "$FPR" |
+    base64 | tr -d '\n' |
+    gh secret set RPM_SIGNING_PUBLIC_KEY_B64 --repo AmadeusITGroup/gh-app-auth
+  printf '%s' "$SIGNING_PASSPHRASE" |
+    gh secret set RPM_SIGNING_PASSPHRASE --repo AmadeusITGroup/gh-app-auth
+)
+```
+
+Confirm the three secret names with `gh secret list --repo AmadeusITGroup/gh-app-auth`; values are
+not displayed. Keep the passphrase in the approved password manager. Back up the
+passphrase-protected GPG home and `$GNUPGHOME/openpgp-revocs.d/<FPR>.rev` to access-controlled,
+encrypted offline storage; keep the passphrase separate from that backup. Restrict who can change
+release workflows or manage repository secrets. The public key can be distributed; the release
+workflow publishes it with each release.
+
+### Rotating the signing key
+
+Rotate before expiry. If compromised, revoke the old key immediately with its revocation
+certificate and publish a notice. Generate a replacement using the steps above and publish its full
+fingerprint. In one maintenance window, replace all three Actions secrets with values from that
+keypair; do not run a release until all are updated. Validate with the release workflow's
+`dry_run: true` and confirm Fedora signature checks pass (the dry run leaves a draft release).
+Keep prior public keys and fingerprints with existing releases; normal expiry alone does not
+require revocation.
+
 ## Release checklist
 
 Before merging the release-please PR (or running an explicit manual override):
 
 - [ ] `main` is green in CI (test matrix, lint, security, CodeQL)
 - [ ] `make quality` passes locally
+- [ ] RPM signing Actions secrets are configured and the public-key fingerprint is published
 - [ ] Review the release-please PR's generated `CHANGELOG.md` section and edit release notes there if needed
 - [ ] Version number follows [Semantic Versioning](https://semver.org/) and matches the commit types
       since the last tag: breaking change → major (minor while `0.x`), `feat` → minor, `fix` → patch
@@ -239,7 +337,7 @@ Before merging the release-please PR (or running an explicit manual override):
 ## Verifying a release
 
 ```bash
-# All 10 assets present?
+# All expected assets present?
 gh release view v1.2.3 --json assets --jq '.assets[].name'
 
 # Release is published (not a draft)?
@@ -249,8 +347,8 @@ gh release view v1.2.3 --json isDraft,isPrerelease
 gh extension install AmadeusITGroup/gh-app-auth
 gh app-auth --version   # should print 1.2.3, not "dev"
 
-# Package installs cleanly
-sudo dpkg -i gh-app-auth_1.2.3_amd64.deb   # or: sudo rpm -i ...
+# DEB installs directly; RPM requires importing its release public key first
+sudo dpkg -i gh-app-auth_1.2.3_amd64.deb
 gh-app-auth --version
 ```
 

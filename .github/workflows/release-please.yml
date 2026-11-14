@@ -45,3 +45,6 @@ jobs:
     secrets:
       E2E_APP_ID: ${{ secrets.E2E_APP_ID }}
       E2E_PRIVATE_KEY_B64: ${{ secrets.E2E_PRIVATE_KEY_B64 }}
+      RPM_SIGNING_PRIVATE_KEY_B64: ${{ secrets.RPM_SIGNING_PRIVATE_KEY_B64 }}
+      RPM_SIGNING_PASSPHRASE: ${{ secrets.RPM_SIGNING_PASSPHRASE }}
+      RPM_SIGNING_PUBLIC_KEY_B64: ${{ secrets.RPM_SIGNING_PUBLIC_KEY_B64 }}
