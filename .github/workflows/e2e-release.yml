@@ -56,7 +56,7 @@ jobs:
           gh release download "$RELEASE_TAG" --repo "$REPOSITORY" --dir release-assets
 
       - name: Upload Linux ARM64 binary
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-linux-arm64-binary
           path: release-assets/linux-arm64
@@ -64,7 +64,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Linux ARM64 RPM
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-linux-arm64-rpm
           path: |
@@ -74,7 +74,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Linux ARM64 DEB
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-linux-arm64-deb
           path: release-assets/gh-app-auth_*_arm64.deb
@@ -82,7 +82,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Linux AMD64 binary
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-linux-amd64-binary
           path: release-assets/linux-amd64
@@ -90,7 +90,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Linux AMD64 RPM
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-linux-amd64-rpm
           path: |
@@ -100,7 +100,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Linux AMD64 DEB
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-linux-amd64-deb
           path: release-assets/gh-app-auth_*_amd64.deb
@@ -108,7 +108,7 @@ jobs:
           retention-days: 1
 
       - name: Upload macOS ARM64 binary
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-darwin-arm64-binary
           path: release-assets/darwin-arm64
@@ -116,7 +116,7 @@ jobs:
           retention-days: 1
 
       - name: Upload macOS AMD64 binary
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-darwin-amd64-binary
           path: release-assets/darwin-amd64
@@ -124,7 +124,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Windows ARM64 binary
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-windows-arm64-binary
           path: release-assets/windows-arm64.exe
@@ -132,7 +132,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Windows AMD64 binary
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-windows-amd64-binary
           path: release-assets/windows-amd64.exe
@@ -147,18 +147,18 @@ jobs:
     needs: download-assets
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Download staged Linux ARM64 binary
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@v8.0.2
         with:
           name: release-linux-arm64-binary
           path: ./e2e-artifact
@@ -193,7 +193,7 @@ jobs:
     container:
       image: fedora:45@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
@@ -201,7 +201,7 @@ jobs:
         run: dnf install -y git golang gh jq which
 
       - name: Download staged ARM64 RPM
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@v8.0.2
         with:
           name: release-linux-arm64-rpm
           path: ./e2e-artifact
@@ -240,7 +240,7 @@ jobs:
     container:
       image: ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
@@ -250,7 +250,7 @@ jobs:
           apt-get install -y git golang-go gh jq curl
 
       - name: Download staged ARM64 DEB
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@v8.0.2
         with:
           name: release-linux-arm64-deb
           path: ./e2e-artifact
@@ -283,18 +283,18 @@ jobs:
     needs: download-assets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Download staged Linux AMD64 binary
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@v8.0.2
         with:
           name: release-linux-amd64-binary
           path: ./e2e-artifact
@@ -329,7 +329,7 @@ jobs:
     container:
       image: fedora:45@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
@@ -337,7 +337,7 @@ jobs:
         run: dnf install -y git golang gh jq which
 
       - name: Download staged AMD64 RPM
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@v8.0.2
         with:
           name: release-linux-amd64-rpm
           path: ./e2e-artifact
@@ -376,7 +376,7 @@ jobs:
     container:
       image: ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
@@ -386,7 +386,7 @@ jobs:
           apt-get install -y git golang-go gh jq curl
 
       - name: Download staged AMD64 DEB
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@v8.0.2
         with:
           name: release-linux-amd64-deb
           path: ./e2e-artifact
@@ -419,18 +419,18 @@ jobs:
     needs: download-assets
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Download staged macOS ARM64 binary
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@v8.0.2
         with:
           name: release-darwin-arm64-binary
           path: ./e2e-artifact
@@ -462,18 +462,18 @@ jobs:
     needs: download-assets
     runs-on: macos-15-intel
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Download staged macOS AMD64 binary
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@v8.0.2
         with:
           name: release-darwin-amd64-binary
           path: ./e2e-artifact
@@ -505,18 +505,18 @@ jobs:
     needs: download-assets
     runs-on: windows-11-arm
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Download staged Windows ARM64 binary
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@v8.0.2
         with:
           name: release-windows-arm64-binary
           path: ./e2e-artifact
@@ -545,18 +545,18 @@ jobs:
     needs: download-assets
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Download staged Windows AMD64 binary
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@v8.0.2
         with:
           name: release-windows-amd64-binary
           path: ./e2e-artifact

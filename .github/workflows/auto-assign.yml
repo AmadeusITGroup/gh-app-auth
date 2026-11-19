@@ -20,7 +20,7 @@ jobs:
     if: github.event.pull_request.draft == false || github.event_name == 'issues'
     steps:
       - name: Auto-assign issue or PR to author
-        uses: actions/github-script@v9
+        uses: actions/github-script@v9.0.0
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -49,12 +49,12 @@ jobs:
     if: github.event_name == 'pull_request_target'
     steps:
       - name: Check out code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Auto-label PR based on changes
-        uses: actions/github-script@v9
+        uses: actions/github-script@v9.0.0
         with:
           script: |
             const { owner, repo } = context.repo;

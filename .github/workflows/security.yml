@@ -21,12 +21,12 @@ jobs:
     continue-on-error: true  # Don't fail on SARIF upload issues
     steps:
       - name: Check out code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -39,7 +39,7 @@ jobs:
           govulncheck -format sarif ./... > govulncheck.sarif
 
       - name: Upload SARIF report
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v4.39.3
         if: always() && github.event_name != 'pull_request'
         continue-on-error: true
         with:
@@ -52,12 +52,12 @@ jobs:
     continue-on-error: true  # Don't fail on SARIF upload issues
     steps:
       - name: Check out code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -68,7 +68,7 @@ jobs:
           args: '-no-fail -fmt sarif -out gosec.sarif ./...'
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v4.39.3
         if: always() && github.event_name != 'pull_request'
         continue-on-error: true
         with:
@@ -83,12 +83,12 @@ jobs:
     continue-on-error: true  # Don't fail if nancy has issues
     steps:
       - name: Check out code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -120,7 +120,7 @@ jobs:
     continue-on-error: true  # Don't fail on scanning issues
     steps:
       - name: Check out code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0  # Fetch full history for proper diff
