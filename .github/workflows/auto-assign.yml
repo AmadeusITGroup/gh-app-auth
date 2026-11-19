@@ -50,6 +50,8 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Auto-label PR based on changes
         uses: actions/github-script@v9
