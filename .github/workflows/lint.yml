@@ -77,7 +77,7 @@ jobs:
           persist-credentials: false
 
       - name: Lint YAML files
-        uses: karancode/yamllint-github-action@master
+        uses: karancode/yamllint-github-action@v3.0.0
         with:
           yamllint_file_or_dir: '.'
           yamllint_strict: false

@@ -126,9 +126,10 @@ jobs:
           fetch-depth: 0  # Fetch full history for proper diff
 
       - name: Run Trufflehog
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@v3.99.9
         with:
           path: ./
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           extra_args: --only-verified
+          version: 3.99.9  # the CLI image tag, the action pulls latest otherwise
