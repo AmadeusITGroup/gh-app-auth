@@ -191,7 +191,7 @@ jobs:
     needs: download-assets
     runs-on: ubuntu-24.04-arm
     container:
-      image: fedora:latest
+      image: fedora:45@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
@@ -238,7 +238,7 @@ jobs:
     needs: download-assets
     runs-on: ubuntu-24.04-arm
     container:
-      image: ubuntu:latest
+      image: ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
@@ -327,7 +327,7 @@ jobs:
     needs: download-assets
     runs-on: ubuntu-latest
     container:
-      image: fedora:latest
+      image: fedora:45@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
@@ -374,7 +374,7 @@ jobs:
     needs: download-assets
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:latest
+      image: ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
