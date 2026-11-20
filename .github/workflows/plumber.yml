@@ -33,6 +33,6 @@ jobs:
           # Pull requests from forks get no security-events write, so the
           # upload is skipped there. The report stays a workflow artifact.
           upload-sarif: ${{ github.event.pull_request.head.repo.fork != true }}
-          # Fail under 85 points instead of on any finding, so one small
-          # finding does not block a pull request.
+          # Fail under 85 points. The default gate is 100, where any
+          # finding fails.
           min-points: 85
