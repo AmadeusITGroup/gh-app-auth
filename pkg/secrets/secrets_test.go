@@ -104,12 +104,12 @@ func TestManager_Store_FilesystemFallbackReplacesExisting(t *testing.T) {
 	if backend != StorageBackendFilesystem {
 		t.Errorf("Store() backend = %v, want %v", backend, StorageBackendFilesystem)
 	}
-	value, _, err := mgr.Get("test-app", SecretTypePrivateKey)
+	data, err := os.ReadFile(mgr.FilesystemPath("test-app", SecretTypePrivateKey))
 	if err != nil {
-		t.Fatalf("Get() failed: %v", err)
+		t.Fatalf("Failed to read secret file: %v", err)
 	}
-	if value != "new-value" {
-		t.Errorf("Get() = %q, want %q", value, "new-value")
+	if string(data) != "new-value" {
+		t.Errorf("Secret file = %q, want %q", string(data), "new-value")
 	}
 
 	// And: No temporary file is left next to it
@@ -123,6 +123,75 @@ func TestManager_Store_FilesystemFallbackReplacesExisting(t *testing.T) {
 			names = append(names, e.Name())
 		}
 		t.Errorf("secrets directory has %v, want only the secret file", names)
+	}
+}
+
+func TestManager_Store_FilesystemFallbackKeepsOldSecretOnFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permissions do not block file creation on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+
+	// Given: A stored secret in a directory where no new file can be created
+	keyring.MockInitWithError(errors.New("keyring unavailable"))
+	defer keyring.MockInitWithError(nil)
+
+	tempDir := t.TempDir()
+	mgr := NewManager(tempDir)
+	if _, err := mgr.Store("test-app", SecretTypePrivateKey, "old-value"); err != nil {
+		t.Fatalf("first Store() failed: %v", err)
+	}
+	secretsDir := filepath.Join(tempDir, "secrets")
+	if err := os.Chmod(secretsDir, 0500); err != nil {
+		t.Fatalf("Chmod() failed: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(secretsDir, 0700) })
+
+	// When: Storing a new value fails
+	if _, err := mgr.Store("test-app", SecretTypePrivateKey, "new-value"); err == nil {
+		t.Fatal("second Store() succeeded, want an error")
+	}
+
+	// Then: The old secret is still there
+	value, _, err := mgr.Get("test-app", SecretTypePrivateKey)
+	if err != nil {
+		t.Fatalf("Get() failed: %v", err)
+	}
+	if value != "old-value" {
+		t.Errorf("Get() = %q, want %q", value, "old-value")
+	}
+}
+
+func TestManager_Store_FilesystemFallbackRenameFails(t *testing.T) {
+	// Given: Keyring is unavailable and the secret path is taken by a directory
+	keyring.MockInitWithError(errors.New("keyring unavailable"))
+	defer keyring.MockInitWithError(nil)
+
+	tempDir := t.TempDir()
+	mgr := NewManager(tempDir)
+	if err := os.MkdirAll(mgr.FilesystemPath("test-app", SecretTypePrivateKey), 0700); err != nil {
+		t.Fatalf("MkdirAll() failed: %v", err)
+	}
+
+	// When: We store a secret
+	_, err := mgr.Store("test-app", SecretTypePrivateKey, "test-value")
+
+	// Then: It fails and leaves no temporary file behind
+	if err == nil {
+		t.Fatal("Store() succeeded, want an error")
+	}
+	entries, err := os.ReadDir(filepath.Join(tempDir, "secrets"))
+	if err != nil {
+		t.Fatalf("ReadDir() failed: %v", err)
+	}
+	if len(entries) != 1 {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("secrets directory has %v, want only the existing directory", names)
 	}
 }
 

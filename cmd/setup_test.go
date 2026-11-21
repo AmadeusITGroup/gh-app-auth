@@ -1193,6 +1193,22 @@ func TestSetupGitHubApp(t *testing.T) {
 		}
 	})
 
+	t.Run("env key with filesystem storage and no key file", func(t *testing.T) {
+		t.Setenv("GH_APP_PRIVATE_KEY", testKey)
+
+		cfg := &config.Config{Version: "1.0"}
+		_, err := setupGitHubApp(
+			cfg, 123456, "", "", "Env Filesystem App", 789012,
+			[]string{"github.com/org/*"}, 5, false, true, true,
+		)
+		if err == nil || !strings.Contains(err.Error(), "filesystem storage requires --key-file") {
+			t.Errorf("setupGitHubApp() error = %v, want filesystem storage requires --key-file", err)
+		}
+		if len(cfg.GitHubApps) != 0 {
+			t.Errorf("setupGitHubApp() saved apps after a storage error: %+v", cfg.GitHubApps)
+		}
+	})
+
 	t.Run("client id with provided installation id", func(t *testing.T) {
 		cfg := &config.Config{Version: "1.0"}
 		app, err := setupGitHubApp(
