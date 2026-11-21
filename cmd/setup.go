@@ -299,10 +299,16 @@ func setupGitHubApp(
 	// Display success message and next steps
 	if !silent && firstApp != nil {
 		identifier := firstApp.GetIdentifier()
+		// With filesystem storage, show the file the config points to, which
+		// is the secrets fallback file when the key came from GH_APP_PRIVATE_KEY.
+		keyPath := expandedKeyFile
+		if backend == secrets.StorageBackendFilesystem {
+			keyPath = firstApp.PrivateKeyPath
+		}
 		if len(groupedPatterns) > 1 {
-			displaySetupSuccessMultiOrg(firstApp.Name, identifier, groupedPatterns, priority, backend, expandedKeyFile)
+			displaySetupSuccessMultiOrg(firstApp.Name, identifier, groupedPatterns, priority, backend, keyPath)
 		} else {
-			displaySetupSuccess(firstApp.Name, identifier, patterns, priority, backend, expandedKeyFile)
+			displaySetupSuccess(firstApp.Name, identifier, patterns, priority, backend, keyPath)
 		}
 	}
 

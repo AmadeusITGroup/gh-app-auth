@@ -15,6 +15,7 @@ import (
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/jwt"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/secrets"
+	"github.com/zalando/go-keyring"
 )
 
 // generateTestRSAKey generates a test RSA private key in PEM format
@@ -1228,4 +1229,75 @@ func TestSetupGitHubApp(t *testing.T) {
 			t.Errorf("ClientID = %q, want %q", app.ClientID, "Iv1.MultiOrg")
 		}
 	})
+}
+
+func TestSetupGitHubApp_KeyringUnavailable(t *testing.T) {
+	keyring.MockInitWithError(errors.New("keyring unavailable"))
+	defer keyring.MockInitWithError(nil)
+
+	tempDir := t.TempDir()
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		envKey   string
+		keyFile  string
+		patterns []string
+	}{
+		{"env key", testKey, "", []string{"github.com/org/*"}},
+		{"key file", "", keyPath, []string{"github.com/org/*"}},
+		{"env key with multiple orgs", testKey, "", []string{"github.com/org1/*", "github.com/org2/*"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Keep the secrets fallback directory out of the real home directory
+			homeDir := t.TempDir()
+			t.Setenv("HOME", homeDir)
+			t.Setenv("USERPROFILE", homeDir)
+			t.Setenv("GH_APP_AUTH_CONFIG", filepath.Join(t.TempDir(), "config.yml"))
+			t.Setenv("GH_APP_PRIVATE_KEY", tt.envKey)
+
+			// Run setup twice, as when the key is rotated or setup is repeated
+			for run := 1; run <= 2; run++ {
+				cfg := &config.Config{Version: "1.0"}
+				app, err := setupGitHubApp(
+					cfg, 123456, "", tt.keyFile, "Test App", 789012,
+					tt.patterns, 5, true, false, true,
+				)
+				if err != nil {
+					t.Fatalf("run %d: setupGitHubApp() error = %v", run, err)
+				}
+				if app.PrivateKeySource != config.PrivateKeySourceFilesystem {
+					t.Errorf("run %d: PrivateKeySource = %v, want %v",
+						run, app.PrivateKeySource, config.PrivateKeySourceFilesystem)
+				}
+			}
+
+			saved, err := config.Load()
+			if err != nil {
+				t.Fatalf("config.Load() error = %v", err)
+			}
+			if len(saved.GitHubApps) == 0 {
+				t.Fatal("no apps saved")
+			}
+			secretMgr := secrets.NewManager(filepath.Join(homeDir, ".config", "gh", "extensions", "gh-app-auth"))
+			for _, app := range saved.GitHubApps {
+				if err := app.Validate(); err != nil {
+					t.Errorf("saved app %v: Validate() error = %v", app.Patterns, err)
+				}
+				key, err := app.GetPrivateKey(secretMgr)
+				if err != nil {
+					t.Fatalf("saved app %v: GetPrivateKey() error = %v", app.Patterns, err)
+				}
+				if key != testKey {
+					t.Errorf("saved app %v: GetPrivateKey() returned a different key", app.Patterns)
+				}
+			}
+		})
+	}
 }

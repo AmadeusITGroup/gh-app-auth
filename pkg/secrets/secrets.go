@@ -211,6 +211,12 @@ func (m *Manager) storeInFilesystem(appName string, secretType SecretType, value
 		return fmt.Errorf("failed to create secrets directory: %w", err)
 	}
 
+	// The file is owner read-only, so an existing one cannot be opened for
+	// writing by a non-root user. Remove it first so the secret can be replaced.
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to replace secret file: %w", err)
+	}
+
 	// Write with secure permissions (owner read-only)
 	if err := os.WriteFile(path, []byte(value), 0400); err != nil {
 		return fmt.Errorf("failed to write secret file: %w", err)
@@ -247,6 +253,11 @@ func (m *Manager) deleteFromFilesystem(appName string, secretType SecretType) er
 // keyringService returns the keyring service name for an app
 func (m *Manager) keyringService(appName string) string {
 	return fmt.Sprintf("gh-app-auth:%s", appName)
+}
+
+// FilesystemPath returns the path where the filesystem fallback stores a secret
+func (m *Manager) FilesystemPath(appName string, secretType SecretType) string {
+	return m.filesystemPath(appName, secretType)
 }
 
 // filesystemPath returns the filesystem path for a secret

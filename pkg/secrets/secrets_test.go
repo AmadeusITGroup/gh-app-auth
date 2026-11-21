@@ -83,6 +83,35 @@ func TestManager_Store_FilesystemFallback(t *testing.T) {
 	}
 }
 
+func TestManager_Store_FilesystemFallbackReplacesExisting(t *testing.T) {
+	// Given: Keyring is unavailable and a secret is already on the filesystem
+	keyring.MockInitWithError(errors.New("keyring unavailable"))
+	defer keyring.MockInitWithError(nil)
+
+	mgr := NewManager(t.TempDir())
+	if _, err := mgr.Store("test-app", SecretTypePrivateKey, "old-value"); err != nil {
+		t.Fatalf("first Store() failed: %v", err)
+	}
+
+	// When: We store the same secret again
+	backend, err := mgr.Store("test-app", SecretTypePrivateKey, "new-value")
+
+	// Then: The read-only file is replaced
+	if err != nil {
+		t.Fatalf("second Store() failed: %v", err)
+	}
+	if backend != StorageBackendFilesystem {
+		t.Errorf("Store() backend = %v, want %v", backend, StorageBackendFilesystem)
+	}
+	value, _, err := mgr.Get("test-app", SecretTypePrivateKey)
+	if err != nil {
+		t.Fatalf("Get() failed: %v", err)
+	}
+	if value != "new-value" {
+		t.Errorf("Get() = %q, want %q", value, "new-value")
+	}
+}
+
 func TestManager_Get_FromKeyring(t *testing.T) {
 	// Given: Secret is in keyring
 	keyring.MockInit()
