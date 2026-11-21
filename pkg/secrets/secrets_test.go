@@ -88,7 +88,8 @@ func TestManager_Store_FilesystemFallbackReplacesExisting(t *testing.T) {
 	keyring.MockInitWithError(errors.New("keyring unavailable"))
 	defer keyring.MockInitWithError(nil)
 
-	mgr := NewManager(t.TempDir())
+	tempDir := t.TempDir()
+	mgr := NewManager(tempDir)
 	if _, err := mgr.Store("test-app", SecretTypePrivateKey, "old-value"); err != nil {
 		t.Fatalf("first Store() failed: %v", err)
 	}
@@ -109,6 +110,19 @@ func TestManager_Store_FilesystemFallbackReplacesExisting(t *testing.T) {
 	}
 	if value != "new-value" {
 		t.Errorf("Get() = %q, want %q", value, "new-value")
+	}
+
+	// And: No temporary file is left next to it
+	entries, err := os.ReadDir(filepath.Join(tempDir, "secrets"))
+	if err != nil {
+		t.Fatalf("ReadDir() failed: %v", err)
+	}
+	if len(entries) != 1 {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("secrets directory has %v, want only the secret file", names)
 	}
 }
 

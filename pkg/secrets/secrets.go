@@ -211,14 +211,33 @@ func (m *Manager) storeInFilesystem(appName string, secretType SecretType, value
 		return fmt.Errorf("failed to create secrets directory: %w", err)
 	}
 
-	// The file is owner read-only, so an existing one cannot be opened for
-	// writing by a non-root user. Remove it first so the secret can be replaced.
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to replace secret file: %w", err)
+	// An existing file is owner read-only and cannot be opened for writing by
+	// a non-root user, so write the new secret to a temporary file and rename
+	// it into place. The old secret stays in place if the write fails.
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("failed to create secret file: %w", err)
 	}
-
-	// Write with secure permissions (owner read-only)
-	if err := os.WriteFile(path, []byte(value), 0400); err != nil {
+	tmpPath := tmp.Name()
+	_, err = tmp.WriteString(value)
+	if closeErr := tmp.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		// Secure permissions (owner read-only)
+		err = os.Chmod(tmpPath, 0400)
+	}
+	if err == nil {
+		err = os.Rename(tmpPath, path)
+		if err != nil {
+			// Windows cannot replace a read-only file; clear the flag and retry.
+			if os.Chmod(path, 0600) == nil {
+				err = os.Rename(tmpPath, path)
+			}
+		}
+	}
+	if err != nil {
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("failed to write secret file: %w", err)
 	}
 
