@@ -60,6 +60,7 @@ func TestGitHubApp_SetPrivateKey_FilesystemFallback(t *testing.T) {
 		Name:           "test-app",
 		AppID:          12345,
 		InstallationID: 67890,
+		Patterns:       []string{"github.com/org/*"},
 	}
 
 	// When: We set a private key
@@ -74,6 +75,22 @@ func TestGitHubApp_SetPrivateKey_FilesystemFallback(t *testing.T) {
 	}
 	if app.PrivateKeySource != PrivateKeySourceFilesystem {
 		t.Errorf("app.PrivateKeySource = %v, want %v", app.PrivateKeySource, PrivateKeySourceFilesystem)
+	}
+
+	// And: The config points at the file the secrets manager wrote
+	wantPath := secretMgr.FilesystemPath("test-app", secrets.SecretTypePrivateKey)
+	if app.PrivateKeyPath != wantPath {
+		t.Errorf("app.PrivateKeyPath = %q, want %q", app.PrivateKeyPath, wantPath)
+	}
+	if err := app.Validate(); err != nil {
+		t.Errorf("Validate() after filesystem fallback failed: %v", err)
+	}
+	key, err := app.GetPrivateKey(secretMgr)
+	if err != nil {
+		t.Fatalf("GetPrivateKey() after filesystem fallback failed: %v", err)
+	}
+	if key != "test-private-key" {
+		t.Errorf("GetPrivateKey() = %q, want %q", key, "test-private-key")
 	}
 }
 

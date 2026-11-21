@@ -67,7 +67,9 @@ func (app *GitHubApp) SetPrivateKey(secretMgr *secrets.Manager, privateKey strin
 		// app.PrivateKeyPath = ""
 	} else {
 		app.PrivateKeySource = PrivateKeySourceFilesystem
-		// Filesystem backend has stored the key, path is managed by secrets manager
+		// Point the config at the file the secrets manager wrote, so that
+		// validation and GetPrivateKey can find it.
+		app.PrivateKeyPath = secretMgr.FilesystemPath(app.Name, secrets.SecretTypePrivateKey)
 	}
 
 	return backend, nil
