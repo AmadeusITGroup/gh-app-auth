@@ -13,7 +13,7 @@ import (
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/jwt"
 )
 
-// Expected test repositories — must be pre-created per docs/E2E_INFRASTRUCTURE.md.
+// Expected test repositories — must be pre-created per docs/contribute/e2e-infrastructure.md.
 const (
 	mainRepo      = "main-repo"      // In TestOrg1: private, contains submodule from TestOrg2
 	submoduleRepo = "submodule-repo" // In TestOrg2: private, referenced as submodule
@@ -96,7 +96,7 @@ func testPreflightRepoPrivate(org, repo string) func(*testing.T) {
 		info, err := fetchRepoInfo(token, org, repo)
 		if err != nil {
 			t.Fatalf(
-				"repo %s/%s not accessible: %v\n\nAction required: create the repository per docs/E2E_INFRASTRUCTURE.md",
+				"repo %s/%s not accessible: %v\n\nAction required: create the repository per docs/contribute/e2e-infrastructure.md",
 				org, repo, err,
 			)
 		}

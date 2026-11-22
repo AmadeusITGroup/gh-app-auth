@@ -42,6 +42,11 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Test release provenance verification policy
+        if: matrix.os == 'ubuntu-latest' && matrix.go-version == env.GO_VERSION
+        shell: bash
+        run: bash scripts/verify-release-provenance.test.sh
+
       - name: Run tests
         run: go test -race -coverprofile="coverage.out" -covermode=atomic ./...
 

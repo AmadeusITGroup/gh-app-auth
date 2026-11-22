@@ -1,0 +1,195 @@
+---
+import { edges, nodes, relationshipRows } from '../lib/c1.mjs';
+import Relationships from './Relationships.astro';
+
+const box = {
+  actors: { x: 20, y: 30, w: 200, h: 60 },
+  tools: { x: 20, y: 170, w: 200, h: 60 },
+  auth: { x: 350, y: 170, w: 190, h: 60 },
+  github: { x: 690, y: 170, w: 190, h: 60 },
+  others: { x: 690, y: 320, w: 190, h: 60 },
+};
+const lines: Record<string, string> = {
+  run: 'M120 90 V170',
+  helper: 'M220 200 H350',
+  exchange: 'M540 200 H690',
+  git: 'M190 230 V275 H785 V230',
+  pat: 'M60 230 V350 H690',
+};
+const labels: Record<string, { x: number; y: number; anchor: 'start' | 'middle' }> = {
+  run: { x: 132, y: 136, anchor: 'start' },
+  helper: { x: 285, y: 140, anchor: 'middle' },
+  exchange: { x: 615, y: 140, anchor: 'middle' },
+  git: { x: 205, y: 266, anchor: 'start' },
+  pat: { x: 76, y: 342, anchor: 'start' },
+};
+---
+
+<figure class="c1" aria-labelledby="c1-title">
+  <p id="c1-title" class="title">System context: gh-app-auth is one short-lived process per invocation, not a daemon</p>
+
+  <div class="graph">
+    <svg viewBox="0 0 900 460" role="img" aria-labelledby="c1-svg-title" aria-describedby="c1-svg-desc">
+      <title id="c1-svg-title">C1 system context of gh-app-auth</title>
+      <desc id="c1-svg-desc">
+        Developers and CI jobs run Git and the GitHub CLI. Git and the GitHub CLI call gh-app-auth as a
+        local helper or extension. gh-app-auth exchanges a signed JWT for an installation token with
+        GitHub over HTTPS, for App credentials only. Git and the GitHub CLI call GitHub over HTTPS with
+        the credential returned or injected, and call other HTTPS Git hosts with a stored personal access
+        token. A full text version follows the diagram.
+      </desc>
+      <defs>
+        <marker id="c1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" class="arrowhead"></path>
+        </marker>
+      </defs>
+      {
+        edges.map((edge) => (
+          <g class={`edge ${edge.type}`}>
+            <path d={lines[edge.id]} marker-end="url(#c1-arrow)"></path>
+            <text x={labels[edge.id].x} y={labels[edge.id].y} text-anchor={labels[edge.id].anchor}>
+              {edge.short.map((line, index) => (
+                <tspan x={labels[edge.id].x} dy={index === 0 ? 0 : 19}>{line}</tspan>
+              ))}
+            </text>
+          </g>
+        ))
+      }
+      {
+        Object.entries(box).map(([id, rect]) => (
+          <g class={`node ${nodes[id].kind}`}>
+            <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} rx="10"></rect>
+            <text x={rect.x + rect.w / 2} y={rect.y + rect.h / 2 + 5} text-anchor="middle">
+              {(nodes[id].short ?? nodes[id].name).length > 20
+                ? (nodes[id].short ?? nodes[id].name).split(' ').reduce<string[]>((acc, word) => {
+                    const last = acc[acc.length - 1];
+                    if (last !== undefined && `${last} ${word}`.length <= 20) acc[acc.length - 1] = `${last} ${word}`;
+                    else acc.push(word);
+                    return acc;
+                  }, []).map((line, index, all) => (
+                    <tspan x={rect.x + rect.w / 2} dy={index === 0 ? -(all.length - 1) * 9 : 19}>{line}</tspan>
+                  ))
+                : (nodes[id].short ?? nodes[id].name)}
+            </text>
+          </g>
+        ))
+      }
+      <g class="legend">
+        <rect x="20" y="418" width="26" height="16" rx="4" class="swatch actor"></rect>
+        <text x="54" y="431">Person or automation</text>
+        <rect x="250" y="418" width="26" height="16" rx="4" class="swatch external"></rect>
+        <text x="284" y="431">External</text>
+        <rect x="390" y="418" width="26" height="16" rx="4" class="swatch system"></rect>
+        <text x="424" y="431">gh-app-auth</text>
+        <path d="M545 426 H585" class="legend-line local"></path>
+        <text x="593" y="431">Local call</text>
+        <path d="M710 426 H750" class="legend-line network"></path>
+        <text x="758" y="431">Network (HTTPS)</text>
+      </g>
+    </svg>
+    <details class="text-version">
+      <summary>Text version of this diagram</summary>
+      <Relationships id="c1-text" title="System context relationships" rows={relationshipRows} />
+    </details>
+  </div>
+
+  <div class="cards">
+    <Relationships id="c1-cards" title="System context relationships" rows={relationshipRows} />
+  </div>
+</figure>
+
+<style>
+  .c1 {
+    container-type: inline-size;
+    margin: 2rem 0;
+    padding: 1.25rem;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.75rem;
+    background: var(--sl-color-bg-nav);
+  }
+  .title {
+    margin: 0 0 1rem;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sl-color-gray-3);
+  }
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--sl-font-system);
+    font-size: 17px;
+    color: var(--sl-color-white);
+  }
+  svg text {
+    fill: var(--sl-color-white);
+  }
+  .node rect {
+    fill: var(--sl-color-bg);
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 2;
+  }
+  .node text {
+    font-weight: 600;
+  }
+  .node.actor rect,
+  .swatch.actor {
+    stroke-dasharray: 7 5;
+  }
+  .node.system rect,
+  .swatch.system {
+    fill: var(--sl-color-accent-low);
+    stroke: var(--sl-color-accent);
+    stroke-width: 3;
+  }
+  .swatch {
+    fill: var(--sl-color-bg);
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 2;
+  }
+  .edge path,
+  .legend-line {
+    fill: none;
+    stroke: var(--sl-color-gray-2);
+    stroke-width: 2.5;
+  }
+  .edge.network path,
+  .legend-line.network {
+    stroke-dasharray: 9 6;
+  }
+  .edge text {
+    fill: var(--sl-color-gray-1);
+  }
+  .arrowhead {
+    fill: var(--sl-color-gray-2);
+  }
+  .text-version {
+    margin-top: 0.75rem;
+    font-size: var(--sl-text-sm);
+  }
+  .text-version summary {
+    cursor: pointer;
+    color: var(--sl-color-text-accent);
+  }
+  .cards {
+    display: none;
+  }
+  @media (max-width: 50rem) {
+    .graph {
+      display: none;
+    }
+    .cards {
+      display: block;
+    }
+  }
+  @container (max-width: 43.5rem) {
+    .graph {
+      display: none;
+    }
+    .cards {
+      display: block;
+    }
+  }
+</style>

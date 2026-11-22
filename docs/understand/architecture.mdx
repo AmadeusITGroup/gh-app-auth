@@ -1,0 +1,90 @@
+---
+title: Architecture
+description: C4 views of gh-app-auth, from system context through containers to core components, plus the two runtime flows.
+sidebar:
+  order: 5
+---
+
+import ContextDiagram from '../../website/src/components/ContextDiagram.astro';
+import Relationships from '../../website/src/components/Relationships.astro';
+
+This page follows the C4 model, from the outside in. The C1 diagram is a graph, with a full text version
+generated from the same data. The C2 and C3 views are relationship views: lists of directed relationships
+("from, label, to"), not complete graphs.
+
+## C1: system context
+
+Who uses gh-app-auth and what it talks to.
+
+<ContextDiagram />
+
+`gh` is a client of the GitHub API only. Other HTTPS Git hosts, such as Bitbucket, are reached by Git
+with a personal access token (PAT), never through the GitHub API.
+
+## C2: containers (relationship view)
+
+gh-app-auth is a **single Go binary**. Git or `gh` starts a new process for each invocation, and the
+process exits when it is done. There is no daemon.
+
+<Relationships
+  id="c2"
+  title="Containers"
+  rows={[
+    { from: 'gh-app-auth process', to: 'Configuration file (config.yml)', label: 'Reads patterns, priorities and key locations; setup, remove and migrate write it.', protocol: 'file' },
+    { from: 'gh-app-auth process', to: 'OS keyring', label: 'Reads and writes private keys and PATs.', protocol: 'keyring API' },
+    { from: 'gh-app-auth process', to: 'Secrets directory or key file', label: 'Reads App private keys from plain files when the filesystem source is chosen. PAT reads from here are not implemented.', protocol: 'file' },
+    { from: 'gh-app-auth process', to: 'GitHub API', label: 'Exchanges a signed JWT for an installation token; refreshes installation scope.', protocol: 'HTTPS' },
+    { from: 'gh-app-auth process', to: 'Diagnostic log file', label: 'Appends flow events when GH_APP_AUTH_DEBUG_LOG is set.', protocol: 'file' },
+  ]}
+/>
+
+Installation tokens live in an in-memory cache inside the process: 55 minutes, never written to disk,
+and gone when the process exits. Because Git starts a fresh helper per request, the cache mainly helps
+processes that stay alive. A background worker removes expired entries; it does not renew them.
+
+## C3: core components (relationship view)
+
+A selective view of the Go packages that matter for credential selection. Packages are code
+organization inside the one process, not separate deployable containers.
+
+<Relationships
+  id="c3"
+  title="Core components"
+  rows={[
+    { from: 'cmd (Cobra commands, git-credential)', to: 'pkg/config', label: 'Loads and validates configuration.' },
+    { from: 'cmd (Cobra commands, git-credential)', to: 'pkg/matcher', label: 'Selects a GitHub App for a repository URL.' },
+    { from: 'cmd (Cobra commands, git-credential)', to: 'pkg/auth', label: 'Obtains credentials for the selected App.' },
+    { from: 'cmd (Cobra commands, git-credential)', to: 'pkg/scope', label: 'Reads and refreshes cached installation scope.' },
+    { from: 'pkg/matcher and pkg/scope', to: 'pkg/config', label: 'Read App entries and scope metadata.' },
+    { from: 'pkg/auth', to: 'pkg/jwt', label: 'Signs the App JWT.' },
+    { from: 'pkg/auth', to: 'pkg/cache', label: 'Stores and reuses installation tokens in memory.' },
+    { from: 'pkg/auth and pkg/config', to: 'pkg/secrets', label: 'Read private keys and PATs from the keyring or files.' },
+  ]}
+/>
+
+## Dynamic flow: Git requests credentials
+
+1. Git matches the remote against its credential configuration and runs the helper with
+   `get`, passing `--pattern` for the matching context.
+2. The helper reads the host, protocol and path Git sends. With no path it returns empty output. It does
+   not rely on Git asking again: `gitconfig --sync` writes `useHttpPath` for path-specific patterns, which
+   is what makes Git send the repository path in the first place.
+3. It loads the configuration and selects an App and any matching PATs; see
+   [how credential routing works](credential-routing.mdx).
+4. For an App it signs a JWT, finds or reuses the installation, and exchanges the JWT for an
+   installation token, or reuses a cached token. For a PAT it reads the token from the keyring.
+5. It prints `username` and `password` to Git. For GitHub the username is `x-access-token`.
+
+## Dynamic flow: exec
+
+1. `exec` selects the credential from the repository or the explicit App selectors.
+2. It mints an installation token (or reads the PAT) and builds a child environment from the current
+   one: it removes the GitHub token variables, `GH_HOST` and `GH_REPO`, then adds the token, `GH_HOST`
+   and, when a repository is known, `GH_REPO`.
+3. It runs the child command and returns its exit status. The token is a snapshot: nothing renews it
+   during the child's run.
+
+## Not in the diagrams
+
+- Package-level detail beyond the components above, which is in the source tree.
+- The [security model](security-model.md) states exposure limits for each boundary.

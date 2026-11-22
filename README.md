@@ -1,675 +1,124 @@
-# GitHub App Authentication Extension
+<p align="center"><img src="website/public/favicon.svg" width="112" height="112" alt="gh-app-auth routing key logo"></p>
+<h1 align="center">gh-app-auth</h1>
+<p align="center"><strong>The right identity. For every remote.</strong><br>A <a href="https://cli.github.com/">GitHub CLI</a> extension and Git credential helper for GitHub Apps and personal access tokens.</p>
 
-A GitHub CLI extension that enables GitHub App authentication for Git operations and API access.
+<p align="center">
+  <a href="https://github.com/AmadeusITGroup/gh-app-auth/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush"><img src="https://github.com/AmadeusITGroup/gh-app-auth/actions/workflows/ci.yml/badge.svg?branch=main&amp;event=push" alt="CI status on upstream main" height="20"></a>
+  <a href="https://github.com/AmadeusITGroup/gh-app-auth/actions/workflows/e2e.yml?query=branch%3Amain+event%3Apush"><img src="https://github.com/AmadeusITGroup/gh-app-auth/actions/workflows/e2e.yml/badge.svg?branch=main&amp;event=push" alt="End-to-end test status on upstream main" height="20"></a>
+  <a href="https://github.com/AmadeusITGroup/gh-app-auth/actions/workflows/codeql.yml?query=branch%3Amain+event%3Apush"><img src="https://github.com/AmadeusITGroup/gh-app-auth/actions/workflows/codeql.yml/badge.svg?branch=main&amp;event=push" alt="CodeQL analysis status on upstream main" height="20"></a>
+  <a href="https://app.codecov.io/gh/AmadeusITGroup/gh-app-auth/tree/main"><img src="https://img.shields.io/codecov/c/github/AmadeusITGroup/gh-app-auth/main?label=coverage" alt="Codecov coverage on upstream main" height="20"></a>
+</p>
 
-## Features
+<p align="center">
+  <a href="https://github.com/AmadeusITGroup/gh-app-auth/releases/latest"><img src="https://img.shields.io/github/v/release/AmadeusITGroup/gh-app-auth?label=release&amp;color=1d4f9c" alt="Latest published release" height="20"></a>
+  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/AmadeusITGroup/gh-app-auth?label=Go&amp;color=1d4f9c" alt="Go version required by go.mod" height="20"></a>
+  <a href="https://github.com/AmadeusITGroup/gh-app-auth/releases"><img src="https://img.shields.io/github/downloads/AmadeusITGroup/gh-app-auth/total?label=asset%20downloads&amp;color=1d4f9c" alt="Total downloads of GitHub release assets" height="20"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/AmadeusITGroup/gh-app-auth?color=1d4f9c" alt="Repository license" height="20"></a>
+</p>
 
-- **Dual Authentication**: GitHub Apps and Personal Access Tokens (PATs) with priority-based routing
-- **Encrypted Storage**: Private keys stored in OS-native keyring (Keychain, Credential Manager, Secret Service)
-- **Pattern Routing**: Configure different apps for different repository URL prefixes
-- **Git Integration**: Git credential helper protocol support
-- **GitHub CLI Integration**: Run `gh` and other commands with short-lived credentials
-- **Token Caching**: In-memory caching of installation tokens (55-min TTL)
-- **Multi-Host**: GitHub.com, GitHub Enterprise, and Bitbucket Server support
-- **CI/CD Ready**: Environment variable support (`GH_APP_PRIVATE_KEY`)
-- **Graceful Degradation**: Automatic fallback to filesystem if keyring unavailable
+<p align="center">
+  <a href="https://www.bestpractices.dev/projects/16991"><img src="https://www.bestpractices.dev/projects/16991/badge" alt="OpenSSF Best Practices assessment progress" height="20"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/amadeusitgroup/gh-app-auth"><img src="https://api.scorecard.dev/projects/github.com/amadeusitgroup/gh-app-auth/badge" alt="OpenSSF Scorecard automated repository assessment" height="20"></a>
+  <a href="docs/understand/security-model.md#slsa-assessment-and-evidence"><img src="https://img.shields.io/badge/SLSA%20Build-L2%20self--assessed-1d4f9c" alt="SLSA Build L2 self-assessed (not certified)" height="20"></a>
+  <a href="https://github.com/AmadeusITGroup/gh-app-auth/actions/workflows/verify-release-provenance.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/AmadeusITGroup/gh-app-auth/verify-release-provenance.yml?branch=main&amp;label=provenance" alt="Published-release provenance verification on upstream main" height="20"></a>
+</p>
 
-## Installation
+<p align="center">
+  <a href="docs/start-here/first-clone.md">Quick start</a> ·
+  <a href="docs/README.md">Documentation</a> ·
+  <a href="docs/guides/ci/index.md">Use in CI</a> ·
+  <a href="CONTRIBUTING.md">Contribute</a>
+</p>
+
+A GitHub App installation token belongs to one installation and expires after an hour. If you or
+your pipelines touch repositories in several organizations, including submodules, you end up
+juggling credentials. gh-app-auth registers each credential with the repository patterns it covers,
+and Git asks it for credentials per request.
+
+## What it does
+
+- Registers GitHub Apps (Client ID or App ID, private key) and PATs together with repository patterns.
+- Acts as a Git credential helper: it picks the credential for the remote URL and, for an App, mints an
+  installation token.
+- Runs commands with a token in their environment: `gh app-auth exec`. For a GitHub App the token is a
+  short-lived installation token; for a PAT it is the stored token.
+- Keeps installation tokens in memory only (55-minute cache per process) and private keys in the OS
+  keyring by default.
+- Supports github.com, GitHub Enterprise Server, and PATs for hosts such as Bitbucket.
+
+It does not run a daemon, does not renew tokens in the background, and does not limit what a token can do:
+the GitHub App installation's permissions do that.
+
+## Install
 
 ```bash
 gh extension install AmadeusITGroup/gh-app-auth
 ```
 
-## Quick Start
+Add `--pin <release-tag>` to select a particular release, and upgrade with `gh extension upgrade app-auth`.
 
-### Option 1: Encrypted Storage (Recommended)
+## A safe starting path
 
-1. **Create a GitHub App** in your organization settings
-2. **Download the private key** file
-3. **Configure with encrypted storage**:
+This registers one GitHub App that is already installed on your organization with **Contents: read**
+access, and clones a private repository. It needs the GitHub CLI and Git. All values are placeholders.
+The `chmod` command is for Linux and macOS; on Windows, restrict the key file with ACLs, because gh-app-auth
+skips its permission check there.
 
 ```bash
-# Store key in encrypted keyring via environment variable
-export GH_APP_PRIVATE_KEY="$(cat ~/.ssh/my-app.private-key.pem)"
+chmod 600 "$HOME/keys/example-app.pem"
 gh app-auth setup \
-  --app-id 123456 \
-  --patterns "github.com/myorg/*"
-
-# Key is now securely stored, can clear env var
-unset GH_APP_PRIVATE_KEY
-```
-
-### Option 2: File-based (Legacy)
-
-```bash
-# Store key reference (file remains on disk)
-gh app-auth setup \
-  --app-id 123456 \
-  --key-file ~/.ssh/my-app.private-key.pem \
-  --patterns "github.com/myorg/*"
-```
-
-### Option 3: Personal Access Token (PAT)
-
-Use this when you want to act as yourself rather than a GitHub App, while keeping tokens in the OS keyring.
-
-```bash
-gh app-auth setup \
-  --pat ghp_your_token_here \
-  --patterns "github.com/myorg/" \
-  --name "My PAT" \
-  --priority 10
-
-# For services that require a real username (e.g., Bitbucket Server)
-# add the optional --username flag:
-#
-# gh app-auth setup \
-#   --pat bbpat_your_token \
-#   --patterns "bitbucket.example.com/" \
-#   --username your_bitbucket_username
-```
-
-PATs support the same pattern routing as apps. When both an app and a PAT match the same pattern, the entry with the higher priority wins (PATs default to higher priority for personal workflows). PATs also work for other Git providers (e.g., Bitbucket) when paired with `--username`.
-
-### Setup Git Credential Helper
-
-```bash
-# Automatically configure git for all configured apps
+  --client-id Iv1.example \
+  --key-file "$HOME/keys/example-app.pem" \
+  --patterns 'github.com/example-org/' \
+  --name 'Example App'
 gh app-auth gitconfig --sync
-```
-
-Or manually configure for specific contexts:
-
-```bash
-git config --global credential."https://github.com/myorg".helper \
-  "!gh app-auth git-credential --pattern 'github.com/myorg/*'"
-```
-
-### Test and Use
-
-```bash
-# Test authentication
-gh app-auth test --repo github.com/myorg/private-repo
-
-# Use git normally - now uses GitHub App authentication
-git clone https://github.com/myorg/private-repo.git
-
-# Run gh with a short-lived token for the current repository
-gh app-auth exec -- gh pr list
-
-# Run gh outside a repository by specifying the authentication target
-gh app-auth exec --repo github.com/myorg/private-repo -- \
-  gh api repos/{owner}/{repo}
-
-# Run an API command that is not scoped to one repository
-gh app-auth exec \
-  --app-id 123456 \
-  --installation-id 789012 \
-  -- gh api /installation/repositories
-
-# Print a fresh token for a configured App and repository
-GH_APP_TOKEN="$(gh app-auth token \
-  --app-id 123456 \
-  --repo github.com/myorg/private-repo)"
-```
-
-`exec` mints a token on demand and exposes it only to the child process through
-`GH_TOKEN` (or `GH_ENTERPRISE_TOKEN` for GitHub Enterprise Server). Repository
-routing sets both `GH_HOST` and `GH_REPO`; selecting a configured App with
-`--app-id`, `--client-id`, or `--installation-id` sets `GH_HOST` without
-inventing a repository scope. Use App and installation IDs together to
-disambiguate Apps configured for multiple installations.
-PAT selection remains repository-based. No token is printed or persisted by
-this command.
-
-`token` requires an explicit `--app-id` or `--client-id` and a `--repo` that
-matches the selected App's configured route. An explicit `--installation-id` must
-also exist in the configuration. Successful output contains only a fresh
-installation token followed by a newline; protect it from shell tracing, logs,
-pipelines, and unprotected files.
-
-## URL Prefix Routing
-
-Route different repositories to different GitHub Apps using longest-prefix matching:
-
-```bash
-# Configure App 1 for AmadeusITGroup
-git config --global credential.'https://github.com/AmadeusITGroup'.helper \
-  '!gh app-auth git-credential --pattern "https://github.com/AmadeusITGroup"'
-
-# Configure App 2 for another organization
-git config --global credential.'https://github.com/myorg'.helper \
-  '!gh app-auth git-credential --pattern "https://github.com/myorg"'
-```
-
-See [URL Prefix Routing Guide](docs/PATTERN_ROUTING.md) for detailed examples.
-
-## Commands
-
-- `gh app-auth setup` - Configure GitHub Apps or Personal Access Tokens (`--pat`)
-- `gh app-auth list` - List configured credentials (`--verify-keys` to check accessibility)
-- `gh app-auth remove` - Remove GitHub App (`--app-id` or `--client-id`) or PAT (`--pat-name`) configuration
-- `gh app-auth test` - Test authentication for a repository
-- `gh app-auth exec` - Run a command with short-lived credentials selected by repository, App ID, or installation ID
-- `gh app-auth token` - Print a fresh token for a configured App and matching repository
-- `gh app-auth scope` - Fetch and display GitHub App installation scope (which repos the app can access)
-- `gh app-auth config` - Show configuration file location (`--path`) or content (`--show`)
-- `gh app-auth gitconfig` - Manage git credential helper configuration
-  - `--sync` - Configure git for all apps/PATs
-  - `--clean` - Remove all gh-app-auth git configurations
-  - `--auto` - Auto-mode using `GH_APP_ID` (or `GH_APP_CLIENT_ID`) and `GH_APP_PRIVATE_KEY_PATH` env vars
-- `gh app-auth migrate` - Migrate private keys to encrypted storage
-- `gh app-auth git-credential` - Git credential helper (internal)
-
-See [Git Config Management Guide](docs/GITCONFIG_COMMAND.md) for details on the `gitconfig` command.
-
-## Encrypted Storage
-
-This extension now supports **encrypted storage** for private keys using OS-native secure storage:
-
-- **macOS**: Keychain (AES-256 encrypted)
-- **Windows**: Credential Manager (DPAPI encrypted)
-- **Linux**: Secret Service API (GNOME Keyring, KWallet, etc.)
-
-### Benefits
-
-- Keys encrypted at rest using OS-native encryption
-- Keys never stored in config files
-- Each app's key stored separately
-- Keys deleted when removing apps
-- Falls back to filesystem if keyring unavailable
-
-### Using Encrypted Storage
-
-```bash
-# From environment variable (recommended for CI/CD)
-export GH_APP_PRIVATE_KEY="$(cat ~/my-key.pem)"
-gh app-auth setup --client-id Iv1.your_client_id --patterns "github.com/org/*"
-
-# From file using legacy numeric App ID
-gh app-auth setup --app-id 12345 --key-file ~/my-key.pem --patterns "github.com/org/*"
-
-# From file using Client ID (preferred)
-gh app-auth setup --client-id Iv1.your_client_id --key-file ~/my-key.pem --patterns "github.com/org/*"
-
-# Store a Personal Access Token in the keyring
-gh app-auth setup --pat ghp_your_token --patterns "github.com/org/"
-
-# Check where keys are stored
-gh app-auth list
-
-# Verify keys are accessible
 gh app-auth list --verify-keys
+git clone https://github.com/example-org/private-repo.git
 ```
 
-### Migrating Existing Configurations
+The key is stored in the OS keyring by default. On a headless machine without a keyring, add
+`--use-filesystem` together with `--key-file`; do not rely on the automatic filesystem fallback. The
+[first clone tutorial](docs/start-here/first-clone.md) explains each step and what to expect.
+
+To call the GitHub API with the same credential, prefer `exec` over printing a token. Name the repository
+explicitly, because `exec` otherwise uses the repository of your current directory:
 
 ```bash
-# Preview migration
-gh app-auth migrate --dry-run
-
-# Migrate to encrypted storage
-gh app-auth migrate
-
-# Migrate and remove original key files
-gh app-auth migrate --force
+gh app-auth exec --repo github.com/example-org/private-repo -- gh api repos/example-org/private-repo --jq .full_name
 ```
-
-### Force Filesystem Storage
-
-```bash
-# If keyring is not available or you prefer filesystem
-gh app-auth setup --app-id 12345 --key-file ~/my-key.pem --patterns "github.com/org/*" --use-filesystem
-```
-
-## Token Caching
-
-This extension automatically caches GitHub App installation tokens **within each command/process** to minimize redundant API calls during long-running operations (e.g., `gh app-auth test`, `gh app-auth debug`).
-
-### How It Works
-
-1. **Two Token Types**:
-   - **JWT Tokens**: Generated on-demand (~10min validity), not cached
-   - **Installation Tokens**: Cached in memory for 55 minutes (GitHub provides 60-min validity)
-
-2. **Automatic Expiration**:
-   - Tokens checked for expiration on every use
-   - Expired tokens automatically regenerated
-   - Background cleanup removes expired tokens every minute
-
-3. **Security**:
-   - Tokens stored **in-memory only** (not persisted to disk)
-   - Tokens zeroed from memory on cleanup (best-effort)
-   - Cache lost on process restart (requires re-authentication)
-
-### Performance
-
-- **First operation**: ~200-500ms (JWT generation + API call)
-- **Cached operations**: <1ms (memory lookup)
-- **Caching benefit**: One API call per 55 minutes instead of per operation
-
-### Why Memory-Only?
-
-Installation tokens are powerful (1-hour validity, full repo access). We prioritize security over convenience:
-
-- ✅ **More Secure**: Tokens don't persist to disk, limited to process lifetime
-- ✅ **Reduced Attack Surface**: No encrypted tokens in keyring to compromise
-- ⚠️ **Tradeoff**: Re-authentication needed after process restart (~500ms overhead)
-
-Because git invokes credential helpers as short-lived processes, each `git credential` call starts with a fresh cache. The performance win applies when a single CLI invocation needs multiple installation tokens (tests, diagnostics, multi-repo enumeration). For CI/CD (ephemeral containers) and normal development, this provides the optimal security/performance balance while avoiding persistent tokens.
-
-**See [Token Caching Documentation](docs/TOKEN_CACHING.md) for detailed technical information.**
-
-## Personal Access Tokens
-
-While GitHub Apps are ideal for automation and organization-level governance, some workflows require acting as an individual. PAT support adds:
-
-- ✅ **Secure Storage**: PATs are stored in the OS keyring with filesystem fallback
-- ✅ **Pattern Routing**: Route PAT usage by host/org/repo just like apps
-- ✅ **Priority Control**: PATs can override apps with higher `--priority` values
-- ✅ **Seamless Git Integration**: `gitconfig --sync` configures both apps and PATs
-
-Example mixed configuration (`~/.config/gh/extensions/gh-app-auth/config.yml`):
-
-```yaml
-version: "1.0"
-github_apps:
-  - name: Org Automation App
-    app_id: 123456
-    installation_id: 987654
-    private_key_source: keyring
-    patterns:
-      - github.com/myorg/
-    priority: 5
-pats:
-  - name: Personal Workflows
-    private_key_source: keyring
-    patterns:
-      - github.com/myorg/
-    priority: 10
-```
-
-In this example, personal git operations use the PAT while CI jobs can continue to rely on the GitHub App by configuring a lower-priority PAT or using repo-specific patterns.
-
-## CI/CD Integration
-
-This extension is designed to solve common CI/CD authentication challenges with GitHub Apps, including cross-organization access, git submodules, and long-running jobs.
-
-### GitHub Actions
-
-#### Basic Setup (with Encrypted Storage)
-
-```yaml
-name: Build with GitHub App
-
-on: [push, pull_request]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install GitHub CLI
-        uses: cli/gh@v2
-      
-      - name: Install gh-app-auth extension
-        run: gh extension install AmadeusITGroup/gh-app-auth
-      
-      - name: Configure GitHub App authentication
-        env:
-          GH_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-        run: |
-          gh app-auth setup \
-            --app-id ${{ secrets.GITHUB_APP_ID }} \
-            --patterns "github.com/${{ github.repository_owner }}/*"
-      
-      - name: Configure git credential helper
-        run: |
-          git config --global credential."https://github.com/${{ github.repository_owner }}".helper \
-            "!gh app-auth git-credential"
-      
-      - name: Checkout code with submodules
-        run: |
-          git clone --recurse-submodules https://github.com/${{ github.repository }}.git
-          cd $(basename ${{ github.repository }})
-```
-
-**Benefits:**
-
-- No temporary files created
-- No chmod needed
-- No cleanup required
-- Keys stored securely in memory only
-
-#### Reusable Actions
-
-Use our pre-built composite actions for even simpler setup:
-
-```yaml
-name: Build with GitHub App
-
-on: [push, pull_request]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      # One-step setup with automatic cleanup
-      - name: Setup GitHub App Auth
-        uses: AmadeusITGroup/gh-app-auth/.github/actions/setup-gh-app-auth@main
-        with:
-          app-id: ${{ secrets.GITHUB_APP_ID }}
-          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          patterns: 'github.com/myorg/*'
-          cleanup-on-exit: 'true'  # Auto-cleanup for non-ephemeral runners
-
-      - name: Clone repo with submodules
-        run: git clone --recurse-submodules https://github.com/myorg/repo
-      
-      - name: Build
-        run: cd repo && make build
-
-      # Cleanup runs automatically on job completion
-```
-
-**Features:**
-
-- One-step setup: installs GitHub CLI, extension, and configures git
-- Auto-syncs git credential helpers
-- Automatic cleanup on non-ephemeral runners
-- Supports comma-separated patterns for multiple organizations
-
-See [GitHub Actions Documentation](.github/actions/README.md) for advanced usage.
-
-#### Multi-Organization Repositories with Submodules
-
-```yaml
-name: Build with Multi-Org Submodules
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install and configure gh-app-auth
-        run: gh extension install AmadeusITGroup/gh-app-auth
-      
-      - name: Configure GitHub Apps for multiple organizations
-        env:
-          ORG1_PRIVATE_KEY: ${{ secrets.ORG1_GITHUB_APP_PRIVATE_KEY }}
-          ORG2_PRIVATE_KEY: ${{ secrets.ORG2_GITHUB_APP_PRIVATE_KEY }}
-        run: |
-          # Configure App for Organization 1
-          echo "$ORG1_PRIVATE_KEY" > /tmp/org1-key.pem
-          chmod 600 /tmp/org1-key.pem
-          gh app-auth setup \
-            --app-id ${{ secrets.ORG1_APP_ID }} \
-            --key-file /tmp/org1-key.pem \
-            --patterns "github.com/org1/*"
-          
-          # Configure App for Organization 2
-          echo "$ORG2_PRIVATE_KEY" > /tmp/org2-key.pem
-          chmod 600 /tmp/org2-key.pem
-          gh app-auth setup \
-            --app-id ${{ secrets.ORG2_APP_ID }} \
-            --key-file /tmp/org2-key.pem \
-            --patterns "github.com/org2/*"
-          
-          # Configure git to use app-auth for all organizations
-          git config --global credential."https://github.com/org1".helper "!gh app-auth git-credential"
-          git config --global credential."https://github.com/org2".helper "!gh app-auth git-credential"
-      
-      - name: Clone with cross-org submodules
-        run: |
-          # Automatically handles authentication for all configured orgs
-          git clone --recurse-submodules https://github.com/org1/main-repo.git
-```
-
-### Jenkins Pipeline
-
-#### Basic Jenkinsfile
-
-```groovy
-pipeline {
-    agent any
-    
-    environment {
-        GITHUB_APP_ID = credentials('github-app-id')
-        GITHUB_APP_PRIVATE_KEY = credentials('github-app-private-key')
-    }
-    
-    stages {
-        stage('Setup GitHub App Authentication') {
-            steps {
-                sh '''
-                    # Install GitHub CLI if not available
-                    if ! command -v gh &> /dev/null; then
-                        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
-                            sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-                        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
-                            sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-                        sudo apt update
-                        sudo apt install gh -y
-                    fi
-                    
-                    # Install gh-app-auth extension
-                    gh extension install AmadeusITGroup/gh-app-auth || true
-                    
-                    # Configure GitHub App
-                    echo "$GITHUB_APP_PRIVATE_KEY" > /tmp/app-key.pem
-                    chmod 600 /tmp/app-key.pem
-                    gh app-auth setup \
-                        --app-id "$GITHUB_APP_ID" \
-                        --key-file /tmp/app-key.pem \
-                        --patterns "github.com/myorg/*"
-                    
-                    # Configure git credential helper
-                    git config --global credential."https://github.com/myorg".helper \
-                        "!gh app-auth git-credential"
-                '''
-            }
-        }
-        
-        stage('Checkout') {
-            steps {
-                sh '''
-                    # Clone with automatic GitHub App authentication
-                    git clone --recurse-submodules https://github.com/myorg/my-repo.git
-                    cd my-repo
-                '''
-            }
-        }
-        
-        stage('Build') {
-            steps {
-                sh '''
-                    cd my-repo
-                    # Your build commands here
-                '''
-            }
-        }
-    }
-    
-    post {
-        always {
-            sh 'rm -f /tmp/app-key.pem'
-        }
-    }
-}
-```
-
-#### Multi-Organization Jenkins Pipeline with Token Refresh
-
-For long-running jobs (>1 hour), tokens are automatically refreshed by the extension:
-
-```groovy
-pipeline {
-    agent any
-    
-    environment {
-        ORG1_APP_ID = credentials('org1-github-app-id')
-        ORG1_APP_KEY = credentials('org1-github-app-private-key')
-        ORG2_APP_ID = credentials('org2-github-app-id')
-        ORG2_APP_KEY = credentials('org2-github-app-private-key')
-    }
-    
-    stages {
-        stage('Setup Multi-Org Authentication') {
-            steps {
-                sh '''
-                    # Install extension
-                    gh extension install AmadeusITGroup/gh-app-auth || true
-                    
-                    # Configure Organization 1
-                    echo "$ORG1_APP_KEY" > /tmp/org1-key.pem
-                    chmod 600 /tmp/org1-key.pem
-                    gh app-auth setup \
-                        --app-id "$ORG1_APP_ID" \
-                        --key-file /tmp/org1-key.pem \
-                        --patterns "github.com/org1/*"
-                    
-                    # Configure Organization 2
-                    echo "$ORG2_APP_KEY" > /tmp/org2-key.pem
-                    chmod 600 /tmp/org2-key.pem
-                    gh app-auth setup \
-                        --app-id "$ORG2_APP_ID" \
-                        --key-file /tmp/org2-key.pem \
-                        --patterns "github.com/org2/*"
-                    
-                    # Configure git for both orgs
-                    git config --global credential."https://github.com/org1".helper \
-                        "!gh app-auth git-credential"
-                    git config --global credential."https://github.com/org2".helper \
-                        "!gh app-auth git-credential"
-                '''
-            }
-        }
-        
-        stage('Long-Running Job') {
-            steps {
-                sh '''
-                    # Tokens are automatically refreshed when needed
-                    # Extension handles the 1-hour expiry transparently
-                    git clone --recurse-submodules https://github.com/org1/main-repo.git
-                    
-                    # Long build process (>1 hour)
-                    cd main-repo
-                    ./run-long-build.sh
-                    
-                    # Git operations continue to work - tokens auto-refresh
-                    git submodule update --recursive
-                '''
-            }
-        }
-    }
-    
-    post {
-        always {
-            sh '''
-                rm -f /tmp/org1-key.pem /tmp/org2-key.pem
-            '''
-        }
-    }
-}
-```
-
-### Token Expiry and Long-Running Jobs
-
-The extension automatically handles GitHub App token expiry (1-hour limit):
-
-- **Automatic Refresh**: Tokens are generated on-demand and cached for 55 minutes
-- **Seamless Experience**: Git operations automatically get fresh tokens when needed
-- **No Manual Intervention**: No need to implement token refresh logic in your pipelines
-
-```bash
-# Token lifecycle (handled automatically)
-# 1. First git operation: Generate new token
-# 2. Subsequent operations (<55 min): Use cached token
-# 3. After 55 minutes: Automatically generate new token
-# 4. Your job continues working regardless of duration
-```
-
-### Enterprise GitHub
-
-```bash
-# Configure for GitHub Enterprise Server
-gh app-auth setup \
-  --app-id 123456 \
-  --key-file enterprise-app.pem \
-  --patterns "github.example.com/corp/*"
-
-# Configure git credential helper
-git config --global credential."https://github.example.com/corp".helper \
-  "!gh app-auth git-credential"
-```
-
-### Best Practices for CI/CD
-
-1. **Security**:
-   - Store private keys in secrets management (GitHub Secrets, Jenkins Credentials)
-   - Use `chmod 600` on private key files
-   - Clean up key files in post-build steps
-
-2. **Multi-Organization**:
-   - Configure separate GitHub Apps for each organization
-   - Use pattern matching to route authentication automatically
-   - Test cross-org submodule access before production use
-
-3. **Performance**:
-   - Tokens are cached for 55 minutes to minimize API calls
-   - Git credential helper integrates seamlessly with git operations
-   - No need to pre-generate tokens for long-running jobs
-
-4. **Debugging**:
-
-   ```bash
-   # Test authentication in CI
-   gh app-auth test --repo github.com/myorg/my-repo
-   
-   # List configured apps
-   gh app-auth list
-   ```
-
-### Advantages Over Robot Accounts
-
-- GitHub Apps don't consume user licenses
-- Fine-grained permissions per repository/organization
-- Actions attributed to the GitHub App in audit logs
-- No periodic password resets or token rotation
-- Single App can be installed across multiple organizations
-- Extension handles 1-hour token expiry transparently
 
 ## Documentation
 
-### Presentation
+The documentation sources are in [`docs/`](docs/README.md). A documentation site is built from them
+with Astro Starlight in [`website/`](website/package.json), and the documentation workflow publishes it to GitHub
+Pages from `main`. You can also read the files on GitHub through the table below.
 
-- **[Project Presentation](docs/presentation.md)** - Comprehensive webinar presentation covering problem, solutions, architecture, and results
-  - View online at [GitHub Pages](https://AmadeusITGroup.github.io/gh-app-auth/) (when published)
-  - Build locally: `make presentation` (requires `make presentation-setup` first)
-  - See [Presentation Build Guide](docs/PRESENTATION_BUILD.md) for detailed instructions
+| If you want to | Read |
+| --- | --- |
+| Get started | [Get started](docs/start-here/first-clone.md) |
+| Do a task | [Manage credentials](docs/guides/credentials.md), [Git integration](docs/guides/git-credential-helper.md), [CI](docs/guides/ci/index.md) |
+| Look something up | [CLI reference](docs/reference/cli/index.md), [configuration and environment](docs/reference/configuration.md) |
+| Understand it | [Credential routing](docs/understand/credential-routing.mdx), [security model](docs/understand/security-model.md), [architecture](docs/understand/architecture.mdx) |
+| Fix a problem | [Troubleshooting](docs/troubleshoot/index.md) |
+| Contribute | [Contributing](CONTRIBUTING.md), [development](docs/contribute/development.md), [release runbook](docs/contribute/releasing.md) |
 
-### Guides
+## Known limitations
 
-- [Installation Guide](docs/installation.md)
-- [Configuration Reference](docs/configuration.md)
-- [CI/CD Integration Guide](docs/ci-cd-guide.md) - **Comprehensive guide for GitHub Actions, Jenkins, and more**
-- [Security Considerations](docs/security.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Architecture Overview](docs/architecture.md)
-- [Architecture Decision Records](docs/adr/README.md) - Recorded design decisions and the ADR template
-- [Release Process](docs/RELEASE_PROCESS.md) - How a version is tagged, built, and published
-- [Project Origin](docs/origin_of_the_project.md) - Understanding the problems we solve
+- The automatic filesystem fallback for App keys can leave a configuration that is rejected later.
+  Use `--use-filesystem --key-file`.
+- A PAT cannot be read from the filesystem store, so PATs need an OS keyring.
+- `exec` gives its child a token snapshot that is not renewed during the run.
+- The `--config` and `--debug` flags are not wired as their help suggests; use `GH_APP_AUTH_CONFIG`
+  and `GH_APP_AUTH_DEBUG_LOG` (with an absolute file path).
 
-### Testing
+Details and alternatives are in [known limitations](docs/troubleshoot/index.md#known-limitations).
 
-- [E2E Testing Tutorial](docs/E2E_TESTING_TUTORIAL.md) - **Complete guide to setting up real-world test environments**
-  - Step-by-step setup with GitHub organizations, apps, and repositories
-  - Automated scripts for environment creation and validation
-  - Interactive setup wizard for first-time users
-- [Token Caching Details](docs/TOKEN_CACHING.md) - Technical deep-dive into token caching implementation
+## Contributing and security
 
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and the pull request process, and the
+[documentation guide](docs/contribute/documentation.md) for working on the docs. Report vulnerabilities
+privately as described in the [security policy](.github/SECURITY.md).
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](LICENSE) for details.

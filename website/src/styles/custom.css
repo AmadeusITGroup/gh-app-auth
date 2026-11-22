@@ -1,0 +1,94 @@
+:root {
+  --sl-font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --sl-content-width: 47rem;
+  --sl-text-body: 1.0625rem;
+  --sl-line-height: 1.75;
+  --sl-nav-height: 3.75rem;
+  --sl-color-bg: #0d1526;
+  --sl-color-bg-nav: #111c33;
+  --sl-color-bg-sidebar: #0f192e;
+  --sl-color-hairline: #25314d;
+  --sl-color-white: #f4f7fc;
+  --sl-color-gray-1: #dde4f0;
+  --sl-color-gray-2: #b9c4d8;
+  --sl-color-gray-3: #8f9db6;
+  --sl-color-gray-4: #5d6c88;
+  --sl-color-gray-5: #2f3c58;
+  --sl-color-gray-6: #1a2542;
+  --sl-color-gray-7: #121c34;
+  --sl-color-black: #0d1526;
+  --sl-color-accent-low: #0c3a4a;
+  --sl-color-accent: #1f8a9a;
+  --sl-color-accent-high: #7fdad0;
+  --sl-color-text-accent: #7fdad0;
+  --sl-color-text-invert: #06202a;
+}
+
+:root[data-theme='light'] {
+  --sl-color-bg: #faf7f2;
+  --sl-color-bg-nav: #f4efe6;
+  --sl-color-bg-sidebar: #f4efe6;
+  --sl-color-hairline: #ded7c9;
+  --sl-color-white: #161c28;
+  --sl-color-gray-1: #232a38;
+  --sl-color-gray-2: #394255;
+  --sl-color-gray-3: #566075;
+  --sl-color-gray-4: #7b8497;
+  --sl-color-gray-5: #cfc9bc;
+  --sl-color-gray-6: #ebe6db;
+  --sl-color-gray-7: #f1ece2;
+  --sl-color-black: #faf7f2;
+  --sl-color-accent-low: #dbe8f6;
+  --sl-color-accent: #1d4f9c;
+  --sl-color-accent-high: #0f3a7d;
+  --sl-color-text-accent: #0f4f7d;
+  --sl-color-text-invert: #ffffff;
+}
+
+.sl-markdown-content {
+  line-height: var(--sl-line-height);
+}
+
+h1,
+h2 {
+  font-family: var(--sl-font-serif);
+  letter-spacing: -0.01em;
+}
+
+.sl-markdown-content h2 {
+  margin-top: 2.5rem;
+}
+
+.sl-markdown-content :is(h1, h2, h3, h4) {
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 3px solid var(--sl-color-text-accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.sl-markdown-content a:not(.sl-link-button) {
+  text-underline-offset: 0.2em;
+}
+
+.sl-markdown-content :not(pre) > code {
+  border-radius: 0.25rem;
+}
+
+.sl-markdown-content table {
+  display: block;
+  overflow-x: auto;
+}
+
+[data-has-hero] .sl-markdown-content {
+  max-width: 47rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

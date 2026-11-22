@@ -1,0 +1,65 @@
+name: Verify release provenance
+
+on:
+  push:
+    branches: [main, 'docs/**']
+    paths:
+      - .github/workflows/verify-release-provenance.yml
+      - scripts/verify-release-provenance*.sh
+  workflow_dispatch:
+  schedule:
+    - cron: '45 6 * * *'
+  workflow_run:
+    workflows: [Release, Release Please]
+    types: [completed]
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: verify-release-provenance-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Test verification policy without network access
+        run: bash scripts/verify-release-provenance.test.sh
+
+  verify:
+    needs: test
+    if: >-
+      github.repository == 'AmadeusITGroup/gh-app-auth' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == 'main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - name: Check out trusted verification policy
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+
+      - name: Verify published release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/verify-release-provenance.sh

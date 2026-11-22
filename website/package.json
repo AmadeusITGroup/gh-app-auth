@@ -1,0 +1,38 @@
+{
+  "name": "gh-app-auth-docs",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "scripts": {
+    "dev": "astro dev --host 0.0.0.0 --port 4321",
+    "build": "astro build",
+    "preview": "astro preview --host 0.0.0.0 --port 4321",
+    "reference:generate": "node scripts/reference.mjs",
+    "reference:check": "node scripts/reference.mjs --check",
+    "check:types": "astro check",
+    "check:sources": "node scripts/check-sources.mjs",
+    "check:actions": "node scripts/check-actions.mjs",
+    "check:config": "node scripts/check-config.mjs",
+    "test:unit": "node --test 'unit/*.test.mjs'",
+    "check": "npm run check:types && npm run check:sources && npm run reference:check && npm run check:actions && npm run check:config && npm run test:unit",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@astrojs/markdown-remark": "7.3.8",
+    "@astrojs/starlight": "0.42.11",
+    "astro": "7.4.11"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.12",
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.65.0",
+    "github-slugger": "2.0.0",
+    "typescript": "6.0.3",
+    "yaml": "2.9.1"
+  },
+  "overrides": {
+    "playwright-core": "1.65.0"
+  }
+}

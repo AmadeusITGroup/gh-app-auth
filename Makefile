@@ -49,14 +49,6 @@ help:
 	@echo "  packages             Build DEB/RPM packages for amd64 and arm64"
 	@echo "  packages-local       Build packages for local architecture only"
 	@echo "  validate-packages    Verify binary/package architectures match targets"
-	@echo ""
-	@echo "Presentation targets:"
-	@echo "  presentation-setup Install presentation tools (mermaid-cli, mermaid-filter)"
-	@echo "  presentation       Build both HTML and PDF presentations"
-	@echo "  presentation-html  Build interactive HTML presentation"
-	@echo "  presentation-pdf   Build PDF presentation (requires presentation-setup)"
-	@echo "  presentation-serve Serve presentation locally on :8000"
-	@echo "  presentation-clean Clean presentation build artifacts"
 
 # Build variables
 BINARY_NAME := gh-app-auth
@@ -133,7 +125,7 @@ test-coverage-check:
 		echo "✅ Coverage $$COVERAGE% meets threshold $(COVERAGE_THRESHOLD)%"; \
 	fi
 
-# E2E tests against real GitHub App credentials (see docs/E2E_INFRASTRUCTURE.md).
+# E2E tests against real GitHub App credentials (see docs/contribute/e2e-infrastructure.md).
 # Requires E2E_APP_ID and E2E_PRIVATE_KEY / E2E_PRIVATE_KEY_B64 in the environment.
 .PHONY: test-e2e test-e2e-local test-e2e-cover
 test-e2e:
@@ -184,13 +176,21 @@ ineffassign:
 # Run misspell (spelling checker)
 misspell:
 	@echo "Running misspell..."
-	$(MISSPELL) -error .
+	@list="$$(mktemp)" && trap 'rm -f "$$list"' EXIT && \
+	git ls-files --cached --others --exclude-standard -z -- . \
+		':(exclude).tmp/**' \
+		':(exclude)website/node_modules/**' \
+		':(exclude)website/dist/**' \
+		':(exclude)website/.astro/**' \
+		':(exclude)website/test-results/**' \
+		':(exclude)website/playwright-report/**' > "$$list" && \
+	xargs -0 $(MISSPELL) -error < "$$list"
 
 # Run markdownlint (requires npx/node)
 markdownlint:
 	@echo "Running markdownlint..."
 	@command -v npx >/dev/null 2>&1 || { echo "❌ npx not found. Install Node.js to run markdownlint"; exit 1; }
-	npx --yes markdownlint-cli2@$(MARKDOWNLINT_CLI2_VERSION) "**/*.md" "!node_modules/**" "!.tmp/**" "!CHANGELOG.md"
+	npx --yes markdownlint-cli2@$(MARKDOWNLINT_CLI2_VERSION) "**/*.md" "!node_modules/**" "!website/node_modules/**" "!.tmp/**" "!CHANGELOG.md"
 
 # Run yamllint (requires pip install yamllint)
 yamllint:
@@ -251,16 +251,6 @@ dev-setup:
 	@echo ""
 	@echo "💡 Tip: Use 'git commit' (without -m) to use the conventional commit template"
 	@echo "📖 See CONTRIBUTING.md for conventional commit guidelines"
-
-# Set up presentation tools (installs mermaid-cli and mermaid-filter globally)
-presentation-setup:
-	@echo "Setting up presentation tools..."
-	@command -v npm >/dev/null 2>&1 || { echo "npm is required. Install Node.js first"; exit 1; }
-	@echo "Installing Mermaid CLI..."
-	npm install -g @mermaid-js/mermaid-cli
-	@echo "Installing mermaid-filter for pandoc..."
-	npm install -g mermaid-filter
-	@echo "✅ Presentation tools installed globally"
 
 # Run gosec using the same policy enforced by golangci-lint
 security-gosec:
@@ -581,64 +571,3 @@ else
 	@echo "⚠️  Unsupported architecture: $(shell go env GOARCH)"
 	@exit 1
 endif
-
-# Presentation targets
-.PHONY: presentation presentation-setup presentation-html presentation-pdf presentation-serve presentation-clean
-
-# Build presentation HTML
-presentation-html:
-	@echo "Building presentation HTML..."
-	@command -v pandoc >/dev/null 2>&1 || { echo "Pandoc is required. Install: apt install pandoc"; exit 1; }
-	mkdir -p dist/presentation
-	pandoc docs/presentation.md \
-		-t revealjs \
-		-s \
-		-o dist/presentation/index.html \
-		-V revealjs-url=https://unpkg.com/reveal.js@3.9.2 \
-		-V theme=white \
-		-V transition=slide \
-		-V slideNumber=true \
-		--mathjax \
-		--highlight-style=pygments
-	@echo "Adding custom CSS and Mermaid support..."
-	cp docs/presentation-custom.css dist/presentation/
-	@# Insert custom CSS link before </head>
-	sed -i 's|</head>|  <link rel="stylesheet" href="presentation-custom.css">\n  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>\n</head>|' dist/presentation/index.html
-	@# Convert mermaid code blocks to divs - use perl for multi-line replacement
-	perl -i -0pe 's/<pre class="mermaid"><code>(.*?)<\/code><\/pre>/<div class="mermaid">\1<\/div>/gs' dist/presentation/index.html
-	@# Initialize Mermaid after Reveal.init
-	sed -i 's|Reveal\.initialize({|mermaid.initialize({ startOnLoad: true, theme: "default" });\n      Reveal.initialize({|' dist/presentation/index.html
-	@echo "Presentation HTML created: dist/presentation/index.html"
-
-# Build presentation PDF
-presentation-pdf:
-	@echo "Building presentation PDF..."
-	@command -v pandoc >/dev/null 2>&1 || { echo "Pandoc is required. Install: apt install pandoc"; exit 1; }
-	@command -v xelatex >/dev/null 2>&1 || { echo "XeLaTeX is required. Install: apt install texlive-xetex"; exit 1; }
-	@command -v mmdc >/dev/null 2>&1 || { echo "Mermaid CLI is required. Run: make presentation-setup"; exit 1; }
-	@npm list -g mermaid-filter >/dev/null 2>&1 || { echo "mermaid-filter is required. Run: make presentation-setup"; exit 1; }
-	mkdir -p dist/presentation
-	pandoc docs/presentation.md \
-		-o dist/presentation/presentation.pdf \
-		--pdf-engine=xelatex \
-		-F mermaid-filter \
-		-V geometry:margin=1in \
-		-V fontsize=12pt \
-		-V colorlinks=true \
-		-V mainfont="DejaVu Sans"
-	@echo "Presentation PDF created: dist/presentation/presentation.pdf"
-
-# Build both HTML and PDF
-presentation: presentation-html presentation-pdf
-	@echo "All presentation formats built successfully!"
-
-# Serve presentation locally
-presentation-serve: presentation-html
-	@echo "Starting presentation server at http://localhost:8000"
-	@command -v python3 >/dev/null 2>&1 || { echo "Python 3 is required"; exit 1; }
-	cd dist/presentation && python3 -m http.server 8000
-
-# Clean presentation artifacts
-presentation-clean:
-	rm -rf dist/presentation
-	@echo "Presentation artifacts cleaned"

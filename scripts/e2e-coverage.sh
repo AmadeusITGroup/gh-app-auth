@@ -14,7 +14,7 @@
 #   E2E_COV_SUMMARY  markdown table for GH step summary (e2e-coverage-summary.md)
 #
 # Requires E2E_APP_ID + E2E_PRIVATE_KEY / E2E_PRIVATE_KEY_B64 — see
-# docs/E2E_INFRASTRUCTURE.md.
+# docs/contribute/e2e-infrastructure.md.
 
 set -euo pipefail
 

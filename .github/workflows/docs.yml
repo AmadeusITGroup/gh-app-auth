@@ -1,0 +1,103 @@
+name: Documentation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, 'docs/**']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the validated main branch to GitHub Pages
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: >-
+    documentation-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' &&
+    !inputs.publish && 'validation-only' || 'publish' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    name: Build and test documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go for command reference
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24.16.0'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Check documentation source
+        run: npm run check
+
+      - name: Build documentation and search
+        run: npm run build
+
+      - name: Install test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Test the rendered site
+        run: npm run test:e2e
+
+      - name: Preserve browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: documentation-browser-results
+          path: |
+            website/playwright-report/
+            website/test-results/
+          if-no-files-found: ignore
+
+      - name: Prepare Pages artifact
+        if: >-
+          github.ref == 'refs/heads/main' &&
+          ((github.event_name == 'push' && github.repository == 'AmadeusITGroup/gh-app-auth') ||
+          (github.event_name == 'workflow_dispatch' && inputs.publish))
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: website/dist
+
+  publish:
+    name: Publish documentation
+    needs: build
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      ((github.event_name == 'push' && github.repository == 'AmadeusITGroup/gh-app-auth') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy validated site
+        id: deployment
+        uses: actions/deploy-pages@v5.0.1
