@@ -126,3 +126,8 @@ Thumbs.db
 
 # Test artifacts
 pkg/logger/1
+website/node_modules/
+website/dist/
+website/.astro/
+website/test-results/
+website/playwright-report/

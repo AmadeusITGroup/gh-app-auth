@@ -322,6 +322,28 @@ If the user says no, proceed without one and do not ask again for the same chang
 [`docs/adr/0001-jwt-clock-skew-margin.md`](docs/adr/0001-jwt-clock-skew-margin.md) is the reference
 example of the expected depth.
 
+## Documentation Site
+
+The documentation sources are in `docs/` and are built into a site by the Astro Starlight project in
+`website/`. See [docs/contribute/documentation.md](docs/contribute/documentation.md) for the full guide.
+
+```bash
+cd website
+npm ci                       # install locked dependencies
+npm run dev                  # preview with live reload
+npm run check                # types, links/anchors, CLI reference drift, action docs, config samples, unit tests (needs Go)
+npm run build                # build the site and search index (Node only)
+npm run test:e2e             # build, serve on port 4322 and run the Playwright browser tests
+npm run reference:generate   # regenerate docs/reference/cli from --help after changing a command or flag
+```
+
+- Write Markdown links as relative source paths to real files; the build rewrites them. Do not use site
+  URLs, and do not start a page with a `# Title`.
+- Add new pages to `website/sidebar.mjs`, and move or rename published pages with an entry in
+  `website/redirects.json`.
+- Run `npm run reference:generate` whenever a command or flag changes, and commit the result.
+- Use placeholders in examples; never real credentials. The browser tests do not use live credentials.
+
 ## Git Workflow
 
 ### Commit Messages (Conventional Commits)
@@ -356,6 +378,12 @@ test(auth): add integration tests for token refresh
 - [ ] ADR added, or explicitly declined by the user, for breaking changes and new features
 - [ ] Commit messages follow Conventional Commits
 - [ ] No sensitive data in code or logs
+
+### Lint parity with CI
+
+Run both `make lint` and `make quality` before submitting a PR. `make lint` runs
+the full golangci-lint configuration, including `lll` line-length checks; the
+individual checks in `make quality` do not replace it.
 
 ## Boundaries
 
@@ -420,7 +448,7 @@ requires an explicit `version` or operator-selected `bump=patch|minor|major`. Th
 tag and creates a **draft** release, builds and attaches all assets, gates on the cross-platform E2E
 suite and build provenance, then publishes the draft as latest. Never publish a release directly —
 once published, an immutable release cannot be repaired or reused; cut the next version. See
-[docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
+[docs/contribute/releasing.md](docs/contribute/releasing.md).
 
 ### Fixing a Bug
 

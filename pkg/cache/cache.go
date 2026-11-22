@@ -17,7 +17,7 @@ import (
 // (5-minute safety buffer). This reduces API calls to GitHub by ~98% while ensuring
 // tokens are never stale.
 //
-// For detailed security analysis, see docs/TOKEN_CACHING.md
+// For detailed security analysis, see docs/understand/security-model.md#tokens-and-caching
 type TokenCache struct {
 	mu    sync.RWMutex
 	cache map[string]*CachedToken

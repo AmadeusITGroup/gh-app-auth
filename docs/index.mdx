@@ -1,0 +1,59 @@
+---
+title: Authenticate across organizations. Keep Git simple.
+description: gh-app-auth routes each Git remote to the right GitHub App or personal access token, for Git and GitHub CLI workflows.
+template: splash
+hero:
+  tagline: Precise GitHub App and personal access token routing for Git and GitHub CLI workflows. Configure each credential once, then let the credential helper pick the right one for every remote.
+  actions:
+    - text: Make your first clone
+      link: /start-here/first-clone/
+      variant: primary
+    - text: Use it in CI
+      link: /guides/ci/
+      variant: secondary
+    - text: Read the architecture
+      link: /understand/architecture/
+      variant: secondary
+---
+
+## The problem it solves
+
+A GitHub App installation token belongs to one installation, and installation tokens expire after an
+hour. A developer or pipeline that touches repositories in several organizations, including
+submodules, ends up juggling several credentials by hand.
+
+`gh-app-auth` is a Git credential helper packaged as a GitHub CLI extension. You register each
+GitHub App or personal access token (PAT) together with the repository patterns it covers. When Git
+asks for credentials, the helper matches the remote against those patterns and returns the right
+one.
+
+## Install
+
+```bash
+gh extension install AmadeusITGroup/gh-app-auth
+```
+
+Then follow [Get started](start-here/first-clone.md) to register a GitHub App and
+clone a private repository with it.
+
+## How it fits together
+
+- **Patterns choose credentials.** App patterns are matched against whole path segments, and the
+  longest match selects the GitHub App. See [how credential routing works](understand/credential-routing.mdx).
+- **Tokens stay short-lived and in memory.** Installation tokens are cached in memory for 55 minutes
+  per process and are never written to disk. Private keys live in the OS keyring by default; see the
+  [known limitations](troubleshoot/index.md#known-limitations) before relying on a filesystem fallback.
+- **One helper for Git and the CLI.** `gh app-auth exec` runs a command with a token from the same
+  configuration, so scripts and Git share one source of truth.
+
+## Where to go next
+
+- **Start here:** [Get started](start-here/first-clone.md): install, register an App, clone, and run a command.
+- **Guides:** [Manage credentials](guides/credentials.md), [Git integration](guides/git-credential-helper.md)
+  and [CI](guides/ci/index.md).
+- **Reference:** [CLI](reference/cli/index.md), [configuration and environment](reference/configuration.md)
+  and the [GitHub Actions](reference/github-actions.md).
+- **Understand:** [routing](understand/credential-routing.mdx),
+  [security model](understand/security-model.md) and [architecture](understand/architecture.mdx).
+- **Troubleshoot and contribute:** [troubleshooting](troubleshoot/index.md) and
+  [development](contribute/development.md).

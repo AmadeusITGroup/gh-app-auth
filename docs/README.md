@@ -1,61 +1,15 @@
-# Documentation
+# gh-app-auth documentation
 
-This directory contains the documentation for `gh-app-auth`, a GitHub CLI extension for Git credential authentication using GitHub Apps and Personal Access Tokens.
+This directory holds the documentation for `gh-app-auth`, a GitHub CLI extension and Git credential helper
+for GitHub Apps and personal access tokens. The files here are the single source for the documentation site,
+which is built with Astro Starlight from the `website/` directory and published to GitHub Pages from `main`.
+You can also read them directly on GitHub.
 
-## User Documentation
-
-| Document | Description | Audience |
-|----------|-------------|----------|
-| [Installation Guide](installation.md) | Setup and quick start | All users |
-| [Configuration Reference](configuration.md) | Config file format, patterns, multi-org setup | All users |
-| [Security Considerations](security.md) | Security best practices and threat model | All users |
-| [Troubleshooting](troubleshooting.md) | Common issues, fixes, and diagnostic logging | All users |
-| [CI/CD Integration](ci-cd-guide.md) | GitHub Actions, Jenkins, GitLab CI examples | DevOps engineers |
-
-## Contributor Documentation
-
-| Document | Description | Audience |
-|----------|-------------|----------|
-| [Architecture Overview](architecture.md) | System design, components, data flow | Contributors |
-| [Architecture Decision Records](adr/README.md) | Why things are built this way, and the ADR template | Contributors |
-| [Release Process](RELEASE_PROCESS.md) | Tagging, pre-release trigger, and the assets that get built | Maintainers |
-| [Testing Guide](TESTING.md) | Test suite, coverage, adding tests | Contributors |
-| [E2E Testing Tutorial](E2E_TESTING_TUTORIAL.md) | End-to-end testing setup | Contributors |
-| [Origin of the Project](origin_of_the_project.md) | Why this project was created | Contributors |
-
-## Reference Documentation
-
-These documents provide deep-dive technical details:
-
-| Document | Description |
-|----------|-------------|
-| [Token Caching](TOKEN_CACHING.md) | In-memory token cache implementation |
-| [Encrypted Storage](ENCRYPTED_STORAGE_ARCHITECTURE.md) | OS keyring integration design |
-| [Pattern Routing](PATTERN_ROUTING.md) | Advanced pattern matching details |
-| [Diagnostic Logging](DIAGNOSTIC_LOGGING.md) | Debug logging implementation |
-
-## Quick Start
-
-```bash
-# Install
-gh extension install AmadeusITGroup/gh-app-auth
-
-# Configure a GitHub App
-export GH_APP_PRIVATE_KEY="$(cat ~/my-key.pem)"
-gh app-auth setup \
-  --app-id 123456 \
-  --patterns "github.com/myorg/*" \
-  --name "My App"
-
-# Sync git credential helpers
-gh app-auth gitconfig --sync --global
-
-# Test it works
-git clone https://github.com/myorg/private-repo
-```
-
-## Getting Help
-
-- [GitHub Issues](https://github.com/AmadeusITGroup/gh-app-auth/issues)
-- [CONTRIBUTING.md](../CONTRIBUTING.md)
-- Run `gh app-auth --help`
+| Section | Pages |
+| --- | --- |
+| Start here | [Get started](start-here/first-clone.md) |
+| Guides | [Manage credentials](guides/credentials.md), [Git integration](guides/git-credential-helper.md), [Continuous integration](guides/ci/index.md) |
+| Reference | [CLI](reference/cli/index.md), [Configuration and environment](reference/configuration.md), [GitHub Actions](reference/github-actions.md) |
+| Understand | [Credential routing](understand/credential-routing.mdx), [Security model](understand/security-model.md), [Architecture](understand/architecture.mdx) |
+| Troubleshoot | [Troubleshooting](troubleshoot/index.md) |
+| Contribute | [Development](contribute/development.md), [Testing](contribute/testing.md), [E2E infrastructure](contribute/e2e-infrastructure.md), [Release runbook](contribute/releasing.md), [Documentation guide](contribute/documentation.md), [Architecture decision records](adr/README.md) |

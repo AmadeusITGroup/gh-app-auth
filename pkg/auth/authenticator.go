@@ -89,7 +89,7 @@ func (a *Authenticator) GetCredentials(app *config.GitHubApp, repoURL string) (t
 	}
 
 	// Cache the token for 55 minutes (GitHub tokens valid for 60 minutes, 5-min buffer)
-	// SECURITY: Token stored in memory only, not persisted to disk. See docs/TOKEN_CACHING.md
+	// SECURITY: Token stays in memory, never on disk. See docs/understand/security-model.md#tokens-and-caching
 	a.tokenCache.Set(cacheKey, installationToken, 55*time.Minute)
 
 	// Return credentials

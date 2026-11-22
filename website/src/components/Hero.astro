@@ -1,0 +1,94 @@
+---
+import RoutingDiagram from './RoutingDiagram.astro';
+
+const { data } = Astro.locals.starlightRoute.entry;
+const { title = data.title, tagline, actions = [] } = data.hero || {};
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const resolve = (link: string) => (link.startsWith('/') ? `${base}${link}` : link);
+---
+
+<div class="hero">
+  <div class="copy">
+    <p class="eyebrow">GitHub CLI extension and Git credential helper</p>
+    <h1 id="_top" data-page-title set:html={title} />
+    {tagline && <p class="tagline" set:html={tagline} />}
+    {
+      actions.length > 0 && (
+        <nav class="actions" aria-label="Choose where to start">
+          {actions.map((action) => (
+            <a href={resolve(action.link)} class:list={['action', action.variant]}>
+              {action.text}
+            </a>
+          ))}
+        </nav>
+      )
+    }
+  </div>
+  <div class="visual">
+    <RoutingDiagram />
+  </div>
+</div>
+
+<style>
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: center;
+    padding-block: clamp(1.5rem, 4vw, 3.5rem);
+  }
+  .eyebrow {
+    margin: 0 0 1rem;
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--sl-color-text-accent);
+  }
+  h1 {
+    margin: 0;
+    font-family: var(--sl-font-serif);
+    font-size: clamp(2rem, 4.6vw, 3rem);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    color: var(--sl-color-white);
+    text-wrap: balance;
+  }
+  .tagline {
+    margin: 1.25rem 0 0;
+    max-width: 34rem;
+    font-size: var(--sl-text-lg);
+    line-height: 1.6;
+    color: var(--sl-color-gray-2);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+  .action {
+    padding: 0.65rem 1.1rem;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 0.5rem;
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--sl-color-white);
+  }
+  .action:hover {
+    border-color: var(--sl-color-text-accent);
+  }
+  .action.primary {
+    border-color: var(--sl-color-accent-high);
+    background: var(--sl-color-accent-high);
+    color: var(--sl-color-text-invert);
+  }
+  .action.primary:hover {
+    filter: brightness(1.12);
+  }
+  @media (max-width: 60rem) {
+    .hero {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

@@ -4,60 +4,9 @@ Thank you for your interest in contributing to the GitHub App Authentication ext
 
 ## Development Setup
 
-### Prerequisites
-
-- Go 1.19 or later
-- GitHub CLI (`gh`) installed and configured
-- Git
-
-### Getting Started
-
-1. **Clone and setup**:
-
-   ```bash
-   git clone https://github.com/AmadeusITGroup/gh-app-auth.git
-   cd gh-app-auth
-   go mod download
-   ```
-
-2. **Build the extension**:
-
-   ```bash
-   go build -o gh-app-auth .
-   ```
-
-3. **Install locally for testing**:
-
-   ```bash
-   gh extension install .
-   ```
-
-4. **Run tests**:
-
-   ```bash
-   go test ./...
-   ```
-
-## Project Structure
-
-```
-gh-app-auth/
-├── cmd/                    # CLI commands
-│   ├── root.go            # Root command and CLI setup
-│   ├── setup.go           # Setup command implementation
-│   ├── list.go            # List command implementation
-│   ├── remove.go          # Remove command implementation  
-│   ├── test.go            # Test command implementation
-│   └── git-credential.go  # Git credential helper
-├── pkg/                   # Core packages
-│   ├── auth/             # Authentication logic
-│   ├── cache/            # Token caching
-│   ├── config/           # Configuration management
-│   ├── jwt/              # JWT token generation
-│   └── matcher/          # Repository pattern matching
-├── docs/                 # Documentation
-└── scripts/              # Build and utility scripts
-```
+Build, test and tooling instructions live in the [development guide](docs/contribute/development.md), and test
+levels (including the opt-in live end-to-end suite) in the [testing guide](docs/contribute/testing.md). Go must
+match [go.mod](go.mod).
 
 ## Development Guidelines
 
@@ -130,11 +79,10 @@ gh-app-auth/
 
 ## Commit Message Guidelines
 
-We use [Conventional Commits](https://www.conventionalcommits.org/) specification for all commit messages. This enables automated changelog generation and helps maintain a clear project history.
+We use [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages. This drives
+automated changelog generation and version selection.
 
-### Conventional Commits Format
-
-```
+```text
 <type>[optional scope]: <description>
 
 [optional body]
@@ -142,165 +90,13 @@ We use [Conventional Commits](https://www.conventionalcommits.org/) specificatio
 [optional footer(s)]
 ```
 
-### Commit Types
+- **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+- **Scopes (optional):** `auth`, `config`, `cli`, `cache`, `security`, `docs`, `ci`, `deps`.
+- Use the imperative mood, keep the subject under 72 characters, and keep one concern per commit.
+- Mark a breaking change with `!` after the type or scope, or with a `BREAKING CHANGE:` footer.
 
-| Type | Description | Example |
-|------|-------------|---------|
-| `feat` | New feature for the user | `feat(auth): add JWT token caching` |
-| `fix` | Bug fix for the user | `fix(config): handle missing config file` |
-| `docs` | Documentation changes | `docs: update installation instructions` |
-| `style` | Code style changes (formatting, etc.) | `style: fix gofmt issues` |
-| `refactor` | Code refactoring without feature changes | `refactor(jwt): simplify token generation` |
-| `perf` | Performance improvements | `perf(cache): optimize token storage` |
-| `test` | Adding or fixing tests | `test(auth): add integration tests` |
-| `build` | Build system or dependency changes | `build: update go version to 1.21` |
-| `ci` | CI/CD configuration changes | `ci: add security scanning workflow` |
-| `chore` | Other changes (maintenance, etc.) | `chore: update dependencies` |
-| `revert` | Reverting previous commits | `revert: "feat: add experimental feature"` |
-
-### Scopes (Optional)
-
-Scopes provide additional context about the area of change:
-
-- `auth` - Authentication and JWT handling
-- `config` - Configuration management
-- `cli` - Command-line interface
-- `cache` - Token caching functionality
-- `security` - Security-related changes
-- `docs` - Documentation
-- `ci` - Continuous integration
-- `deps` - Dependencies
-
-### Commit Message Examples
-
-#### ✅ Good Examples
-
-```bash
-# New feature with scope
-feat(auth): implement GitHub App authentication with JWT
-
-# Bug fix with detailed description
-fix(config): resolve panic when config file is missing
-
-Add proper error handling for missing configuration files
-instead of panicking. Now returns a user-friendly error
-message and suggests running the setup command.
-
-Fixes #42
-
-# Documentation update
-docs: add security best practices section
-
-# Breaking change
-feat(cli)!: change setup command flag from --app to --app-id
-
-BREAKING CHANGE: The --app flag has been renamed to --app-id
-for consistency with GitHub API terminology. Users should
-update their scripts accordingly.
-
-# Multiple types in one commit (avoid this)
-# ❌ BAD: feat(auth): add caching and fix JWT bug
-# ✅ GOOD: Split into separate commits
-```
-
-#### ❌ Examples to Avoid
-
-```bash
-# Too vague
-fix: stuff
-
-# Missing type
-update readme
-
-# Not descriptive enough  
-feat: improvements
-
-# Mixed concerns (should be separate commits)
-feat: add caching and fix config bug
-```
-
-### Writing Good Commit Messages
-
-1. **Use the imperative mood**: "Add feature" not "Added feature"
-2. **Keep the subject line under 72 characters**
-3. **Capitalize the subject line**
-4. **Don't end the subject line with a period**
-5. **Use the body to explain what and why, not how**
-6. **Reference issues and pull requests when relevant**
-
-### Breaking Changes
-
-For breaking changes, use one of these formats:
-
-```bash
-# Method 1: ! after type/scope
-feat(cli)!: change setup command interface
-
-# Method 2: BREAKING CHANGE footer
-feat(auth): improve token validation
-
-BREAKING CHANGE: Token validation now requires additional
-permissions. Users must regenerate their GitHub App tokens.
-```
-
-### Tools and Tips
-
-#### Git Commit Templates
-
-Create a commit template to remind yourself of the format:
-
-```bash
-# Create template file
-cat > ~/.gitmessage << 'EOF'
-# <type>[optional scope]: <description>
-#
-# [optional body]
-#
-# [optional footer(s)]
-#
-# Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
-# Scopes: auth, config, cli, cache, security, docs, ci, deps
-# Remember: use imperative mood, keep subject under 72 chars
-EOF
-
-# Configure git to use the template
-git config --global commit.template ~/.gitmessage
-```
-
-#### Conventional Commits Tools
-
-- **commitizen**: Interactive commit message tool
-- **conventional-changelog**: Generates changelogs from commits
-- **semantic-release**: Automates releases based on commit messages
-
-#### Installation
-
-```bash
-# Install commitizen globally
-npm install -g commitizen cz-conventional-changelog
-
-# Use in project
-npx cz
-```
-
-### Integration with Project Workflows
-
-Our automated workflows rely on conventional commits for:
-
-1. **Automated Changelog**: Generated from commit messages
-2. **Semantic Versioning**: Version bumps based on commit types
-3. **Release Notes**: Formatted release descriptions
-4. **PR Labeling**: Automatic labels based on commit types
-
-### Commit Message Validation
-
-Our CI pipeline validates commit messages. If your commit doesn't follow the conventional format, the build may fail. To fix this:
-
-1. **For the last commit**: `git commit --amend`
-2. **For multiple commits**: `git rebase -i HEAD~n` (where n is the number of commits)
-3. **Force push**: `git push --force-with-lease origin your-branch`
-
-**Note**: Only force push to your own feature branches, never to main/develop.
+Examples: `feat(auth): add JWT token caching`, `fix(config): handle missing config file`,
+`docs: update installation instructions`.
 
 ## Code Review
 
@@ -313,24 +109,23 @@ All submissions require code review. Please:
 
 ## Release Process
 
-Releases are automated through GitHub Actions, and the trigger is a **GitHub pre-release** created on
-a `vX.Y.Z` tag:
-
-1. Tag the release with semantic versioning (e.g. `v1.2.3`) and push the tag
-2. Create the GitHub release **as a pre-release** — this fires the `Release` workflow
-3. The workflow runs the tests, builds cross-platform binaries and DEB/RPM packages, and uploads them
-4. Once all assets are attached, the workflow promotes the release to latest
-
-Creating a final (non-pre-) release directly publishes a release with **no assets** and no build.
-
-See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) for the full checklist, the list of assets,
-and troubleshooting.
+Releases are cut by merging the release-please pull request on `main`. The release workflow then stages
+a draft release, builds and attaches every asset, gates on the end-to-end suite and provenance, and
+publishes the draft as latest. Do not create tags or releases by hand. The single authoritative guide
+is the [release runbook](docs/contribute/releasing.md).
 
 ## Architecture Decision Records
 
 Breaking changes, new features, security decisions, and technology choices are recorded as ADRs in
 [`docs/adr/`](docs/adr/README.md). That README holds the template, naming convention, and guidance on
 when an ADR is warranted. Include the ADR in the same PR as the change it documents.
+
+## Documentation
+
+The documentation lives in [`docs/`](docs/README.md) and is built into a site from [`website/`](website/package.json).
+Update the relevant page in the same pull request as a behavior change, and run `npm run check` in
+`website/` when you touch it. The [documentation guide](docs/contribute/documentation.md) explains the
+layout, link conventions and checks.
 
 ## Getting Help
 
