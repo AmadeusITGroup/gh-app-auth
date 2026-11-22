@@ -39,6 +39,9 @@ go test -race ./...
 # Test specific package
 go test -v ./pkg/auth/...
 
+# Native fuzzing (pkg/matcher; FUZZTIME, FUZZ_TARGETS, FUZZ_PARALLEL override)
+make test-fuzz
+
 # Test with coverage
 go test -coverprofile=coverage.out ./...
 
