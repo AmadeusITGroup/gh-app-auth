@@ -1,6 +1,6 @@
 # gh-app-auth Makefile
 
-.PHONY: help build test lint clean install dev-setup security-scan security-gosec security-vulncheck release deps vet gocyclo staticcheck ineffassign misspell test-coverage-check markdownlint yamllint actionlint cli-smoke-test package-deb package-rpm packages test-e2e test-e2e-local test-e2e-cover
+.PHONY: help build test lint clean install dev-setup security-scan security-gosec security-vulncheck release deps vet gocyclo staticcheck ineffassign misspell test-fuzz test-coverage-check markdownlint yamllint actionlint cli-smoke-test package-deb package-rpm packages test-e2e test-e2e-local test-e2e-cover
 
 # Default target
 help:
@@ -10,6 +10,7 @@ help:
 	@echo "  build              Build the extension binary"
 	@echo "  test               Run all tests"
 	@echo "  test-race          Run tests with race detection"
+	@echo "  test-fuzz          Run native Go fuzz targets (FUZZTIME, FUZZ_PARALLEL, FUZZ_TARGETS)"
 	@echo "  test-cover         Run tests with coverage report"
 	@echo "  test-coverage-check Enforce minimum coverage threshold"
 	@echo "  lint               Run all linters (golangci-lint)"
@@ -100,6 +101,26 @@ test:
 test-race:
 	@echo "Running tests with race detection..."
 	go test -race ./...
+
+FUZZTIME ?= 30s
+FUZZ_PARALLEL ?= 2
+FUZZ_TARGETS ?= FuzzParseRepositoryURL FuzzPrefixMatchesPath FuzzMatcherLongestPrefix FuzzMatcherScope
+test-fuzz:
+	@if [ -z "$(strip $(FUZZ_TARGETS))" ]; then \
+		echo "FUZZ_TARGETS must not be empty" >&2; \
+		exit 1; \
+	fi
+	@available="$$(go test ./pkg/matcher -run='^$$' -list='^Fuzz')" || exit $$?; \
+	for target in $(FUZZ_TARGETS); do \
+		if ! printf '%s\n' "$$available" | awk -v target="$$target" '$$0 ~ /^Fuzz/ && $$0 == target { found = 1 } END { exit !found }'; then \
+			echo "unknown fuzz target: $$target" >&2; \
+			exit 1; \
+		fi; \
+	done
+	@for target in $(FUZZ_TARGETS); do \
+		echo "Fuzzing $$target for $(FUZZTIME)..."; \
+		go test ./pkg/matcher -run='^$$' -fuzz="^$${target}$$" -fuzztime="$(FUZZTIME)" -parallel="$(FUZZ_PARALLEL)" -timeout=10m || exit $$?; \
+	done
 
 # Run tests with coverage
 test-cover:

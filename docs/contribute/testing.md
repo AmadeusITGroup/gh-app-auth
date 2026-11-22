@@ -5,7 +5,7 @@ sidebar:
   order: 3
 ---
 
-gh-app-auth has three kinds of automated tests, and one legacy script that is not part of any gate.
+gh-app-auth has four kinds of automated tests, and one legacy script that is not part of any gate.
 This page describes how they are organized, not their current counts or pass rates; run the commands to
 see those.
 
@@ -14,6 +14,7 @@ see those.
 | Level | Where | Needs credentials? |
 | --- | --- | --- |
 | Unit tests | `*_test.go` next to the code in `cmd/` and `pkg/` | No |
+| Fuzz tests | [`pkg/matcher/matcher_fuzz_test.go`](../../pkg/matcher/matcher_fuzz_test.go), native Go fuzzing | No |
 | Integration tests | [`test/integration`](../../test/integration), using helpers in [`test/testutil`](../../test/testutil) | No |
 | Live end-to-end tests | [`test/e2e`](../../test/e2e), behind the `e2e` build tag | **Yes**: a real GitHub App and test organizations |
 
@@ -34,6 +35,49 @@ go test -v -run TestName ./pkg/...
 `go test ./...` and `make test` **do not compile or run the live end-to-end suite**. The CI test job
 runs `go test -race` with coverage over `./...`, and `make quality` adds the lint, coverage threshold and
 security scans. See [development](development.md) for the everyday commands.
+
+## Native fuzz tests
+
+The `pkg/matcher` package parses repository URLs and decides which App handles them, so it receives
+arbitrary input from Git. Four native Go fuzz targets in `pkg/matcher/matcher_fuzz_test.go` check
+properties of that code instead of fixed examples:
+
+| Target | Property checked |
+| --- | --- |
+| `FuzzParseRepositoryURL` | A successful parse has a host, a `FullPath` of `host/owner/repo`, a normalized `URL`, and re-parsing that URL gives the same result. Errors are allowed. |
+| `FuzzPrefixMatchesPath` | `prefixMatchesPath` agrees with an independent oracle: an exact match or a prefix followed by `/`. |
+| `FuzzMatcherLongestPrefix` | For generated owner and repository names, the exact repository pattern beats the organization pattern, which beats the host fallback, in forward and reversed app order and for the plain, `/` and `/*` organization pattern forms. Partial names never match. |
+| `FuzzMatcherScope` | With scope `all`, only the account's repositories match. With scope `selected`, only listed repositories match. |
+
+The targets use no credentials, network, keyring, files or environment.
+
+```bash
+make test-fuzz
+make test-fuzz FUZZTIME=5m
+make test-fuzz FUZZ_TARGETS=FuzzParseRepositoryURL
+make test-fuzz FUZZ_PARALLEL=4
+```
+
+Empty or unknown target selections are rejected before fuzzing rather than reported as a successful no-op.
+
+`make test-fuzz` runs each target in its own `go test -run='^$' -fuzz=... -fuzztime=...` invocation,
+30 seconds each by default, and fails if any target fails. Only `-fuzz` mutates inputs. A plain
+`go test ./pkg/matcher` and `make test` replay the seed inputs and saved regressions, which is quick but
+does not search for new inputs.
+
+`.github/workflows/fuzz.yml` runs one job per target. Pushes to `main` and `develop` and pull requests
+to `main` fuzz for 30 seconds per target; the weekly schedule and manual dispatch fuzz for 5 minutes per
+target. A failure fails the workflow, and the failing inputs from `pkg/matcher/testdata/fuzz/` are kept
+as an artifact for 14 days.
+
+When fuzzing finds a failure, Go writes the input under `pkg/matcher/testdata/fuzz/<FuzzName>/`.
+Replay it with `go test -run=FuzzName/hash ./pkg/matcher`, fix the code, and commit the file so the input
+stays a regression test. Go mutates inputs to find new ones, so a run that finds nothing is not proof of
+correctness.
+
+This is input-varying dynamic analysis. Go measures statement coverage by default, so the fuzz targets
+do not by themselves show 80% branch coverage. The workflow is configured but does not show a passing
+upstream run until it has executed.
 
 ## Writing unit tests
 

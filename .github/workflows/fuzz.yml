@@ -1,0 +1,58 @@
+name: Fuzz
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: Fuzz (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - FuzzParseRepositoryURL
+          - FuzzPrefixMatchesPath
+          - FuzzMatcherLongestPrefix
+          - FuzzMatcherScope
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7.1.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run native Go fuzzing
+        env:
+          FUZZ_TARGETS: ${{ matrix.target }}
+          FUZZTIME: >-
+            ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '5m' || '30s' }}
+        run: make test-fuzz
+
+      - name: Preserve failing fuzz inputs
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: fuzz-failures-${{ matrix.target }}
+          path: pkg/matcher/testdata/fuzz/
+          if-no-files-found: ignore
+          retention-days: 14
