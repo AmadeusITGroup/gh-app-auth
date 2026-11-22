@@ -18,7 +18,7 @@
 
 <p align="center">
   <a href="https://www.bestpractices.dev/projects/16991"><img src="https://www.bestpractices.dev/projects/16991/badge" alt="OpenSSF Best Practices assessment progress" height="20"></a>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/amadeusitgroup/gh-app-auth"><img src="https://api.scorecard.dev/projects/github.com/amadeusitgroup/gh-app-auth/badge" alt="OpenSSF Scorecard automated repository assessment" height="20"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/AmadeusITGroup/gh-app-auth"><img src="https://api.scorecard.dev/projects/github.com/AmadeusITGroup/gh-app-auth/badge" alt="OpenSSF Scorecard automated repository assessment" height="20"></a>
   <a href="docs/understand/security-model.md#slsa-assessment-and-evidence"><img src="https://img.shields.io/badge/SLSA%20Build-L2%20self--assessed-1d4f9c" alt="SLSA Build L2 self-assessed (not certified)" height="20"></a>
   <a href="https://github.com/AmadeusITGroup/gh-app-auth/actions/workflows/verify-release-provenance.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/AmadeusITGroup/gh-app-auth/verify-release-provenance.yml?branch=main&amp;label=provenance" alt="Published-release provenance verification on upstream main" height="20"></a>
 </p>
