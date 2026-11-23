@@ -59,7 +59,7 @@ workflows:
         - 'actions/setup-go@v7.0.0'
         - 'github/codeql-action@v4.39.3'
         - 'securego/gosec@v2.30.0'
-        - 'trufflesecurity/trufflehog@v3.99.9'
+        - 'trufflesecurity/trufflehog@v3.100.0'
     '.github/workflows/verify-release-provenance.yml':
         - 'actions/checkout@v7.0.1'
 dependencies:
@@ -174,8 +174,8 @@ dependencies:
         commit: 'sha1-5eb1d104ef85ff2c905c877eb600e8c1dee33a22'
         owner_id: 23195997
         repo_id: 63625434
-    'trufflesecurity/trufflehog@v3.99.9':
-        ref: 'v3.99.9'
-        commit: 'sha1-3bd2b5887eb0efb8fa18bfd1d296032924e4ffdc'
+    'trufflesecurity/trufflehog@v3.100.0':
+        ref: 'v3.100.0'
+        commit: 'sha1-d232362a64a09a9e7d58267b8f5acef00ae90e23'
         owner_id: 79229934
         repo_id: 77726177
