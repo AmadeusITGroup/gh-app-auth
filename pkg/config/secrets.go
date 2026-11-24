@@ -23,7 +23,21 @@ func (app *GitHubApp) GetPrivateKey(secretMgr *secrets.Manager) (string, error) 
 		return "", fmt.Errorf("failed to get private key from keyring: %w", err)
 
 	case PrivateKeySourceFilesystem:
-		return app.getPrivateKeyFromFilesystem()
+		key, err := app.getPrivateKeyFromFilesystem()
+		if err == nil {
+			return key, nil
+		}
+		// Storing the key in the keyring removes the secrets manager's
+		// fallback file. If this entry still points at that file, for example
+		// because saving the updated config failed, read the key from the
+		// keyring instead.
+		if secretMgr != nil && app.PrivateKeyPath != "" &&
+			app.PrivateKeyPath == secretMgr.FilesystemPath(app.Name, secrets.SecretTypePrivateKey) {
+			if key, _, getErr := secretMgr.Get(app.Name, secrets.SecretTypePrivateKey); getErr == nil {
+				return key, nil
+			}
+		}
+		return "", err
 
 	case PrivateKeySourceInline:
 		return "", fmt.Errorf("inline private keys should be migrated to secure storage")

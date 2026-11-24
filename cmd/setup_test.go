@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -1381,6 +1382,73 @@ func TestSetupGitHubApp_KeyringBecomesAvailable(t *testing.T) {
 		}
 		if app.InstallationID == 3 && app.PrivateKeyPath != keyPath {
 			t.Errorf("installation 3: PrivateKeyPath = %q, want the user's key file %q", app.PrivateKeyPath, keyPath)
+		}
+	}
+}
+
+func TestSetupGitHubApp_ConfigSaveFailsAfterKeyringStore(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permissions do not block writes on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores file permissions")
+	}
+
+	keyring.MockInitWithError(errors.New("keyring unavailable"))
+	defer keyring.MockInitWithError(nil)
+
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
+	configPath := filepath.Join(t.TempDir(), "config.yml")
+	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+	testKey := generateTestRSAKey(t)
+	t.Setenv("GH_APP_PRIVATE_KEY", testKey)
+
+	setup := func(installationID int64) error {
+		cfg, err := config.LoadOrCreate()
+		if err != nil {
+			t.Fatalf("config.LoadOrCreate() error = %v", err)
+		}
+		_, err = setupGitHubApp(
+			cfg, 123456, "", "", "Test App", installationID,
+			[]string{"github.com/org/*"}, 5, true, false, true,
+		)
+		return err
+	}
+
+	// Two installations saved on the filesystem fallback file
+	for _, id := range []int64{1, 2} {
+		if err := setup(id); err != nil {
+			t.Fatalf("setupGitHubApp(installation %d) error = %v", id, err)
+		}
+	}
+
+	// The keyring store succeeds and removes the fallback file, but the
+	// configuration that would point the entries at the keyring is not saved.
+	keyring.MockInit()
+	if err := os.Chmod(configPath, 0400); err != nil {
+		t.Fatalf("Chmod() failed: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(configPath, 0600) })
+	if err := setup(1); err == nil {
+		t.Fatal("setupGitHubApp() succeeded with a read-only config file, want an error")
+	}
+
+	// The saved entries can still load the key
+	saved, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load() error = %v", err)
+	}
+	secretMgr := secrets.NewManager(filepath.Join(homeDir, ".config", "gh", "extensions", "gh-app-auth"))
+	for _, app := range saved.GitHubApps {
+		key, err := app.GetPrivateKey(secretMgr)
+		if err != nil {
+			t.Errorf("installation %d: GetPrivateKey() error = %v", app.InstallationID, err)
+			continue
+		}
+		if key != testKey {
+			t.Errorf("installation %d: GetPrivateKey() returned a different key", app.InstallationID)
 		}
 	}
 }
