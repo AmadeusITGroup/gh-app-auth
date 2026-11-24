@@ -282,6 +282,11 @@ func setupGitHubApp(
 			if err != nil {
 				return nil, err
 			}
+			if backend == secrets.StorageBackendKeyring {
+				if err := moveFallbackEntriesToKeyring(cfg, app.Name); err != nil {
+					return nil, err
+				}
+			}
 		} else {
 			app.PrivateKeySource = firstApp.PrivateKeySource
 			app.PrivateKeyPath = firstApp.PrivateKeyPath
@@ -637,6 +642,29 @@ func createGitHubApp(
 		Patterns:       patterns,
 		Priority:       priority,
 	}
+}
+
+// moveFallbackEntriesToKeyring points saved entries of the app that use the
+// filesystem fallback file at the keyring. All entries of an app share its
+// stored key, and storing the key in the keyring removes the fallback file, so
+// entries kept from an earlier setup (another installation) would lose it.
+func moveFallbackEntriesToKeyring(cfg *config.Config, appName string) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+	configDir := filepath.Join(homeDir, ".config", "gh", "extensions", "gh-app-auth")
+	fallbackPath := secrets.NewManager(configDir).FilesystemPath(appName, secrets.SecretTypePrivateKey)
+
+	for i := range cfg.GitHubApps {
+		entry := &cfg.GitHubApps[i]
+		if entry.Name == appName && entry.PrivateKeySource == config.PrivateKeySourceFilesystem &&
+			entry.PrivateKeyPath == fallbackPath {
+			entry.PrivateKeySource = config.PrivateKeySourceKeyring
+			entry.PrivateKeyPath = ""
+		}
+	}
+	return nil
 }
 
 // configureAppStorage configures the storage for the GitHub App's private key

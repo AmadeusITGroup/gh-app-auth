@@ -1317,3 +1317,70 @@ func TestSetupGitHubApp_KeyringUnavailable(t *testing.T) {
 		})
 	}
 }
+
+func TestSetupGitHubApp_KeyringBecomesAvailable(t *testing.T) {
+	keyring.MockInitWithError(errors.New("keyring unavailable"))
+	defer keyring.MockInitWithError(nil)
+
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
+	t.Setenv("GH_APP_AUTH_CONFIG", filepath.Join(t.TempDir(), "config.yml"))
+	testKey := generateTestRSAKey(t)
+	keyPath := filepath.Join(t.TempDir(), "test-key.pem")
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	setup := func(installationID int64, keyFile string, useFilesystem bool) {
+		t.Helper()
+		envKey := testKey
+		if keyFile != "" {
+			envKey = ""
+		}
+		t.Setenv("GH_APP_PRIVATE_KEY", envKey)
+		cfg, err := config.LoadOrCreate()
+		if err != nil {
+			t.Fatalf("config.LoadOrCreate() error = %v", err)
+		}
+		if _, err := setupGitHubApp(
+			cfg, 123456, "", keyFile, "Test App", installationID,
+			[]string{"github.com/org/*"}, 5, !useFilesystem, useFilesystem, true,
+		); err != nil {
+			t.Fatalf("setupGitHubApp(installation %d) error = %v", installationID, err)
+		}
+	}
+
+	// Two installations of one app saved while the keyring is unavailable
+	// share the filesystem fallback file; a third uses the user's key file.
+	setup(1, "", false)
+	setup(2, "", false)
+	setup(3, keyPath, true)
+
+	// Setting up one installation again with a working keyring moves the key
+	// to the keyring and removes the fallback file.
+	keyring.MockInit()
+	setup(1, "", false)
+
+	saved, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load() error = %v", err)
+	}
+	if len(saved.GitHubApps) != 3 {
+		t.Fatalf("saved %d apps, want 3", len(saved.GitHubApps))
+	}
+	secretMgr := secrets.NewManager(filepath.Join(homeDir, ".config", "gh", "extensions", "gh-app-auth"))
+	for _, app := range saved.GitHubApps {
+		key, err := app.GetPrivateKey(secretMgr)
+		if err != nil {
+			t.Errorf("installation %d: GetPrivateKey() error = %v", app.InstallationID, err)
+			continue
+		}
+		if key != testKey {
+			t.Errorf("installation %d: GetPrivateKey() returned a different key", app.InstallationID)
+		}
+		if app.InstallationID == 3 && app.PrivateKeyPath != keyPath {
+			t.Errorf("installation 3: PrivateKeyPath = %q, want the user's key file %q", app.PrivateKeyPath, keyPath)
+		}
+	}
+}
