@@ -60,6 +60,7 @@ func TestGitHubApp_SetPrivateKey_FilesystemFallback(t *testing.T) {
 		Name:           "test-app",
 		AppID:          12345,
 		InstallationID: 67890,
+		Patterns:       []string{"github.com/org/*"},
 	}
 
 	// When: We set a private key
@@ -74,6 +75,22 @@ func TestGitHubApp_SetPrivateKey_FilesystemFallback(t *testing.T) {
 	}
 	if app.PrivateKeySource != PrivateKeySourceFilesystem {
 		t.Errorf("app.PrivateKeySource = %v, want %v", app.PrivateKeySource, PrivateKeySourceFilesystem)
+	}
+
+	// And: The config points at the file the secrets manager wrote
+	wantPath := secretMgr.FilesystemPath("test-app", secrets.SecretTypePrivateKey)
+	if app.PrivateKeyPath != wantPath {
+		t.Errorf("app.PrivateKeyPath = %q, want %q", app.PrivateKeyPath, wantPath)
+	}
+	if err := app.Validate(); err != nil {
+		t.Errorf("Validate() after filesystem fallback failed: %v", err)
+	}
+	key, err := app.GetPrivateKey(secretMgr)
+	if err != nil {
+		t.Fatalf("GetPrivateKey() after filesystem fallback failed: %v", err)
+	}
+	if key != "test-private-key" {
+		t.Errorf("GetPrivateKey() = %q, want %q", key, "test-private-key")
 	}
 }
 
@@ -169,6 +186,62 @@ func TestGitHubApp_GetPrivateKey_KeyringWithFilesystemFallback(t *testing.T) {
 	}
 	if key != "fallback-key" {
 		t.Errorf("GetPrivateKey() = %v, want %v", key, "fallback-key")
+	}
+}
+
+func TestGitHubApp_GetPrivateKey_FilesystemFileMissing(t *testing.T) {
+	// Given: The key is in the keyring and the entry's key file is missing
+	keyring.MockInit()
+	defer keyring.MockInitWithError(nil)
+
+	tempDir := t.TempDir()
+	secretMgr := secrets.NewManager(tempDir)
+	if err := keyring.Set("gh-app-auth:test-app", string(secrets.SecretTypePrivateKey), "keyring-key"); err != nil {
+		t.Fatalf("Failed to set in keyring: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		path    string
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "secrets manager fallback file reads the keyring",
+			path: secretMgr.FilesystemPath("test-app", secrets.SecretTypePrivateKey),
+			want: "keyring-key",
+		},
+		{
+			name:    "user key file does not read the keyring",
+			path:    filepath.Join(tempDir, "user-key.pem"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := &GitHubApp{
+				Name:             "test-app",
+				PrivateKeySource: PrivateKeySourceFilesystem,
+				PrivateKeyPath:   tt.path,
+			}
+
+			// When: We get the private key
+			key, err := app.GetPrivateKey(secretMgr)
+
+			// Then: Only the fallback file falls back to the keyring
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("GetPrivateKey() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if key != tt.want {
+				t.Errorf("GetPrivateKey() = %q, want %q", key, tt.want)
+			}
+
+			// And: HasPrivateKey agrees, so list reports the same status
+			if got := app.HasPrivateKey(secretMgr); got != !tt.wantErr {
+				t.Errorf("HasPrivateKey() = %v, want %v", got, !tt.wantErr)
+			}
+		})
 	}
 }
 

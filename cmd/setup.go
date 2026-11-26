@@ -274,10 +274,22 @@ func setupGitHubApp(
 		// Create the GitHub App entry for this org
 		app := createGitHubApp(appID, clientID, name, orgInstallationID, orgPatterns, priority)
 
-		// Store private key and configure storage (only needed once, but we do it for each)
-		backend, err = configureAppStorage(&app, privateKeyContent, expandedKeyFile, useKeyring)
-		if err != nil {
-			return nil, err
+		// Every org entry shares the app name and so the same stored key. Store
+		// it once and reuse the result, so a later store cannot change the
+		// backend under an entry that was already created.
+		if firstApp == nil {
+			backend, err = configureAppStorage(&app, privateKeyContent, expandedKeyFile, useKeyring)
+			if err != nil {
+				return nil, err
+			}
+			if backend == secrets.StorageBackendKeyring {
+				if err := moveFallbackEntriesToKeyring(cfg, app.Name); err != nil {
+					return nil, err
+				}
+			}
+		} else {
+			app.PrivateKeySource = firstApp.PrivateKeySource
+			app.PrivateKeyPath = firstApp.PrivateKeyPath
 		}
 
 		// Validate the complete app configuration after storage is configured
@@ -299,10 +311,16 @@ func setupGitHubApp(
 	// Display success message and next steps
 	if !silent && firstApp != nil {
 		identifier := firstApp.GetIdentifier()
+		// With filesystem storage, show the file the config points to, which
+		// is the secrets fallback file when the key came from GH_APP_PRIVATE_KEY.
+		keyPath := expandedKeyFile
+		if backend == secrets.StorageBackendFilesystem {
+			keyPath = firstApp.PrivateKeyPath
+		}
 		if len(groupedPatterns) > 1 {
-			displaySetupSuccessMultiOrg(firstApp.Name, identifier, groupedPatterns, priority, backend, expandedKeyFile)
+			displaySetupSuccessMultiOrg(firstApp.Name, identifier, groupedPatterns, priority, backend, keyPath)
 		} else {
-			displaySetupSuccess(firstApp.Name, identifier, patterns, priority, backend, expandedKeyFile)
+			displaySetupSuccess(firstApp.Name, identifier, patterns, priority, backend, keyPath)
 		}
 	}
 
@@ -624,6 +642,29 @@ func createGitHubApp(
 		Patterns:       patterns,
 		Priority:       priority,
 	}
+}
+
+// moveFallbackEntriesToKeyring points saved entries of the app that use the
+// filesystem fallback file at the keyring. All entries of an app share its
+// stored key, and storing the key in the keyring removes the fallback file, so
+// entries kept from an earlier setup (another installation) would lose it.
+func moveFallbackEntriesToKeyring(cfg *config.Config, appName string) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+	configDir := filepath.Join(homeDir, ".config", "gh", "extensions", "gh-app-auth")
+	fallbackPath := secrets.NewManager(configDir).FilesystemPath(appName, secrets.SecretTypePrivateKey)
+
+	for i := range cfg.GitHubApps {
+		entry := &cfg.GitHubApps[i]
+		if entry.Name == appName && entry.PrivateKeySource == config.PrivateKeySourceFilesystem &&
+			entry.PrivateKeyPath == fallbackPath {
+			entry.PrivateKeySource = config.PrivateKeySourceKeyring
+			entry.PrivateKeyPath = ""
+		}
+	}
+	return nil
 }
 
 // configureAppStorage configures the storage for the GitHub App's private key

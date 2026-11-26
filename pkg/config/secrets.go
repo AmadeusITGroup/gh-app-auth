@@ -23,7 +23,16 @@ func (app *GitHubApp) GetPrivateKey(secretMgr *secrets.Manager) (string, error) 
 		return "", fmt.Errorf("failed to get private key from keyring: %w", err)
 
 	case PrivateKeySourceFilesystem:
-		return app.getPrivateKeyFromFilesystem()
+		key, err := app.getPrivateKeyFromFilesystem()
+		if err == nil {
+			return key, nil
+		}
+		if app.usesFallbackFile(secretMgr) {
+			if key, _, getErr := secretMgr.Get(app.Name, secrets.SecretTypePrivateKey); getErr == nil {
+				return key, nil
+			}
+		}
+		return "", err
 
 	case PrivateKeySourceInline:
 		return "", fmt.Errorf("inline private keys should be migrated to secure storage")
@@ -67,7 +76,9 @@ func (app *GitHubApp) SetPrivateKey(secretMgr *secrets.Manager, privateKey strin
 		// app.PrivateKeyPath = ""
 	} else {
 		app.PrivateKeySource = PrivateKeySourceFilesystem
-		// Filesystem backend has stored the key, path is managed by secrets manager
+		// Point the config at the file the secrets manager wrote, so that
+		// validation and GetPrivateKey can find it.
+		app.PrivateKeyPath = secretMgr.FilesystemPath(app.Name, secrets.SecretTypePrivateKey)
 	}
 
 	return backend, nil
@@ -92,9 +103,24 @@ func (app *GitHubApp) HasPrivateKey(secretMgr *secrets.Manager) bool {
 		if err != nil {
 			return false
 		}
-		_, err = os.Stat(expandedPath)
-		return err == nil
+		if _, err = os.Stat(expandedPath); err == nil {
+			return true
+		}
+		if app.usesFallbackFile(secretMgr) {
+			_, _, err = secretMgr.Get(app.Name, secrets.SecretTypePrivateKey)
+			return err == nil
+		}
+		return false
 	default:
 		return false
 	}
+}
+
+// usesFallbackFile reports whether a filesystem entry points at the secrets
+// manager's fallback file. Storing the key in the keyring removes that file,
+// so an entry can still point at it when saving the updated config failed;
+// its key is then read from the keyring.
+func (app *GitHubApp) usesFallbackFile(secretMgr *secrets.Manager) bool {
+	return secretMgr != nil && app.PrivateKeyPath != "" &&
+		app.PrivateKeyPath == secretMgr.FilesystemPath(app.Name, secrets.SecretTypePrivateKey)
 }

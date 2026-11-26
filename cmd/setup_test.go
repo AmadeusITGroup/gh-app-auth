@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/config"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/jwt"
 	"github.com/AmadeusITGroup/gh-app-auth/pkg/secrets"
+	"github.com/zalando/go-keyring"
 )
 
 // generateTestRSAKey generates a test RSA private key in PEM format
@@ -1192,6 +1194,22 @@ func TestSetupGitHubApp(t *testing.T) {
 		}
 	})
 
+	t.Run("env key with filesystem storage and no key file", func(t *testing.T) {
+		t.Setenv("GH_APP_PRIVATE_KEY", testKey)
+
+		cfg := &config.Config{Version: "1.0"}
+		_, err := setupGitHubApp(
+			cfg, 123456, "", "", "Env Filesystem App", 789012,
+			[]string{"github.com/org/*"}, 5, false, true, true,
+		)
+		if err == nil || !strings.Contains(err.Error(), "filesystem storage requires --key-file") {
+			t.Errorf("setupGitHubApp() error = %v, want filesystem storage requires --key-file", err)
+		}
+		if len(cfg.GitHubApps) != 0 {
+			t.Errorf("setupGitHubApp() saved apps after a storage error: %+v", cfg.GitHubApps)
+		}
+	})
+
 	t.Run("client id with provided installation id", func(t *testing.T) {
 		cfg := &config.Config{Version: "1.0"}
 		app, err := setupGitHubApp(
@@ -1228,4 +1246,209 @@ func TestSetupGitHubApp(t *testing.T) {
 			t.Errorf("ClientID = %q, want %q", app.ClientID, "Iv1.MultiOrg")
 		}
 	})
+}
+
+func TestSetupGitHubApp_KeyringUnavailable(t *testing.T) {
+	keyring.MockInitWithError(errors.New("keyring unavailable"))
+	defer keyring.MockInitWithError(nil)
+
+	tempDir := t.TempDir()
+	keyPath := filepath.Join(tempDir, "test-key.pem")
+	testKey := generateTestRSAKey(t)
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		envKey   string
+		keyFile  string
+		patterns []string
+	}{
+		{"env key", testKey, "", []string{"github.com/org/*"}},
+		{"key file", "", keyPath, []string{"github.com/org/*"}},
+		{"env key with multiple orgs", testKey, "", []string{"github.com/org1/*", "github.com/org2/*"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Keep the secrets fallback directory out of the real home directory
+			homeDir := t.TempDir()
+			t.Setenv("HOME", homeDir)
+			t.Setenv("USERPROFILE", homeDir)
+			t.Setenv("GH_APP_AUTH_CONFIG", filepath.Join(t.TempDir(), "config.yml"))
+			t.Setenv("GH_APP_PRIVATE_KEY", tt.envKey)
+
+			// Run setup twice, as when the key is rotated or setup is repeated
+			for run := 1; run <= 2; run++ {
+				cfg := &config.Config{Version: "1.0"}
+				app, err := setupGitHubApp(
+					cfg, 123456, "", tt.keyFile, "Test App", 789012,
+					tt.patterns, 5, true, false, true,
+				)
+				if err != nil {
+					t.Fatalf("run %d: setupGitHubApp() error = %v", run, err)
+				}
+				if app.PrivateKeySource != config.PrivateKeySourceFilesystem {
+					t.Errorf("run %d: PrivateKeySource = %v, want %v",
+						run, app.PrivateKeySource, config.PrivateKeySourceFilesystem)
+				}
+			}
+
+			saved, err := config.Load()
+			if err != nil {
+				t.Fatalf("config.Load() error = %v", err)
+			}
+			if len(saved.GitHubApps) == 0 {
+				t.Fatal("no apps saved")
+			}
+			secretMgr := secrets.NewManager(filepath.Join(homeDir, ".config", "gh", "extensions", "gh-app-auth"))
+			for _, app := range saved.GitHubApps {
+				if err := app.Validate(); err != nil {
+					t.Errorf("saved app %v: Validate() error = %v", app.Patterns, err)
+				}
+				key, err := app.GetPrivateKey(secretMgr)
+				if err != nil {
+					t.Fatalf("saved app %v: GetPrivateKey() error = %v", app.Patterns, err)
+				}
+				if key != testKey {
+					t.Errorf("saved app %v: GetPrivateKey() returned a different key", app.Patterns)
+				}
+			}
+		})
+	}
+}
+
+func TestSetupGitHubApp_KeyringBecomesAvailable(t *testing.T) {
+	keyring.MockInitWithError(errors.New("keyring unavailable"))
+	defer keyring.MockInitWithError(nil)
+
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
+	t.Setenv("GH_APP_AUTH_CONFIG", filepath.Join(t.TempDir(), "config.yml"))
+	testKey := generateTestRSAKey(t)
+	keyPath := filepath.Join(t.TempDir(), "test-key.pem")
+	if err := os.WriteFile(keyPath, []byte(testKey), 0600); err != nil {
+		t.Fatalf("Failed to write test key: %v", err)
+	}
+
+	setup := func(installationID int64, keyFile string, useFilesystem bool) {
+		t.Helper()
+		envKey := testKey
+		if keyFile != "" {
+			envKey = ""
+		}
+		t.Setenv("GH_APP_PRIVATE_KEY", envKey)
+		cfg, err := config.LoadOrCreate()
+		if err != nil {
+			t.Fatalf("config.LoadOrCreate() error = %v", err)
+		}
+		if _, err := setupGitHubApp(
+			cfg, 123456, "", keyFile, "Test App", installationID,
+			[]string{"github.com/org/*"}, 5, !useFilesystem, useFilesystem, true,
+		); err != nil {
+			t.Fatalf("setupGitHubApp(installation %d) error = %v", installationID, err)
+		}
+	}
+
+	// Two installations of one app saved while the keyring is unavailable
+	// share the filesystem fallback file; a third uses the user's key file.
+	setup(1, "", false)
+	setup(2, "", false)
+	setup(3, keyPath, true)
+
+	// Setting up one installation again with a working keyring moves the key
+	// to the keyring and removes the fallback file.
+	keyring.MockInit()
+	setup(1, "", false)
+
+	saved, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load() error = %v", err)
+	}
+	if len(saved.GitHubApps) != 3 {
+		t.Fatalf("saved %d apps, want 3", len(saved.GitHubApps))
+	}
+	secretMgr := secrets.NewManager(filepath.Join(homeDir, ".config", "gh", "extensions", "gh-app-auth"))
+	for _, app := range saved.GitHubApps {
+		key, err := app.GetPrivateKey(secretMgr)
+		if err != nil {
+			t.Errorf("installation %d: GetPrivateKey() error = %v", app.InstallationID, err)
+			continue
+		}
+		if key != testKey {
+			t.Errorf("installation %d: GetPrivateKey() returned a different key", app.InstallationID)
+		}
+		if app.InstallationID == 3 && app.PrivateKeyPath != keyPath {
+			t.Errorf("installation 3: PrivateKeyPath = %q, want the user's key file %q", app.PrivateKeyPath, keyPath)
+		}
+	}
+}
+
+func TestSetupGitHubApp_ConfigSaveFailsAfterKeyringStore(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permissions do not block writes on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores file permissions")
+	}
+
+	keyring.MockInitWithError(errors.New("keyring unavailable"))
+	defer keyring.MockInitWithError(nil)
+
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
+	configPath := filepath.Join(t.TempDir(), "config.yml")
+	t.Setenv("GH_APP_AUTH_CONFIG", configPath)
+	testKey := generateTestRSAKey(t)
+	t.Setenv("GH_APP_PRIVATE_KEY", testKey)
+
+	setup := func(installationID int64) error {
+		cfg, err := config.LoadOrCreate()
+		if err != nil {
+			t.Fatalf("config.LoadOrCreate() error = %v", err)
+		}
+		_, err = setupGitHubApp(
+			cfg, 123456, "", "", "Test App", installationID,
+			[]string{"github.com/org/*"}, 5, true, false, true,
+		)
+		return err
+	}
+
+	// Two installations saved on the filesystem fallback file
+	for _, id := range []int64{1, 2} {
+		if err := setup(id); err != nil {
+			t.Fatalf("setupGitHubApp(installation %d) error = %v", id, err)
+		}
+	}
+
+	// The keyring store succeeds and removes the fallback file, but the
+	// configuration that would point the entries at the keyring is not saved.
+	keyring.MockInit()
+	if err := os.Chmod(configPath, 0400); err != nil {
+		t.Fatalf("Chmod() failed: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(configPath, 0600) })
+	if err := setup(1); err == nil {
+		t.Fatal("setupGitHubApp() succeeded with a read-only config file, want an error")
+	}
+
+	// The saved entries can still load the key
+	saved, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load() error = %v", err)
+	}
+	secretMgr := secrets.NewManager(filepath.Join(homeDir, ".config", "gh", "extensions", "gh-app-auth"))
+	for _, app := range saved.GitHubApps {
+		key, err := app.GetPrivateKey(secretMgr)
+		if err != nil {
+			t.Errorf("installation %d: GetPrivateKey() error = %v", app.InstallationID, err)
+			continue
+		}
+		if key != testKey {
+			t.Errorf("installation %d: GetPrivateKey() returned a different key", app.InstallationID)
+		}
+	}
 }
