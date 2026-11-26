@@ -27,12 +27,7 @@ func (app *GitHubApp) GetPrivateKey(secretMgr *secrets.Manager) (string, error) 
 		if err == nil {
 			return key, nil
 		}
-		// Storing the key in the keyring removes the secrets manager's
-		// fallback file. If this entry still points at that file, for example
-		// because saving the updated config failed, read the key from the
-		// keyring instead.
-		if secretMgr != nil && app.PrivateKeyPath != "" &&
-			app.PrivateKeyPath == secretMgr.FilesystemPath(app.Name, secrets.SecretTypePrivateKey) {
+		if app.usesFallbackFile(secretMgr) {
 			if key, _, getErr := secretMgr.Get(app.Name, secrets.SecretTypePrivateKey); getErr == nil {
 				return key, nil
 			}
@@ -108,9 +103,24 @@ func (app *GitHubApp) HasPrivateKey(secretMgr *secrets.Manager) bool {
 		if err != nil {
 			return false
 		}
-		_, err = os.Stat(expandedPath)
-		return err == nil
+		if _, err = os.Stat(expandedPath); err == nil {
+			return true
+		}
+		if app.usesFallbackFile(secretMgr) {
+			_, _, err = secretMgr.Get(app.Name, secrets.SecretTypePrivateKey)
+			return err == nil
+		}
+		return false
 	default:
 		return false
 	}
+}
+
+// usesFallbackFile reports whether a filesystem entry points at the secrets
+// manager's fallback file. Storing the key in the keyring removes that file,
+// so an entry can still point at it when saving the updated config failed;
+// its key is then read from the keyring.
+func (app *GitHubApp) usesFallbackFile(secretMgr *secrets.Manager) bool {
+	return secretMgr != nil && app.PrivateKeyPath != "" &&
+		app.PrivateKeyPath == secretMgr.FilesystemPath(app.Name, secrets.SecretTypePrivateKey)
 }

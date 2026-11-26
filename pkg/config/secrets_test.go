@@ -236,6 +236,11 @@ func TestGitHubApp_GetPrivateKey_FilesystemFileMissing(t *testing.T) {
 			if key != tt.want {
 				t.Errorf("GetPrivateKey() = %q, want %q", key, tt.want)
 			}
+
+			// And: HasPrivateKey agrees, so list reports the same status
+			if got := app.HasPrivateKey(secretMgr); got != !tt.wantErr {
+				t.Errorf("HasPrivateKey() = %v, want %v", got, !tt.wantErr)
+			}
 		})
 	}
 }
